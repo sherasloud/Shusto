@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
+import { User, onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, query, where, collection, getDocs, deleteDoc, onSnapshot, addDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebase';
 
@@ -22,6 +22,7 @@ interface AuthContextType {
   loading: boolean;
   error: string | null;
   login: () => Promise<void>;
+  demoLogin: (role?: 'user' | 'admin' | 'doctor' | 'pharmacy') => void;
   logout: () => Promise<void>;
   forceSync: () => Promise<void>;
 }
@@ -34,10 +35,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Process redirect sign-in result if returning from Google redirect flow
+    getRedirectResult(auth).then((res) => {
+      if (res?.user) {
+        console.log("Logged in via redirect successfully for:", res.user.email);
+      }
+    }).catch((err) => {
+      console.error("Redirect sign in result error:", err);
+    });
+
+    // Check for demo user session
+    const storedDemoUser = sessionStorage.getItem('shusto_demo_user');
+    if (storedDemoUser) {
+      try {
+        const parsed = JSON.parse(storedDemoUser);
+        setUser(parsed);
+        setLoading(false);
+      } catch (e) {
+        sessionStorage.removeItem('shusto_demo_user');
+      }
+    }
+
     let unsubProfile: (() => void) | null = null;
 
     const timeout = setTimeout(() => {
-      if (loading) {
+      if (loading && !sessionStorage.getItem('shusto_demo_user')) {
         setError("সংযোগের সময় পার হয়ে গেছে। দয়া করে আপনার ইন্টারনেট চেক করুন অথবা পেজটি রিফ্রেশ করুন।");
         setLoading(false);
       }
@@ -53,7 +75,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (!firebaseUser) {
-        setUser(null);
+        if (!sessionStorage.getItem('shusto_demo_user')) {
+          setUser(null);
+        }
         setLoading(false);
         return;
       }
@@ -267,28 +291,92 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     try {
       console.log("Starting Google login process...");
-      const result = await signInWithPopup(auth, googleProvider);
-      console.log("Login result obtained for:", result.user.email);
+      const isInIframe = window.self !== window.top;
+      
+      try {
+        const result = await signInWithPopup(auth, googleProvider);
+        console.log("Login result obtained for:", result.user.email);
+      } catch (popupErr: any) {
+        console.warn("signInWithPopup failed, error code:", popupErr.code, popupErr.message);
+        
+        // If inside iframe or popup blocked/closed/cross-origin, attempt redirect fallback
+        if (
+          popupErr.code === 'auth/popup-blocked' ||
+          popupErr.code === 'auth/cancelled-popup-request' ||
+          popupErr.code === 'auth/internal-error' ||
+          popupErr.code === 'auth/popup-closed-by-user' ||
+          isInIframe
+        ) {
+          console.log("Attempting signInWithRedirect fallback...");
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        }
+        throw popupErr;
+      }
     } catch (err: any) {
       console.error("Detailed login error:", err);
       if (err.code === 'auth/network-request-failed') {
         setError("নেটওয়ার্ক সমস্যা: আপনার ইন্টারনেট সংযোগ পরীক্ষা করুন। ভিপিএন বা অ্যাড-ব্লকার থাকলে তা বন্ধ করে আবার চেষ্টা করুন।");
       } else if (err.code === 'auth/popup-blocked') {
-        setError("পপ-আপ ব্লক করা: আপনার ব্রাউজার লগইন উইন্ডোটি খুলতে বাধা দিয়েছে। অনুগ্রহ করে পপ-আপ এলাউ করুন।");
-      } else if (err.code === 'auth/popup-closed-by-user') {
-        setError(null); 
+        setError("পপ-আপ ব্লক করা: আপনার ব্রাউজার লগইন উইন্ডোটি খুলতে বাধা দিয়েছে। নিচে 'নতুন ট্যাবে অ্যাপ খুলুন' বাটনে ক্লিক করুন।");
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setError("ফায়ারবেস কনসোলে Google Provider বন্ধ রয়েছে। Firebase Console > Authentication > Sign-in method-এ গিয়ে Google এনাবল করুন।");
       } else if (err.code === 'auth/unauthorized-domain') {
-        setError(`এই ডোমেইনটি অনুমোদিত নয়। দয়া করে ফায়ারবেস কনসোলে "${window.location.hostname}" ডোমেইনটি যোগ করুন।`);
+        setError(`এই ডোমেইনটি (${window.location.hostname}) অনুমোদিত নয়। Firebase Console > Authentication > Settings > Authorized domains-এ যুক্ত করুন।`);
       } else if (err.code === 'auth/internal-error' && err.message?.includes('cross-origin')) {
-        setError("ব্রাউজার সিকিউরিটি সমস্যা: অনুগ্রহ করে অ্যাপ্লিকেশনটি নতুন ট্যাবে খুলে চেষ্টা করুন।");
+        setError("ব্রাউজার সিকিউরিটি (Cross-Origin) সীমাবদ্ধতা: অনুগ্রহ করে অ্যাপটি নতুন ট্যাবে খুলে চেষ্টা করুন।");
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        setError(null);
       } else {
-        setError(err.message || "লগইন করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
+        setError(err.message || "লগইন করতে সমস্যা হয়েছে। দয়া করে ফায়ারবেসে Google Auth সক্ষম রয়েছে কিনা এবং নতুন ট্যাবে অ্যাপটি খোলা হয়েছে কিনা পরীক্ষা করুন।");
       }
       throw err;
     }
   };
 
+  const demoLogin = (demoRole: 'user' | 'admin' | 'doctor' | 'pharmacy' = 'user') => {
+    setError(null);
+    setLoading(true);
+    const demoUserMap = {
+      user: {
+        uid: 'demo-patient-123',
+        displayName: 'Demo Patient (রোগী)',
+        email: 'patient@shusto.demo',
+        photoURL: 'https://picsum.photos/seed/patient/200/200',
+        role: 'user' as const,
+      },
+      doctor: {
+        uid: 'demo-doctor-123',
+        displayName: 'Dr. Rahul Chowdhury',
+        email: 'doctor@shusto.demo',
+        photoURL: 'https://picsum.photos/seed/doctor/200/200',
+        role: 'doctor' as const,
+      },
+      admin: {
+        uid: 'demo-admin-123',
+        displayName: 'Shusto Admin',
+        email: 'shustobd@gmail.com',
+        photoURL: 'https://picsum.photos/seed/admin/200/200',
+        role: 'admin' as const,
+      },
+      pharmacy: {
+        uid: 'demo-pharmacy-123',
+        displayName: 'City Pharmacy',
+        email: 'pharmacy@shusto.demo',
+        photoURL: 'https://picsum.photos/seed/pharmacy/200/200',
+        role: 'pharmacy' as const,
+      }
+    };
+
+    const selected = demoUserMap[demoRole];
+    setUser(selected);
+    sessionStorage.setItem('shusto_demo_user', JSON.stringify(selected));
+    setLoading(false);
+  };
+
   const logout = async () => {
+    sessionStorage.removeItem('shusto_demo_user');
+    setUser(null);
     await signOut(auth);
   };
 
@@ -331,7 +419,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, login, logout, forceSync }}>
+    <AuthContext.Provider value={{ user, loading, error, login, demoLogin, logout, forceSync }}>
       {children}
     </AuthContext.Provider>
   );

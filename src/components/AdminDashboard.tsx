@@ -196,7 +196,6 @@ export function AdminDashboard() {
           const emailMap = new Map<string, UserProfile>();
           allUsers.forEach(u => {
             if (!u.email) {
-              // If no email, keep it (might be a system user or something)
               emailMap.set(u.uid, u);
               return;
             }
@@ -205,7 +204,6 @@ export function AdminDashboard() {
             if (!existing) {
               emailMap.set(emailLower, u);
             } else {
-              // Prefer the one with more data or newer createdAt
               const dateA = u.createdAt ? new Date(u.createdAt).getTime() : 0;
               const dateB = existing.createdAt ? new Date(existing.createdAt).getTime() : 0;
               if (dateA > dateB) {
@@ -225,11 +223,13 @@ export function AdminDashboard() {
           
           try {
             const walletsSnap = await getDocs(collection(db, 'wallets'));
-            const balances: Record<string, number> = {};
-            walletsSnap.docs.forEach(wDoc => {
-              balances[wDoc.id] = wDoc.data().balance || 0;
-            });
-            setUserBalances(balances);
+            if (!walletsSnap.empty) {
+              const balances: Record<string, number> = {};
+              walletsSnap.docs.forEach(wDoc => {
+                balances[wDoc.id] = wDoc.data().balance || 0;
+              });
+              setUserBalances(prev => ({ ...prev, ...balances }));
+            }
           } catch (err) {
             console.error("Error fetching user balances:", err);
           }

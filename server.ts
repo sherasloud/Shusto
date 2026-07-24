@@ -5,7 +5,7 @@ const admin = (adminModule as any).default && (adminModule as any).default.initi
 
 const getFirestore = (app: any, dbId?: string) => {
   if (typeof app.firestore === "function") {
-    return dbId ? app.firestore(dbId) : app.firestore();
+    return (dbId && dbId !== "(default)") ? app.firestore(dbId) : app.firestore();
   }
   return admin.firestore();
 };
