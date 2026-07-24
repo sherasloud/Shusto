@@ -1,0 +1,8 @@
+{
+	"appId": "com.shusto.app",
+	"appName": "Shusto",
+	"webDir": "dist",
+	"server": {
+		"cleartext": true
+	}
+}
