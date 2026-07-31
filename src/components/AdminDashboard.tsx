@@ -2081,6 +2081,8 @@ export function AdminDashboard() {
                           "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
                           user.role === 'admin' ? "bg-rose-50 text-rose-600 border border-rose-100" :
                           user.role === 'doctor' ? "bg-sky-50 text-sky-600 border border-sky-100" :
+                          user.role === 'investor' ? "bg-purple-50 text-purple-600 border border-purple-100" :
+                          user.role === 'manager' ? "bg-indigo-50 text-indigo-600 border border-indigo-100" :
                           user.role === 'user' ? "bg-blue-50 text-blue-600 border border-blue-100" :
                           "bg-slate-100 text-slate-600 border border-slate-200"
                         )}>
@@ -2092,50 +2094,63 @@ export function AdminDashboard() {
                           <span className="font-bold text-slate-800">৳{userBalances[user.uid] || 0}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 flex items-center gap-2">
+                      <td className="px-6 py-4 flex flex-wrap items-center gap-2">
                         {user.role === 'admin' ? (
                           <span className="text-xs text-rose-500 font-bold bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-xl">এডমিন (পরিবর্তন অসম্ভব)</span>
-                        ) : user.role === 'user' ? (
-                          <span className="text-xs text-slate-500 font-bold bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">ইউজার (পরিবর্তন অসম্ভব)</span>
                         ) : (
-                          <>
-                            <select 
-                              value={user.role} 
-                              onChange={(e) => {
-                                if (e.target.value === user.role) return;
-                                if (e.target.value === 'user' || e.target.value === 'admin') {
-                                  updateUserRole(user.uid, e.target.value);
-                                } else {
-                                  setShowRoleModal({ user, role: e.target.value });
-                                  // Pre-populate based on existing data
-                                  setRoleDetails({
-                                    name: (user as any).name || user.displayName || '',
-                                    specialty: (user as any).specialty || 'General Physician',
-                                    fee: (user as any).fee || 500,
-                                    bmdcNumber: (user as any).bmdcNumber || 'Pending',
-                                    experience: (user as any).experience || '',
-                                    degree: (user as any).degree || '',
-                                    university: (user as any).university || '',
-                                    location: (user as any).location || 'Pending',
-                                    contact: (user as any).contact || 'Pending',
-                                    division: (user as any).division || '',
-                                    district: (user as any).district || '',
-                                    thana: (user as any).thana || ''
-                                  });
-                                }
-                              }} 
-                              className="text-sm border border-slate-200 rounded-xl px-3 py-2 bg-slate-50 font-bold focus:ring-2 focus:ring-sky-500/20"
-                            >
-                              {roles.map(role => <option key={role.id} value={role.id}>{role.label}</option>)}
-                            </select>
-                            <button 
-                              onClick={() => syncUserRole(user)} 
-                              className="p-2.5 text-sky-500 hover:bg-sky-50 rounded-xl transition-all" 
-                              title="Sync/Fix Role from Provider Records"
-                            >
-                              <RefreshCcw size={18} />
-                            </button>
-                          </>
+                          <div className="flex flex-wrap gap-2">
+                            {user.role === 'user' && (
+                              <>
+                                <button 
+                                  onClick={() => setShowRoleModal({ user, role: 'investor' })}
+                                  className="text-xs font-bold bg-purple-500 text-white px-4 py-2 rounded-xl shadow-lg shadow-purple-500/20 hover:bg-purple-600 transition-all"
+                                >
+                                  Investor
+                                </button>
+                                <button 
+                                  onClick={() => setShowRoleModal({ user, role: 'manager' })}
+                                  className="text-xs font-bold bg-indigo-500 text-white px-4 py-2 rounded-xl shadow-lg shadow-indigo-500/20 hover:bg-indigo-600 transition-all"
+                                >
+                                  Manager
+                                </button>
+                                <button 
+                                  onClick={() => setShowRoleModal({ user, role: 'doctor' })}
+                                  className="text-xs font-bold bg-sky-500 text-white px-4 py-2 rounded-xl shadow-lg shadow-sky-500/20 hover:bg-sky-600 transition-all"
+                                >
+                                  Doctor
+                                </button>
+                              </>
+                            )}
+                            {['doctor', 'pharmacy', 'lab', 'physio', 'hospital', 'ambulance', 'investor', 'manager'].includes(user.role) && (
+                              <div className="flex gap-2">
+                                <button 
+                                  onClick={async () => {
+                                    if (window.confirm(`${user.displayName} কে সাধারণ ইউজারে নামিয়ে আনবেন?`)) {
+                                      setLoading(true);
+                                      try {
+                                        await updateDoc(doc(db, 'users', user.uid), { role: 'user' });
+                                        showSuccess(`${user.displayName} এখন একজন ইউজার।`);
+                                      } catch (err) {
+                                        alert("রোল রিসেট করতে ব্যর্থ হয়েছে।");
+                                      } finally {
+                                        setLoading(false);
+                                      }
+                                    }
+                                  }}
+                                  className="text-xs font-bold bg-slate-100 text-slate-600 px-3 py-2 rounded-xl hover:bg-slate-200 transition-all"
+                                >
+                                  Reset to User
+                                </button>
+                                <button 
+                                  onClick={() => syncUserRole(user)} 
+                                  className="p-2.5 text-sky-500 hover:bg-sky-50 rounded-xl transition-all" 
+                                  title="Sync/Fix Role from Provider Records"
+                                >
+                                  <RefreshCcw size={18} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </td>
                     </tr>
