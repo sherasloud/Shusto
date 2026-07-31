@@ -14,7 +14,9 @@ interface UserProfile {
   division?: string;
   district?: string;
   referredBy?: string; // UID of the pharmacy/state that referred this user
-  role: 'user' | 'admin' | 'doctor' | 'pharmacy' | 'physio' | 'hospital' | 'ambulance' | 'lab';
+  role: 'user' | 'admin' | 'doctor' | 'pharmacy' | 'physio' | 'hospital' | 'ambulance' | 'lab' | 'investor' | 'manager';
+  investorId?: string; // For managers to point to their investor
+  managerId?: string; // For states/staff to point to their manager
 }
 
 interface AuthContextType {

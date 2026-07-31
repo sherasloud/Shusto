@@ -135,6 +135,14 @@ service cloud.firestore {
     function isLab() {
       return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'lab';
     }
+
+    function isInvestor() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'investor';
+    }
+
+    function isManager() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'manager';
+    }
     
     function isValidEmail(email) {
       return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
@@ -232,8 +240,8 @@ service cloud.firestore {
 
     match /doctors/{doctorId} {
       allow read: if true;
-      allow create: if isAdmin();
-      allow update: if isAdmin() || (isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.email == request.auth.token.email));
+      allow create: if isAdmin() || isManager() || isInvestor();
+      allow update: if isAdmin() || isManager() || isInvestor() || (isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.email == request.auth.token.email));
       allow delete: if isAdmin();
     }
 
@@ -251,31 +259,31 @@ service cloud.firestore {
 
     match /pharmacies/{id} {
       allow read: if true;
-      allow create, update: if isAdmin() && isValidProvider(request.resource.data);
+      allow create, update: if (isAdmin() || isManager() || isInvestor()) && isValidProvider(request.resource.data);
       allow delete: if isAdmin();
     }
 
     match /labs/{id} {
       allow read: if true;
-      allow create, update: if isAdmin() && isValidProvider(request.resource.data);
+      allow create, update: if (isAdmin() || isManager() || isInvestor()) && isValidProvider(request.resource.data);
       allow delete: if isAdmin();
     }
 
     match /physios/{id} {
       allow read: if true;
-      allow create, update: if isAdmin() && isValidProvider(request.resource.data);
+      allow create, update: if (isAdmin() || isManager() || isInvestor()) && isValidProvider(request.resource.data);
       allow delete: if isAdmin();
     }
 
     match /hospitals/{id} {
       allow read: if true;
-      allow create, update: if isAdmin() && isValidProvider(request.resource.data);
+      allow create, update: if (isAdmin() || isManager() || isInvestor()) && isValidProvider(request.resource.data);
       allow delete: if isAdmin();
     }
 
     match /ambulances/{id} {
       allow read: if true;
-      allow create, update: if isAdmin() && isValidProvider(request.resource.data);
+      allow create, update: if (isAdmin() || isManager() || isInvestor()) && isValidProvider(request.resource.data);
       allow delete: if isAdmin();
     }
 

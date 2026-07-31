@@ -76,8 +76,10 @@ interface Provider {
 
 export function AdminDashboard() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'users' | 'patients' | 'doctors' | 'medicines' | 'pharmacies' | 'labs' | 'physios' | 'hospitals' | 'ambulances' | 'transactions' | 'services' | 'merchant'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'patients' | 'doctors' | 'medicines' | 'pharmacies' | 'labs' | 'physios' | 'hospitals' | 'ambulances' | 'transactions' | 'services' | 'merchant' | 'investors' | 'managers'>('users');
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [investors, setInvestors] = useState<UserProfile[]>([]);
+  const [managers, setManagers] = useState<UserProfile[]>([]);
   const [userBalances, setUserBalances] = useState<Record<string, number>>({});
   const [manualDoctors, setManualDoctors] = useState<Doctor[]>([]);
   const [userDoctors, setUserDoctors] = useState<Doctor[]>([]);
@@ -143,7 +145,7 @@ export function AdminDashboard() {
       await updateDoc(userRef, updateData);
       
       // 2. Update/Create record in specialized provider collection
-      if (role !== 'user' && role !== 'admin') {
+      if (['doctor', 'pharmacy', 'lab', 'physio', 'hospital', 'ambulance'].includes(role)) {
         const collectionName = role === 'doctor' ? 'doctors' : 
                              role === 'pharmacy' ? 'pharmacies' : 
                              role === 'lab' ? 'labs' : 
@@ -290,6 +292,12 @@ export function AdminDashboard() {
           const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Provider));
           docs.sort((a, b) => (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0));
           setAmbulances(docs);
+        } else if (activeTab === 'investors') {
+          const snapshot = await getDocs(query(collection(db, 'users'), where('role', '==', 'investor')));
+          setInvestors(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile)));
+        } else if (activeTab === 'managers') {
+          const snapshot = await getDocs(query(collection(db, 'users'), where('role', '==', 'manager')));
+          setManagers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile)));
         } else if (activeTab === 'services') {
           const labTestsSnap = await getDocs(collection(db, 'labTests'));
           const physioServSnap = await getDocs(collection(db, 'physioServices'));
@@ -1119,6 +1127,8 @@ export function AdminDashboard() {
     { id: 'ambulance', label: 'Ambulance', icon: Truck, split: 0.90 },
     { id: 'hospital', label: 'Hospital', icon: Building, split: 0.80 },
     { id: 'physio', label: 'Physio', icon: Activity, split: 0.75 },
+    { id: 'investor', label: 'Investor', icon: DollarSign, split: 0 },
+    { id: 'manager', label: 'Manager', icon: Shield, split: 0 },
   ];
 
   if (loading) return <div className="p-8 text-center">Loading users...</div>;
@@ -1217,7 +1227,7 @@ export function AdminDashboard() {
       <div className="space-y-6">
         {/* Row 1: Navigation Tabs */}
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 pb-4">
-          {(['users', 'patients', 'doctors', 'medicines', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'services', 'transactions', 'merchant'] as const).map((tab) => (
+          {(['users', 'patients', 'doctors', 'medicines', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'services', 'transactions', 'merchant', 'investors', 'managers'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -1236,6 +1246,8 @@ export function AdminDashboard() {
                tab === 'services' ? 'সার্ভিস ক্যাটালগ' :
                tab === 'hospitals' ? 'হাসপাতাল' : 
                tab === 'merchant' ? 'মার্চেন্ট' :
+               tab === 'investors' ? 'ইনভেস্টর' :
+               tab === 'managers' ? 'ম্যানেজার' :
                tab === 'transactions' ? 'লেনদেন' : 'অ্যাম্বুলেন্স'}
             </button>
           ))}

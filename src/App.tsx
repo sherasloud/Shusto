@@ -15,6 +15,8 @@ import { PhysioDashboard } from './components/PhysioDashboard';
 import { HospitalDashboard } from './components/HospitalDashboard';
 import { AmbulanceDashboard } from './components/AmbulanceDashboard';
 import { LabDashboard } from './components/LabDashboard';
+import { InvestorDashboard } from './components/InvestorDashboard';
+import { ManagerDashboard } from './components/ManagerDashboard';
 import { ServiceDirectory } from './components/ServiceDirectory';
 import { Wallet } from './components/Wallet';
 import { Profile } from './components/Profile';
@@ -162,6 +164,8 @@ function AppContent() {
     if (user.role === 'hospital') return <HospitalDashboard />;
     if (user.role === 'ambulance') return <AmbulanceDashboard />;
     if (user.role === 'lab') return <LabDashboard />;
+    if (user.role === 'investor') return <InvestorDashboard />;
+    if (user.role === 'manager') return <ManagerDashboard />;
     
     // Default patient dashboard
     return <Dashboard />;
