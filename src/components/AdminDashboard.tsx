@@ -112,6 +112,7 @@ export function AdminDashboard() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showRoleModal, setShowRoleModal] = useState<{ user: UserProfile, role: string } | null>(null);
+  const [showUserSearchModal, setShowUserSearchModal] = useState<{ role: 'investor' | 'manager' } | null>(null);
   const [roleDetails, setRoleDetails] = useState({ name: '', specialty: 'General Physician', fee: 500, bmdcNumber: 'Pending', experience: '', degree: '', university: '', location: 'Pending', contact: 'Pending', division: '', district: '', thana: '' });
 
   // Filter users based on search
@@ -1279,11 +1280,9 @@ export function AdminDashboard() {
             <button 
               onClick={() => {
                 if (activeTab === 'investors') {
-                  const el = document.getElementById('add-investor-section');
-                  el?.scrollIntoView({ behavior: 'smooth' });
+                  setShowUserSearchModal({ role: 'investor' });
                 } else if (activeTab === 'managers') {
-                  const el = document.getElementById('add-manager-section');
-                  el?.scrollIntoView({ behavior: 'smooth' });
+                  setShowUserSearchModal({ role: 'manager' });
                 } else {
                   setShowAddModal(true);
                 }
@@ -1662,6 +1661,86 @@ export function AdminDashboard() {
                 {loading ? 'Saving...' : 'Update Settings'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* User Search & Promotion Modal (for Investors/Managers) */}
+      {showUserSearchModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-[32px] p-8 shadow-2xl border border-slate-100">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-slate-900">
+                নতুন {showUserSearchModal.role === 'investor' ? 'ইনভেস্টর' : 'ম্যানেজার'} যোগ করুন
+              </h2>
+              <button 
+                onClick={() => {
+                  setShowUserSearchModal(null);
+                  setSearchTerm('');
+                }} 
+                className="p-2 hover:bg-slate-50 rounded-xl"
+              >
+                <X size={20} className="text-slate-400" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                <input 
+                  type="text" 
+                  autoFocus
+                  placeholder="নাম, ইমেইল বা ফোন দিয়ে সার্চ করুন..." 
+                  className="w-full pl-12 pr-5 py-4 rounded-2xl border border-slate-200 focus:border-sky-500 bg-slate-50/50 font-medium transition-all"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+
+              {searchTerm && (
+                <div className="max-h-64 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                  {users.filter(u => {
+                    const matchesSearch = (u.displayName || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                       (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                       (u.phoneNumber || '').includes(searchTerm);
+                    const isAlreadyRole = u.role === showUserSearchModal.role;
+                    const isAdmin = u.role === 'admin';
+                    return matchesSearch && !isAlreadyRole && !isAdmin;
+                  }).map(u => (
+                    <div key={u.uid} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-white hover:border-sky-100 transition-all group">
+                      <div className="flex items-center gap-3">
+                        <img src={u.photoURL || `https://picsum.photos/seed/${u.uid}/100/100`} className="w-10 h-10 rounded-xl" alt="" />
+                        <div className="flex flex-col">
+                          <span className="font-bold text-slate-900 text-sm leading-tight">{u.displayName || 'User'}</span>
+                          <span className="text-xs text-slate-500">{u.email || u.phoneNumber}</span>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          setShowUserSearchModal(null);
+                          setShowRoleModal({ user: u, role: showUserSearchModal.role });
+                        }}
+                        className="p-2 bg-sky-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
+                  ))}
+                  {users.filter(u => {
+                     const matchesSearch = (u.displayName || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                        (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                        (u.phoneNumber || '').includes(searchTerm);
+                     const isAlreadyRole = u.role === showUserSearchModal.role;
+                     const isAdmin = u.role === 'admin';
+                     return matchesSearch && !isAlreadyRole && !isAdmin;
+                  }).length === 0 && (
+                    <div className="text-center py-8 text-slate-400">
+                      <p className="text-sm">কোন ইউজার পাওয়া যায়নি</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -2546,44 +2625,6 @@ export function AdminDashboard() {
                 </div>
              </div>
 
-             <div id="add-investor-section" className="bg-slate-50 rounded-3xl p-6 border border-slate-100">
-               <h4 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-                 <Search size={18} className="text-sky-500" /> নতুন ইনভেস্টর যোগ করুন
-               </h4>
-               <div className="flex gap-4">
-                 <input 
-                    type="text" 
-                    placeholder="নাম বা ইমেইল দিয়ে সার্চ করুন..." 
-                    className="flex-1 px-5 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500/20"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                 />
-               </div>
-               
-               {searchTerm && (
-                 <div className="mt-4 space-y-2 max-h-60 overflow-y-auto">
-                   {users.filter(u => u.role !== 'admin' && u.role !== 'investor' && (
-                     (u.displayName || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-                     (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                     (u.phoneNumber || '').includes(searchTerm)
-                   )).map(u => (
-                     <div key={u.uid} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl">
-                       <div className="flex items-center gap-3">
-                         <img src={u.photoURL || `https://picsum.photos/seed/${u.uid}/100/100`} className="w-8 h-8 rounded-full" alt="" />
-                         <span className="font-bold text-sm">{u.displayName} ({u.email})</span>
-                       </div>
-                       <button 
-                         onClick={() => setShowRoleModal({ user: u, role: 'investor' })}
-                         className="px-4 py-1.5 bg-purple-500 text-white text-xs font-bold rounded-lg hover:bg-purple-600 transition-all"
-                       >
-                         ইনভেস্টর বানান
-                       </button>
-                     </div>
-                   ))}
-                 </div>
-               )}
-             </div>
-
              <div className="overflow-x-auto">
                <table className="w-full text-left">
                   <thead className="bg-slate-50 border-b border-slate-100">
@@ -2632,44 +2673,6 @@ export function AdminDashboard() {
                   <h3 className="text-xl font-bold text-slate-900">ম্যানেজার ম্যানেজমেন্ট</h3>
                   <p className="text-sm text-slate-500">মোট ম্যানেজার: {managers.length}</p>
                 </div>
-             </div>
-
-             <div id="add-manager-section" className="bg-slate-50 rounded-3xl p-6 border border-slate-100">
-               <h4 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-                 <Search size={18} className="text-sky-500" /> নতুন ম্যানেজার যোগ করুন
-               </h4>
-               <div className="flex gap-4">
-                 <input 
-                    type="text" 
-                    placeholder="নাম বা ইমেইল দিয়ে সার্চ করুন..." 
-                    className="flex-1 px-5 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500/20"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                 />
-               </div>
-               
-               {searchTerm && (
-                 <div className="mt-4 space-y-2 max-h-60 overflow-y-auto">
-                   {users.filter(u => u.role !== 'admin' && u.role !== 'manager' && (
-                     (u.displayName || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-                     (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                     (u.phoneNumber || '').includes(searchTerm)
-                   )).map(u => (
-                     <div key={u.uid} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl">
-                       <div className="flex items-center gap-3">
-                         <img src={u.photoURL || `https://picsum.photos/seed/${u.uid}/100/100`} className="w-8 h-8 rounded-full" alt="" />
-                         <span className="font-bold text-sm">{u.displayName} ({u.email})</span>
-                       </div>
-                       <button 
-                         onClick={() => setShowRoleModal({ user: u, role: 'manager' })}
-                         className="px-4 py-1.5 bg-indigo-500 text-white text-xs font-bold rounded-lg hover:bg-indigo-600 transition-all"
-                       >
-                         ম্যানেজার বানান
-                       </button>
-                     </div>
-                   ))}
-                 </div>
-               )}
              </div>
 
              <div className="overflow-x-auto">

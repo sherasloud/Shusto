@@ -24,6 +24,7 @@ export function InvestorDashboard() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showPromoteModal, setShowPromoteModal] = useState<UserProfile | null>(null);
+  const [showAddManagerModal, setShowAddManagerModal] = useState(false);
 
   useEffect(() => {
     if (!investor) return;
@@ -105,6 +106,69 @@ export function InvestorDashboard() {
 
   return (
     <div className="space-y-8">
+      {/* Add Manager Modal */}
+      {showAddManagerModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-[32px] p-8 shadow-2xl border border-slate-100">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-slate-900">নতুন ম্যানেজার যোগ করুন</h2>
+              <button 
+                onClick={() => {
+                  setShowAddManagerModal(false);
+                  setSearchTerm('');
+                }} 
+                className="p-2 hover:bg-slate-50 rounded-xl"
+              >
+                <X size={20} className="text-slate-400" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                <input 
+                  type="text" 
+                  autoFocus
+                  placeholder="নাম, ইমেইল বা ফোন দিয়ে সার্চ করুন..." 
+                  className="w-full pl-12 pr-5 py-4 rounded-2xl border border-slate-200 focus:border-sky-500 bg-slate-50/50 font-medium transition-all"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+
+              {searchTerm && (
+                <div className="max-h-64 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                  {filteredUsers.map(u => (
+                    <div key={u.uid} className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-white hover:border-sky-100 transition-all group">
+                      <div className="flex items-center gap-3">
+                        <img src={u.photoURL || `https://picsum.photos/seed/${u.uid}/100/100`} className="w-10 h-10 rounded-xl" alt="" />
+                        <div className="flex flex-col">
+                          <span className="font-bold text-slate-900 text-sm leading-tight">{u.displayName || 'User'}</span>
+                          <span className="text-xs text-slate-500">{u.email || u.phoneNumber}</span>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          handlePromoteToManager(u);
+                        }}
+                        className="p-2 bg-sky-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
+                  ))}
+                  {filteredUsers.length === 0 && (
+                    <div className="text-center py-8 text-slate-400">
+                      <p className="text-sm">কোন ইউজার পাওয়া যায়নি</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-sky-500 rounded-[40px] p-8 text-white shadow-2xl shadow-sky-500/20 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-6">
           <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center overflow-hidden shadow-lg text-sky-500">
@@ -116,10 +180,7 @@ export function InvestorDashboard() {
           </div>
         </div>
         <button 
-          onClick={() => {
-            const el = document.getElementById('add-manager-section');
-            el?.scrollIntoView({ behavior: 'smooth' });
-          }}
+          onClick={() => setShowAddManagerModal(true)}
           className="px-8 py-4 bg-white text-sky-600 font-bold rounded-2xl shadow-xl hover:bg-sky-50 transition-all flex items-center gap-2"
         >
           <Plus size={20} /> নতুন ম্যানেজার যোগ করুন
@@ -184,46 +245,7 @@ export function InvestorDashboard() {
           </div>
         </div>
 
-        {/* Add Manager Section */}
-        <div id="add-manager-section" className="bg-white rounded-[32px] border border-slate-100 p-8 shadow-sm">
-          <h3 className="text-xl font-bold text-slate-900 mb-6">নতুন ম্যানেজার যোগ করুন</h3>
-          <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-6">
-            <Search className="text-slate-400" size={20} />
-            <input 
-              type="text" 
-              placeholder="ইউজার বা ইমেইল দিয়ে সার্চ করুন..." 
-              className="flex-1 bg-transparent border-none focus:ring-0 font-medium"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          {searchTerm && (
-            <div className="space-y-3">
-              {filteredUsers.map(user => (
-                <div key={user.uid} className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl hover:border-sky-200 transition-all">
-                  <div className="flex items-center gap-3">
-                    <img src={user.photoURL || `https://picsum.photos/seed/${user.uid}/100/100`} className="w-10 h-10 rounded-full" alt="" />
-                    <div>
-                      <p className="font-bold text-slate-900">{user.displayName}</p>
-                      <p className="text-xs text-slate-500">{user.email}</p>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => handlePromoteToManager(user)}
-                    className="px-4 py-2 bg-sky-500 text-white text-xs font-bold rounded-xl hover:bg-sky-600 shadow-lg shadow-sky-500/20"
-                  >
-                    ম্যানেজার হিসেবে যুক্ত করুন
-                  </button>
-                </div>
-              ))}
-              {filteredUsers.length === 0 && (
-                <p className="text-center text-slate-400 text-sm py-4">কোনো ইউজার পাওয়া যায়নি।</p>
-              )}
-            </div>
-          )}
         </div>
-      </div>
     </div>
   );
 }
