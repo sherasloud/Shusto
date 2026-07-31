@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { collection, query, getDocs, doc, updateDoc, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../AuthContext';
-import { Shield, Search, X, User as UserIcon, RefreshCcw } from 'lucide-react';
+import { Shield, Search, X, User as UserIcon, RefreshCcw, Plus } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion } from 'motion/react';
 
@@ -12,6 +12,7 @@ interface UserProfile {
   email: string;
   role: string;
   photoURL?: string;
+  phoneNumber?: string;
   createdAt?: string;
   investorId?: string;
 }
@@ -57,12 +58,17 @@ export function InvestorDashboard() {
 
   const filteredUsers = useMemo(() => {
     return allUsers.filter(u => {
-      const name = (u.displayName || 'User').toLowerCase();
+      const name = (u.displayName || '').toLowerCase();
       const email = (u.email || '').toLowerCase();
+      const phone = (u.phoneNumber || '').toLowerCase();
       const term = searchTerm.toLowerCase();
-      return (name.includes(term) || email.includes(term)) && u.role === 'user';
+      
+      const matchesSearch = name.includes(term) || email.includes(term) || phone.includes(term);
+      // Can't promote admins or people who are already managers for SOMEONE
+      // Actually, let's just exclude admins and current managers of this investor
+      return matchesSearch && u.role !== 'admin' && u.role !== 'investor' && u.investorId !== investor?.uid;
     });
-  }, [allUsers, searchTerm]);
+  }, [allUsers, searchTerm, investor?.uid]);
 
   const handlePromoteToManager = async (targetUser: UserProfile) => {
     if (!investor) return;
@@ -71,12 +77,22 @@ export function InvestorDashboard() {
       await updateDoc(doc(db, 'users', targetUser.uid), {
         role: 'manager',
         investorId: investor.uid,
-        roleUpdatedAt: new Date().toISOString()
+        roleUpdatedAt: new Date().toISOString(),
+        displayName: (targetUser.displayName || targetUser.email || 'User').trim()
       });
       
-      setManagers(prev => [...prev, { ...targetUser, role: 'manager', investorId: investor.uid }]);
+      const updatedUser = { 
+        ...targetUser, 
+        role: 'manager', 
+        investorId: investor.uid,
+        displayName: (targetUser.displayName || targetUser.email || 'User').trim()
+      };
+      
+      setManagers(prev => [...prev.filter(m => m.uid !== targetUser.uid), updatedUser]);
+      setAllUsers(prev => prev.map(u => u.uid === targetUser.uid ? updatedUser : u));
       setShowPromoteModal(null);
-      alert(`${targetUser.displayName} is now your Manager!`);
+      setSearchTerm('');
+      alert(`${updatedUser.displayName} is now your Manager!`);
     } catch (error) {
       console.error("Promotion error:", error);
       alert("Failed to promote user.");
@@ -99,6 +115,15 @@ export function InvestorDashboard() {
             <p className="text-sky-50 text-lg">Manage your business managers and overview their operations.</p>
           </div>
         </div>
+        <button 
+          onClick={() => {
+            const el = document.getElementById('add-manager-section');
+            el?.scrollIntoView({ behavior: 'smooth' });
+          }}
+          className="px-8 py-4 bg-white text-sky-600 font-bold rounded-2xl shadow-xl hover:bg-sky-50 transition-all flex items-center gap-2"
+        >
+          <Plus size={20} /> নতুন ম্যানেজার যোগ করুন
+        </button>
       </div>
 
       <div className="grid grid-cols-1 gap-8">
@@ -160,7 +185,7 @@ export function InvestorDashboard() {
         </div>
 
         {/* Add Manager Section */}
-        <div className="bg-white rounded-[32px] border border-slate-100 p-8 shadow-sm">
+        <div id="add-manager-section" className="bg-white rounded-[32px] border border-slate-100 p-8 shadow-sm">
           <h3 className="text-xl font-bold text-slate-900 mb-6">নতুন ম্যানেজার যোগ করুন</h3>
           <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-6">
             <Search className="text-slate-400" size={20} />

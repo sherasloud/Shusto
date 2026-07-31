@@ -18,6 +18,7 @@ interface UserProfile {
   email: string;
   role: string;
   photoURL?: string;
+  phoneNumber?: string;
   createdAt?: string;
 }
 
@@ -133,8 +134,8 @@ export function AdminDashboard() {
       const updateData: any = { 
         role: role, 
         roleUpdatedAt: new Date().toISOString(),
-        displayName: roleDetails.name || targetUser.displayName,
-        name: roleDetails.name || targetUser.displayName
+        displayName: (roleDetails.name || targetUser.displayName || targetUser.email || 'User').trim(),
+        name: (roleDetails.name || targetUser.displayName || targetUser.email || 'User').trim()
       };
       
       if (['doctor', 'pharmacy', 'lab', 'physio', 'hospital', 'ambulance'].includes(role)) {
@@ -156,14 +157,13 @@ export function AdminDashboard() {
         const providerId = `u_${targetUser.uid}`;
         await setDoc(doc(db, collectionName, providerId), {
           id: providerId,
-          name: roleDetails.name || targetUser.displayName || 'Unnamed Provider',
+          name: updateData.name,
           email: targetUser.email,
           type: role,
           userId: targetUser.uid,
           ...roleDetails,
           updatedAt: new Date().toISOString()
         }, { merge: true });
-
         // Also check for any existing records with the same email and update them with the userId
         if (targetUser.email) {
           const q = query(collection(db, collectionName), where('email', '==', targetUser.email.toLowerCase().trim()));
@@ -176,8 +176,18 @@ export function AdminDashboard() {
         }
       }
 
-      showSuccess(`${targetUser.displayName} is now a ${role}!`);
+      showSuccess(`${updateData.displayName} is now a ${role}!`);
       setShowRoleModal(null);
+      setSearchTerm('');
+      
+      // Update local state for immediate feedback
+      const updatedUser = { ...targetUser, ...updateData };
+      setUsers(prev => prev.map(u => u.uid === targetUser.uid ? updatedUser : u));
+      if (role === 'investor') {
+        setInvestors(prev => [...prev.filter(i => i.uid !== targetUser.uid), updatedUser]);
+      } else if (role === 'manager') {
+        setManagers(prev => [...prev.filter(m => m.uid !== targetUser.uid), updatedUser]);
+      }
     } catch (error) {
       console.error("Promotion error:", error);
       alert("Failed to promote user. Check console for details.");
@@ -190,7 +200,7 @@ export function AdminDashboard() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        if (activeTab === 'users' || activeTab === 'patients') {
+        if (activeTab === 'users' || activeTab === 'patients' || activeTab === 'investors' || activeTab === 'managers') {
           const snapshot = await getDocs(collection(db, 'users'));
           let allUsers = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
           
@@ -222,6 +232,12 @@ export function AdminDashboard() {
             return dateB - dateA;
           });
           setUsers(allUsers);
+          
+          if (activeTab === 'investors') {
+            setInvestors(allUsers.filter(u => u.role === 'investor'));
+          } else if (activeTab === 'managers') {
+            setManagers(allUsers.filter(u => u.role === 'manager'));
+          }
           
           try {
             const walletsSnap = await getDocs(collection(db, 'wallets'));
@@ -292,12 +308,6 @@ export function AdminDashboard() {
           const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Provider));
           docs.sort((a, b) => (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0));
           setAmbulances(docs);
-        } else if (activeTab === 'investors') {
-          const snapshot = await getDocs(query(collection(db, 'users'), where('role', '==', 'investor')));
-          setInvestors(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile)));
-        } else if (activeTab === 'managers') {
-          const snapshot = await getDocs(query(collection(db, 'users'), where('role', '==', 'manager')));
-          setManagers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile)));
         } else if (activeTab === 'services') {
           const labTestsSnap = await getDocs(collection(db, 'labTests'));
           const physioServSnap = await getDocs(collection(db, 'physioServices'));
@@ -1265,12 +1275,22 @@ export function AdminDashboard() {
           </button>
           
 
-          {['doctors', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances'].includes(activeTab) && (
+          {['doctors', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'investors', 'managers'].includes(activeTab) && (
             <button 
-              onClick={() => setShowAddModal(true)}
+              onClick={() => {
+                if (activeTab === 'investors') {
+                  const el = document.getElementById('add-investor-section');
+                  el?.scrollIntoView({ behavior: 'smooth' });
+                } else if (activeTab === 'managers') {
+                  const el = document.getElementById('add-manager-section');
+                  el?.scrollIntoView({ behavior: 'smooth' });
+                } else {
+                  setShowAddModal(true);
+                }
+              }}
               className={cn(
                 "flex items-center gap-2 px-6 py-3 font-bold rounded-2xl transition-all text-sm border",
-                ['doctors', 'pharmacies'].includes(activeTab) 
+                ['doctors', 'pharmacies', 'investors', 'managers'].includes(activeTab) 
                   ? "bg-sky-50 text-sky-600 border-sky-100 hover:bg-sky-100" 
                   : "bg-slate-50 text-slate-600 border-slate-100 hover:bg-slate-100"
               )}
@@ -1280,7 +1300,9 @@ export function AdminDashboard() {
                 activeTab === 'labs' ? 'ল্যাব যোগ করুন' :
                 activeTab === 'physios' ? 'ফিজিওথেরাপি যোগ করুন' :
                 activeTab === 'hospitals' ? 'হাসপাতাল যোগ করুন' :
-                activeTab === 'ambulances' ? 'অ্যাম্বুলেন্স যোগ করুন' : 'ডাক্তার যোগ করুন'
+                activeTab === 'ambulances' ? 'অ্যাম্বুলেন্স যোগ করুন' : 
+                activeTab === 'investors' ? 'ইনভেস্টর যোগ করুন' :
+                activeTab === 'managers' ? 'ম্যানেজার যোগ করুন' : 'ডাক্তার যোগ করুন'
               }
             </button>
           )}
@@ -1515,14 +1537,14 @@ export function AdminDashboard() {
                   onClick={() => setShowRoleModal(null)}
                   className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all"
                 >
-                  Cancel
+                  বাতিল করুন
                 </button>
                 <button 
                   onClick={handlePromoteUser}
                   disabled={loading}
                   className="flex-3 py-4 bg-sky-500 text-white font-bold rounded-2xl hover:bg-sky-600 transition-all shadow-xl shadow-sky-500/20 disabled:opacity-50"
                 >
-                  {loading ? 'Processing...' : 'Confirm Promotion'}
+                  {loading ? 'প্রসেসিং হচ্ছে...' : 'প্রমোশন নিশ্চিত করুন'}
                 </button>
               </div>
             </div>
@@ -2113,6 +2135,9 @@ export function AdminDashboard() {
                                       setLoading(true);
                                       try {
                                         await updateDoc(doc(db, 'users', user.uid), { role: 'user' });
+                                        setUsers(prev => prev.map(u => u.uid === user.uid ? { ...u, role: 'user' } : u));
+                                        setInvestors(prev => prev.filter(i => i.uid !== user.uid));
+                                        setManagers(prev => prev.filter(m => m.uid !== user.uid));
                                         showSuccess(`${user.displayName} এখন একজন ইউজার।`);
                                       } catch (err) {
                                         alert("রোল রিসেট করতে ব্যর্থ হয়েছে।");
@@ -2521,7 +2546,7 @@ export function AdminDashboard() {
                 </div>
              </div>
 
-             <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100">
+             <div id="add-investor-section" className="bg-slate-50 rounded-3xl p-6 border border-slate-100">
                <h4 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
                  <Search size={18} className="text-sky-500" /> নতুন ইনভেস্টর যোগ করুন
                </h4>
@@ -2537,7 +2562,11 @@ export function AdminDashboard() {
                
                {searchTerm && (
                  <div className="mt-4 space-y-2 max-h-60 overflow-y-auto">
-                   {users.filter(u => u.role === 'user' && (u.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) || u.email?.toLowerCase().includes(searchTerm.toLowerCase()))).map(u => (
+                   {users.filter(u => u.role !== 'admin' && u.role !== 'investor' && (
+                     (u.displayName || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                     (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                     (u.phoneNumber || '').includes(searchTerm)
+                   )).map(u => (
                      <div key={u.uid} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl">
                        <div className="flex items-center gap-3">
                          <img src={u.photoURL || `https://picsum.photos/seed/${u.uid}/100/100`} className="w-8 h-8 rounded-full" alt="" />
@@ -2580,6 +2609,7 @@ export function AdminDashboard() {
                                if (window.confirm(`${i.displayName} কে রিমুভ করতে চান?`)) {
                                  await updateDoc(doc(db, 'users', i.uid), { role: 'user' });
                                  setInvestors(prev => prev.filter(inv => inv.uid !== i.uid));
+                                 setUsers(prev => prev.map(u => u.uid === i.uid ? { ...u, role: 'user' } : u));
                                }
                              }}
                              className="text-xs font-bold text-rose-500 hover:underline"
@@ -2604,7 +2634,7 @@ export function AdminDashboard() {
                 </div>
              </div>
 
-             <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100">
+             <div id="add-manager-section" className="bg-slate-50 rounded-3xl p-6 border border-slate-100">
                <h4 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
                  <Search size={18} className="text-sky-500" /> নতুন ম্যানেজার যোগ করুন
                </h4>
@@ -2620,7 +2650,11 @@ export function AdminDashboard() {
                
                {searchTerm && (
                  <div className="mt-4 space-y-2 max-h-60 overflow-y-auto">
-                   {users.filter(u => u.role === 'user' && (u.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) || u.email?.toLowerCase().includes(searchTerm.toLowerCase()))).map(u => (
+                   {users.filter(u => u.role !== 'admin' && u.role !== 'manager' && (
+                     (u.displayName || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                     (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                     (u.phoneNumber || '').includes(searchTerm)
+                   )).map(u => (
                      <div key={u.uid} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl">
                        <div className="flex items-center gap-3">
                          <img src={u.photoURL || `https://picsum.photos/seed/${u.uid}/100/100`} className="w-8 h-8 rounded-full" alt="" />
@@ -2663,6 +2697,7 @@ export function AdminDashboard() {
                                if (window.confirm(`${m.displayName} কে রিমুভ করতে চান?`)) {
                                  await updateDoc(doc(db, 'users', m.uid), { role: 'user' });
                                  setManagers(prev => prev.filter(mgr => mgr.uid !== m.uid));
+                                 setUsers(prev => prev.map(u => u.uid === m.uid ? { ...u, role: 'user' } : u));
                                }
                              }}
                              className="text-xs font-bold text-rose-500 hover:underline"
