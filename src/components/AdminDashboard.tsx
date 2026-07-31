@@ -1440,6 +1440,12 @@ export function AdminDashboard() {
                       </div>
                     </div>
                 </>
+              ) : ['investor', 'manager'].includes(showRoleModal.role) ? (
+                <div className="bg-sky-50 p-4 rounded-2xl border border-sky-100">
+                   <p className="text-sm text-sky-700 font-medium leading-relaxed">
+                     আপনি {showRoleModal.user.displayName} কে <strong>{showRoleModal.role}</strong> হিসেবে প্রমোট করতে যাচ্ছেন। নিশ্চিত করতে নিচের বাটনে ক্লিক করুন।
+                   </p>
+                </div>
               ) : (
                 <>
                     <div className="grid grid-cols-2 gap-4">
@@ -2099,28 +2105,6 @@ export function AdminDashboard() {
                           <span className="text-xs text-rose-500 font-bold bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-xl">এডমিন (পরিবর্তন অসম্ভব)</span>
                         ) : (
                           <div className="flex flex-wrap gap-2">
-                            {user.role === 'user' && (
-                              <>
-                                <button 
-                                  onClick={() => setShowRoleModal({ user, role: 'investor' })}
-                                  className="text-xs font-bold bg-purple-500 text-white px-4 py-2 rounded-xl shadow-lg shadow-purple-500/20 hover:bg-purple-600 transition-all"
-                                >
-                                  Investor
-                                </button>
-                                <button 
-                                  onClick={() => setShowRoleModal({ user, role: 'manager' })}
-                                  className="text-xs font-bold bg-indigo-500 text-white px-4 py-2 rounded-xl shadow-lg shadow-indigo-500/20 hover:bg-indigo-600 transition-all"
-                                >
-                                  Manager
-                                </button>
-                                <button 
-                                  onClick={() => setShowRoleModal({ user, role: 'doctor' })}
-                                  className="text-xs font-bold bg-sky-500 text-white px-4 py-2 rounded-xl shadow-lg shadow-sky-500/20 hover:bg-sky-600 transition-all"
-                                >
-                                  Doctor
-                                </button>
-                              </>
-                            )}
                             {['doctor', 'pharmacy', 'lab', 'physio', 'hospital', 'ambulance', 'investor', 'manager'].includes(user.role) && (
                               <div className="flex gap-2">
                                 <button 
@@ -2525,6 +2509,172 @@ export function AdminDashboard() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'investors' && (
+          <div className="p-8 space-y-8">
+             <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">ইনভেস্টর ম্যানেজমেন্ট</h3>
+                  <p className="text-sm text-slate-500">মোট ইনভেস্টর: {investors.length}</p>
+                </div>
+             </div>
+
+             <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100">
+               <h4 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                 <Search size={18} className="text-sky-500" /> নতুন ইনভেস্টর যোগ করুন
+               </h4>
+               <div className="flex gap-4">
+                 <input 
+                    type="text" 
+                    placeholder="নাম বা ইমেইল দিয়ে সার্চ করুন..." 
+                    className="flex-1 px-5 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500/20"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                 />
+               </div>
+               
+               {searchTerm && (
+                 <div className="mt-4 space-y-2 max-h-60 overflow-y-auto">
+                   {users.filter(u => u.role === 'user' && (u.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) || u.email?.toLowerCase().includes(searchTerm.toLowerCase()))).map(u => (
+                     <div key={u.uid} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl">
+                       <div className="flex items-center gap-3">
+                         <img src={u.photoURL || `https://picsum.photos/seed/${u.uid}/100/100`} className="w-8 h-8 rounded-full" alt="" />
+                         <span className="font-bold text-sm">{u.displayName} ({u.email})</span>
+                       </div>
+                       <button 
+                         onClick={() => setShowRoleModal({ user: u, role: 'investor' })}
+                         className="px-4 py-1.5 bg-purple-500 text-white text-xs font-bold rounded-lg hover:bg-purple-600 transition-all"
+                       >
+                         ইনভেস্টর বানান
+                       </button>
+                     </div>
+                   ))}
+                 </div>
+               )}
+             </div>
+
+             <div className="overflow-x-auto">
+               <table className="w-full text-left">
+                  <thead className="bg-slate-50 border-b border-slate-100">
+                    <tr>
+                      <th className="px-6 py-4 text-sm font-bold text-slate-900">Investor</th>
+                      <th className="px-6 py-4 text-sm font-bold text-slate-900">Email</th>
+                      <th className="px-6 py-4 text-sm font-bold text-slate-900">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {investors.map(i => (
+                      <tr key={i.uid} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <img src={i.photoURL || `https://picsum.photos/seed/${i.uid}/100/100`} className="w-10 h-10 rounded-2xl border border-slate-100" alt="" />
+                            <span className="font-bold text-slate-900">{i.displayName}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-500">{i.email}</td>
+                        <td className="px-6 py-4">
+                           <button 
+                             onClick={async () => {
+                               if (window.confirm(`${i.displayName} কে রিমুভ করতে চান?`)) {
+                                 await updateDoc(doc(db, 'users', i.uid), { role: 'user' });
+                                 setInvestors(prev => prev.filter(inv => inv.uid !== i.uid));
+                               }
+                             }}
+                             className="text-xs font-bold text-rose-500 hover:underline"
+                           >
+                             Remove Investor
+                           </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+               </table>
+             </div>
+          </div>
+        )}
+
+        {activeTab === 'managers' && (
+          <div className="p-8 space-y-8">
+             <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">ম্যানেজার ম্যানেজমেন্ট</h3>
+                  <p className="text-sm text-slate-500">মোট ম্যানেজার: {managers.length}</p>
+                </div>
+             </div>
+
+             <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100">
+               <h4 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                 <Search size={18} className="text-sky-500" /> নতুন ম্যানেজার যোগ করুন
+               </h4>
+               <div className="flex gap-4">
+                 <input 
+                    type="text" 
+                    placeholder="নাম বা ইমেইল দিয়ে সার্চ করুন..." 
+                    className="flex-1 px-5 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-sky-500/20"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                 />
+               </div>
+               
+               {searchTerm && (
+                 <div className="mt-4 space-y-2 max-h-60 overflow-y-auto">
+                   {users.filter(u => u.role === 'user' && (u.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) || u.email?.toLowerCase().includes(searchTerm.toLowerCase()))).map(u => (
+                     <div key={u.uid} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl">
+                       <div className="flex items-center gap-3">
+                         <img src={u.photoURL || `https://picsum.photos/seed/${u.uid}/100/100`} className="w-8 h-8 rounded-full" alt="" />
+                         <span className="font-bold text-sm">{u.displayName} ({u.email})</span>
+                       </div>
+                       <button 
+                         onClick={() => setShowRoleModal({ user: u, role: 'manager' })}
+                         className="px-4 py-1.5 bg-indigo-500 text-white text-xs font-bold rounded-lg hover:bg-indigo-600 transition-all"
+                       >
+                         ম্যানেজার বানান
+                       </button>
+                     </div>
+                   ))}
+                 </div>
+               )}
+             </div>
+
+             <div className="overflow-x-auto">
+               <table className="w-full text-left">
+                  <thead className="bg-slate-50 border-b border-slate-100">
+                    <tr>
+                      <th className="px-6 py-4 text-sm font-bold text-slate-900">Manager</th>
+                      <th className="px-6 py-4 text-sm font-bold text-slate-900">Email</th>
+                      <th className="px-6 py-4 text-sm font-bold text-slate-900">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {managers.map(m => (
+                      <tr key={m.uid} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <img src={m.photoURL || `https://picsum.photos/seed/${m.uid}/100/100`} className="w-10 h-10 rounded-2xl border border-slate-100" alt="" />
+                            <span className="font-bold text-slate-900">{m.displayName}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-500">{m.email}</td>
+                        <td className="px-6 py-4">
+                           <button 
+                             onClick={async () => {
+                               if (window.confirm(`${m.displayName} কে রিমুভ করতে চান?`)) {
+                                 await updateDoc(doc(db, 'users', m.uid), { role: 'user' });
+                                 setManagers(prev => prev.filter(mgr => mgr.uid !== m.uid));
+                               }
+                             }}
+                             className="text-xs font-bold text-rose-500 hover:underline"
+                           >
+                             Remove Manager
+                           </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+               </table>
+             </div>
           </div>
         )}
       </div>
