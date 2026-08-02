@@ -1370,25 +1370,32 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     if (isIPNValid && userId && paidAmount > 0 && tran_id) {
       if (db_admin) {
         try {
-          const transRef = db_admin.collection("transactions").where("tran_id", "==", tran_id).where("status", "==", "success");
-          const snap = await transRef.get();
-          if (snap.empty) {
+          const txRef = db_admin.collection("transactions").doc(tran_id);
+          const txSnap = await txRef.get();
+          
+          if (!txSnap.exists) {
             await db_admin.runTransaction(async (t) => {
               const walletRef = db_admin.collection("wallets").doc(userId);
-              const txRef = db_admin.collection("transactions").doc();
+              const targetTxRef = db_admin.collection("transactions").doc(tran_id);
+              
               t.set(walletRef, {
+                uid: userId,
                 balance: FieldValue.increment(paidAmount),
                 updatedAt: new Date().toISOString()
               }, { merge: true });
-              t.set(txRef, {
+              
+              t.set(targetTxRef, {
                 tran_id,
                 userId,
                 amount: paidAmount,
+                type: "add_money",
                 status: "success",
                 createdAt: new Date().toISOString()
               });
             });
             console.log(`[SSLCOMMERZ IPN] Automatically Added ৳${paidAmount} to wallet of user ${userId}`);
+          } else {
+            console.log(`[SSLCOMMERZ IPN] Transaction ${tran_id} already exists, skipping.`);
           }
         } catch (e: any) {
           console.error("[SSLCOMMERZ IPN] Firebase Update Failed:", e.message);
