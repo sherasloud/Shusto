@@ -39,7 +39,7 @@ interface Post {
 }
 
 interface ServiceDirectoryProps {
-  type: 'pharmacy' | 'lab' | 'physio' | 'hospital' | 'ambulance';
+  type: 'pharmacy' | 'lab' | 'physio' | 'hospital' | 'ambulance' | 'nursing';
   title: string;
   description: string;
 }
@@ -404,7 +404,8 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
     const collectionName = type === 'pharmacy' ? 'pharmacies' : 
                          type === 'lab' ? 'labs' : 
                          type === 'physio' ? 'physios' : 
-                         type === 'hospital' ? 'hospitals' : 'ambulances';
+                         type === 'hospital' ? 'hospitals' : 
+                         type === 'nursing' ? 'nursings' : 'ambulances';
     
     // Still fetch providers for context/mapping if needed, but primary view is services
     const qProviders = query(collection(db, collectionName), limit(100));
@@ -482,8 +483,8 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
     
     fetchProviders();
 
-    // Fetch All Posts for Pharmacy and Hospital (to show all products directly)
-    if (type === 'pharmacy' || type === 'hospital') {
+    // Fetch All Posts for Pharmacy, Hospital and Nursing (to show all products directly)
+    if (type === 'pharmacy' || type === 'hospital' || type === 'nursing') {
       const qPosts = query(
         collection(db, 'posts'),
         where('providerType', '==', type),

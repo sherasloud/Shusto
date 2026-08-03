@@ -14,7 +14,7 @@ interface UserProfile {
   division?: string;
   district?: string;
   referredBy?: string; // UID of the state that referred this patient
-  role: 'user' | 'admin' | 'doctor' | 'pharmacy' | 'physio' | 'hospital' | 'ambulance' | 'lab' | 'investor' | 'manager' | 'state';
+  role: 'user' | 'admin' | 'doctor' | 'pharmacy' | 'physio' | 'hospital' | 'ambulance' | 'lab' | 'investor' | 'manager' | 'state' | 'nursing';
   investorId?: string; // For managers to point to their investor
   managerId?: string; // For states to point to their manager
 }
@@ -175,7 +175,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               let professionalRole = manualData?.role;
 
               if (!preRegisteredName && emailClean) {
-                const providerCollections = ['doctors', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances'];
+                const providerCollections = ['doctors', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursings'];
                 const results = await Promise.all(providerCollections.map(coll => 
                   getDocs(query(collection(db, coll), where('email', '==', emailClean)))
                 ));
@@ -189,7 +189,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                                      coll === 'pharmacies' ? 'pharmacy' : 
                                      coll === 'labs' ? 'lab' : 
                                      coll === 'physios' ? 'physio' : 
-                                     coll === 'hospitals' ? 'hospital' : 'ambulance';
+                                     coll === 'hospitals' ? 'hospital' : 
+                                     coll === 'nursings' ? 'nursing' : 'ambulance';
                     break;
                   }
                 }
@@ -236,7 +237,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const syncRole = async () => {
       const email = user.email!.toLowerCase().trim();
-      const providerCollections = ['doctors', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances'];
+      const providerCollections = ['doctors', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursings'];
       
       const results = await Promise.all(providerCollections.map(coll => 
         getDocs(query(collection(db, coll), where('email', '==', email)))
@@ -252,7 +253,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                          collectionName === 'pharmacies' ? 'pharmacy' : 
                          collectionName === 'labs' ? 'lab' : 
                          collectionName === 'physios' ? 'physio' : 
-                         collectionName === 'hospitals' ? 'hospital' : 'ambulance';
+                         collectionName === 'hospitals' ? 'hospital' : 
+                         collectionName === 'nursings' ? 'nursing' : 'ambulance';
           
           let needsUpdate = false;
           const profileUpdate: any = {};
@@ -422,7 +424,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const email = auth.currentUser.email?.toLowerCase().trim();
       if (!email) return;
 
-      const providerCollections = ['doctors', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances'];
+      const providerCollections = ['doctors', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursings'];
       for (const collectionName of providerCollections) {
         const q = query(collection(db, collectionName), where('email', '==', email));
         const snapshot = await getDocs(q);
@@ -432,7 +434,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                          collectionName === 'pharmacies' ? 'pharmacy' : 
                          collectionName === 'labs' ? 'lab' : 
                          collectionName === 'physios' ? 'physio' : 
-                         collectionName === 'hospitals' ? 'hospital' : 'ambulance';
+                         collectionName === 'hospitals' ? 'hospital' : 
+                         collectionName === 'nursings' ? 'nursing' : 'ambulance';
           
           const updateData: any = { role: newRole };
           if (newRole === 'doctor') {

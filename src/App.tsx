@@ -19,6 +19,7 @@ import { InvestorDashboard } from './components/InvestorDashboard';
 import { ManagerDashboard } from './components/ManagerDashboard';
 import { StateDashboard } from './components/StateDashboard';
 import { ServiceDirectory } from './components/ServiceDirectory';
+import { GenericProviderDashboard } from './components/GenericProviderDashboard';
 import { Wallet } from './components/Wallet';
 import { Profile } from './components/Profile';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
@@ -154,6 +155,7 @@ function AppContent() {
         case 'physio': return <ServiceDirectory type="physio" title="ফিজিওথেরাপি সেন্টার" description="আপনার সুস্থতার জন্য বিশেষজ্ঞ ফিজিওথেরাপিস্টদের সাথে যোগাযোগ করুন।" />;
         case 'hospital': return <ServiceDirectory type="hospital" title="হাসপাতাল" description="সেরা মানের হাসপাতাল এবং ক্লিনিকাল সেন্টার খুঁজুন।" />;
         case 'ambulance': return <ServiceDirectory type="ambulance" title="অ্যাম্বুলেন্স সার্ভিস" description="জরুরী অ্যাম্বুলেন্স সেবা ২৪/৭ পাওয়া যাচ্ছে।" />;
+        case 'nursing': return <ServiceDirectory type="nursing" title="নার্সিং সার্ভিস" description="বিশেষজ্ঞ নার্স ও স্বাস্থ্যকর্মীদের সেবা নিন আপনার ঘরেই।" />;
         default: break;
       }
     }
@@ -166,6 +168,7 @@ function AppContent() {
     if (user.role === 'hospital') return <HospitalDashboard />;
     if (user.role === 'ambulance') return <AmbulanceDashboard />;
     if (user.role === 'lab') return <LabDashboard />;
+    if (user.role === 'nursing') return <GenericProviderDashboard type="nursing" title="নার্সিং ড্যাশবোর্ড" description="আপনার নার্সিং সার্ভিসের অনুরোধ এবং প্রোফাইল ম্যানেজ করুন।" />;
     if (user.role === 'investor') return <InvestorDashboard />;
     if (user.role === 'manager') return <ManagerDashboard />;
     if (user.role === 'state') return <StateDashboard />;

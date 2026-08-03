@@ -58,7 +58,7 @@ interface Post {
 }
 
 interface GenericProviderDashboardProps {
-  type: 'pharmacy' | 'lab' | 'physio' | 'hospital' | 'ambulance';
+  type: 'pharmacy' | 'lab' | 'physio' | 'hospital' | 'ambulance' | 'nursing';
   title: string;
   description: string;
 }
@@ -295,7 +295,8 @@ export function GenericProviderDashboard({ type, title, description }: GenericPr
     const collectionName = type === 'pharmacy' ? 'pharmacies' : 
                          type === 'lab' ? 'labs' : 
                          type === 'physio' ? 'physios' : 
-                         type === 'hospital' ? 'hospitals' : 'ambulances';
+                         type === 'hospital' ? 'hospitals' : 
+                         type === 'nursing' ? 'nursings' : 'ambulances';
     
     // Profile listener to find the correct collection and identity
     const idVariants = [user.uid, `u_${user.uid}`, (user as any).id].filter(Boolean);
@@ -471,7 +472,8 @@ export function GenericProviderDashboard({ type, title, description }: GenericPr
       const collectionName = type === 'pharmacy' ? 'pharmacies' : 
                            type === 'lab' ? 'labs' : 
                            type === 'physio' ? 'physios' : 
-                           type === 'hospital' ? 'hospitals' : 'ambulances';
+                           type === 'hospital' ? 'hospitals' : 
+                           type === 'nursing' ? 'nursings' : 'ambulances';
       
       const bestName = updatedProfile.name || (user as any).name || providerProfile?.name || 'Healthcare Center';
       const bestBusinessName = type === 'hospital' ? (updatedProfile.hospitalName || bestName) :
@@ -759,7 +761,8 @@ export function GenericProviderDashboard({ type, title, description }: GenericPr
         const collectionName = type === 'pharmacy' ? 'pharmacies' : 
                              type === 'lab' ? 'labs' : 
                              type === 'physio' ? 'physios' : 
-                             type === 'hospital' ? 'hospitals' : 'ambulances';
+                             type === 'hospital' ? 'hospitals' : 
+                             type === 'nursing' ? 'nursings' : 'ambulances';
         
         // Reverse geocode to get a readable address if possible
         const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);

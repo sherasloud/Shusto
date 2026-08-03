@@ -21,7 +21,8 @@ import {
   MessageCircle,
   LogIn,
   DollarSign,
-  Store
+  Store,
+  Heart
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -49,6 +50,7 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
       { id: 'physio', label: 'ফিজিওথেরাপি', icon: Activity },
       { id: 'hospital', label: 'হাসপাতাল', icon: Building },
       { id: 'ambulance', label: 'অ্যাম্বুলেন্স', icon: Truck },
+      { id: 'nursing', label: 'নার্সিং সার্ভিস', icon: Heart },
       { id: 'privacy', label: 'গোপনীয়তা নীতি', icon: Shield },
     ];
 

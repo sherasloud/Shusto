@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { collection, query, getDocs, doc, updateDoc, setDoc, where, deleteDoc, onSnapshot, getDoc, increment, orderBy, limit, addDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { getApiUrl } from '../utils/api';
-import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit, Store } from 'lucide-react';
+import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit, Store, Heart } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { TransactionsPanel } from './TransactionsPanel';
@@ -77,7 +77,7 @@ interface Provider {
 
 export function AdminDashboard() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'users' | 'patients' | 'doctors' | 'medicines' | 'pharmacies' | 'labs' | 'physios' | 'hospitals' | 'ambulances' | 'transactions' | 'services' | 'merchant' | 'investors' | 'managers' | 'states' | 'shop_requests'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'patients' | 'doctors' | 'medicines' | 'pharmacies' | 'labs' | 'physios' | 'hospitals' | 'ambulances' | 'nursing' | 'transactions' | 'services' | 'merchant' | 'investors' | 'managers' | 'states' | 'shop_requests'>('users');
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [shopRequests, setShopRequests] = useState<any[]>([]);
   const [investors, setInvestors] = useState<UserProfile[]>([]);
@@ -92,6 +92,7 @@ export function AdminDashboard() {
   const [physios, setPhysios] = useState<Provider[]>([]);
   const [hospitals, setHospitals] = useState<Provider[]>([]);
   const [ambulances, setAmbulances] = useState<Provider[]>([]);
+  const [nursings, setNursings] = useState<Provider[]>([]);
   const [labTests, setLabTests] = useState<GenericService[]>([]);
   const [physioServices, setPhysioServices] = useState<GenericService[]>([]);
   const [adminBalance, setAdminBalance] = useState(0);
@@ -163,7 +164,7 @@ export function AdminDashboard() {
         name: (roleDetails.name || targetUser.displayName || targetUser.email || 'User').trim()
       };
       
-      if (['doctor', 'pharmacy', 'lab', 'physio', 'hospital', 'ambulance', 'manager', 'state'].includes(role)) {
+      if (['doctor', 'pharmacy', 'lab', 'physio', 'hospital', 'ambulance', 'nursing', 'manager', 'state'].includes(role)) {
         Object.assign(updateData, roleDetails);
       }
       
@@ -171,12 +172,13 @@ export function AdminDashboard() {
       await updateDoc(userRef, updateData);
       
       // 2. Update/Create record in specialized provider collection
-      if (['doctor', 'pharmacy', 'lab', 'physio', 'hospital', 'ambulance', 'state'].includes(role)) {
+      if (['doctor', 'pharmacy', 'lab', 'physio', 'hospital', 'ambulance', 'nursing', 'state'].includes(role)) {
         const collectionName = role === 'doctor' ? 'doctors' : 
                              role === 'pharmacy' ? 'pharmacies' : 
                              role === 'lab' ? 'labs' : 
                              role === 'physio' ? 'physios' : 
                              role === 'hospital' ? 'hospitals' : 
+                             role === 'nursing' ? 'nursings' :
                              role === 'state' ? 'states' : 'ambulances';
         
         // Use a consistent ID for linked accounts to avoid duplication
@@ -337,6 +339,11 @@ export function AdminDashboard() {
           const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Provider));
           docs.sort((a, b) => (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0));
           setAmbulances(docs);
+        } else if (activeTab === 'nursing') {
+          const snapshot = await getDocs(query(collection(db, 'nursings'), limit(50)));
+          const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Provider));
+          docs.sort((a, b) => (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0));
+          setNursings(docs);
         } else if (activeTab === 'shop_requests') {
           const snapshot = await getDocs(query(collection(db, 'shop_requests'), orderBy('createdAt', 'desc')));
           setShopRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -611,7 +618,8 @@ export function AdminDashboard() {
           activeTab === 'pharmacies' ? 'pharmacies' : 
           activeTab === 'labs' ? 'labs' : 
           activeTab === 'physios' ? 'physios' : 
-          activeTab === 'hospitals' ? 'hospitals' : 'ambulances';
+          activeTab === 'hospitals' ? 'hospitals' : 
+          activeTab === 'nursing' ? 'nursings' : 'ambulances';
         
         const type = activeTab.slice(0, -1);
         
@@ -664,7 +672,8 @@ export function AdminDashboard() {
         activeTab === 'pharmacies' ? 'pharmacies' : 
         activeTab === 'labs' ? 'labs' : 
         activeTab === 'physios' ? 'physios' : 
-        activeTab === 'hospitals' ? 'hospitals' : 'ambulances';
+        activeTab === 'hospitals' ? 'hospitals' : 
+        activeTab === 'nursing' ? 'nursings' : 'ambulances';
       
       const type = activeTab.slice(0, -1);
       
@@ -714,7 +723,8 @@ export function AdminDashboard() {
       const type = activeTab === 'pharmacies' ? 'pharmacy' : 
                    activeTab === 'labs' ? 'lab' : 
                    activeTab === 'physios' ? 'physio' : 
-                   activeTab === 'hospitals' ? 'hospital' : 'ambulance';
+                   activeTab === 'hospitals' ? 'hospital' : 
+                   activeTab === 'nursing' ? 'nursing' : 'ambulance';
       
       const collectionName = activeTab;
       const cleanName = newProvider.name.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_');
@@ -816,6 +826,12 @@ export function AdminDashboard() {
     return Array.from(map.values());
   }, [ambulances]);
 
+  const mergedNursings = useMemo(() => {
+    const map = new Map<string, Provider>();
+    nursings.forEach(p => { if (p.email) map.set(p.email.toLowerCase().trim(), p); });
+    return Array.from(map.values());
+  }, [nursings]);
+
   // Bulk add medicines with real images
   const cleanupManualEntries = async () => {
     alert('নিরাপত্তার স্বার্থে বাল্ক ডাটা রিমুভ অপশন এই প্রজেক্ট থেকে নিষ্ক্রিয় রাখা হয়েছে।');
@@ -840,12 +856,13 @@ export function AdminDashboard() {
       await updateDoc(doc(db, 'users', userId), updateData);
       
       // If the user being updated is a provider, we should also ensure they have a record in the respective collection
-      if (userToUpdate && ['doctor', 'pharmacy', 'lab', 'physio', 'hospital', 'ambulance'].includes(newRole)) {
+      if (userToUpdate && ['doctor', 'pharmacy', 'lab', 'physio', 'hospital', 'ambulance', 'nursing'].includes(newRole)) {
         const collectionName = newRole === 'doctor' ? 'doctors' : 
                              newRole === 'pharmacy' ? 'pharmacies' : 
                              newRole === 'lab' ? 'labs' : 
                              newRole === 'physio' ? 'physios' : 
-                             newRole === 'hospital' ? 'hospitals' : 'ambulances';
+                             newRole === 'hospital' ? 'hospitals' : 
+                             newRole === 'nursing' ? 'nursings' : 'ambulances';
         
         const providerId = `u_${userId}`;
         const providerRef = doc(db, collectionName, providerId);
@@ -879,7 +896,7 @@ export function AdminDashboard() {
     setLoading(true);
     try {
       const email = targetUser.email.toLowerCase().trim();
-      const providerCollections = ['doctors', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances'];
+      const providerCollections = ['doctors', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursings'];
       let found = false;
 
       for (const collectionName of providerCollections) {
@@ -892,7 +909,8 @@ export function AdminDashboard() {
                          collectionName === 'pharmacies' ? 'pharmacy' : 
                          collectionName === 'labs' ? 'lab' : 
                          collectionName === 'physios' ? 'physio' : 
-                         collectionName === 'hospitals' ? 'hospital' : 'ambulance';
+                         collectionName === 'hospitals' ? 'hospital' : 
+                         collectionName === 'nursings' ? 'nursing' : 'ambulance';
           
           const updateData: any = { role: newRole };
           if (newRole === 'doctor') {
@@ -923,7 +941,7 @@ export function AdminDashboard() {
   const syncAllRoles = async () => {
     setLoading(true);
     try {
-      const providerCollections = ['doctors', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances'];
+      const providerCollections = ['doctors', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursings'];
       let totalSynced = 0;
 
       for (const collectionName of providerCollections) {
@@ -939,7 +957,8 @@ export function AdminDashboard() {
                            collectionName === 'pharmacies' ? 'pharmacy' : 
                            collectionName === 'labs' ? 'lab' : 
                            collectionName === 'physios' ? 'physio' : 
-                           collectionName === 'hospitals' ? 'hospital' : 'ambulance';
+                           collectionName === 'hospitals' ? 'hospital' : 
+                           collectionName === 'nursings' ? 'nursing' : 'ambulance';
 
             for (const userDoc of userSnapshot.docs) {
               const updateData: any = { role: newRole };
@@ -1218,6 +1237,7 @@ export function AdminDashboard() {
     { id: 'ambulance', label: 'Ambulance', icon: Truck, split: 0.90 },
     { id: 'hospital', label: 'Hospital', icon: Building, split: 0.80 },
     { id: 'physio', label: 'Physio', icon: Activity, split: 0.75 },
+    { id: 'nursing', label: 'Nursing', icon: Heart, split: 0.80 },
     { id: 'investor', label: 'Investor', icon: DollarSign, split: 0 },
     { id: 'manager', label: 'Manager', icon: Shield, split: 0 },
   ];
@@ -1319,7 +1339,7 @@ export function AdminDashboard() {
       <div className="space-y-6">
         {/* Row 1: Navigation Tabs */}
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 pb-4">
-          {(['users', 'patients', 'doctors', 'medicines', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'services', 'transactions', 'merchant', 'investors', 'managers', 'states', 'shop_requests'] as const).map((tab) => (
+          {(['users', 'patients', 'doctors', 'medicines', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursing', 'services', 'transactions', 'merchant', 'investors', 'managers', 'states', 'shop_requests'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -1342,6 +1362,7 @@ export function AdminDashboard() {
                tab === 'managers' ? 'ম্যানেজার' :
                tab === 'states' ? 'স্টেট' :
                tab === 'shop_requests' ? 'শপ' :
+               tab === 'nursing' ? 'নার্সিং সার্ভিস' :
                tab === 'transactions' ? 'লেনদেন' : 'অ্যাম্বুলেন্স'}
             </button>
           ))}
@@ -1359,7 +1380,7 @@ export function AdminDashboard() {
           </button>
           
 
-          {['doctors', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'investors', 'managers', 'states'].includes(activeTab) && (
+          {['doctors', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursing', 'investors', 'managers', 'states'].includes(activeTab) && (
             <button 
               onClick={() => {
                 if (activeTab === 'investors') {
@@ -1374,7 +1395,7 @@ export function AdminDashboard() {
               }}
               className={cn(
                 "flex items-center gap-2 px-6 py-3 font-bold rounded-2xl transition-all text-sm border",
-                ['doctors', 'pharmacies', 'investors', 'managers', 'states'].includes(activeTab) 
+                ['doctors', 'pharmacies', 'nursing', 'investors', 'managers', 'states'].includes(activeTab) 
                   ? "bg-sky-50 text-sky-600 border-sky-100 hover:bg-sky-100" 
                   : "bg-slate-50 text-slate-600 border-slate-100 hover:bg-slate-100"
               )}
@@ -1384,6 +1405,7 @@ export function AdminDashboard() {
                 activeTab === 'labs' ? 'ল্যাব যোগ করুন' :
                 activeTab === 'physios' ? 'ফিজিওথেরাপি যোগ করুন' :
                 activeTab === 'hospitals' ? 'হাসপাতাল যোগ করুন' :
+                activeTab === 'nursing' ? 'নার্সিং সার্ভিস যোগ করুন' :
                 activeTab === 'ambulances' ? 'অ্যাম্বুলেন্স যোগ করুন' : 
                 activeTab === 'investors' ? 'ইনভেস্টর যোগ করুন' :
                 activeTab === 'managers' ? 'ম্যানেজার যোগ করুন' :
@@ -1875,6 +1897,7 @@ export function AdminDashboard() {
                   activeTab === 'labs' ? 'Lab' :
                   activeTab === 'physios' ? 'Physio' :
                   activeTab === 'hospitals' ? 'Hospital' :
+                  activeTab === 'nursing' ? 'Nursing' :
                   activeTab === 'ambulances' ? 'Ambulance' : 'Doctor'
                 }
               </h2>
@@ -1883,7 +1906,7 @@ export function AdminDashboard() {
               </button>
             </div>
             
-            {['pharmacies', 'labs', 'physios', 'hospitals', 'ambulances'].includes(activeTab) && (
+            {['pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursing'].includes(activeTab) && (
               <form onSubmit={handleAddGeneralProvider} className="space-y-4">
                 <input required type="text" placeholder="Name" value={newProvider.name} onChange={e => setNewProvider({...newProvider, name: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-slate-200" />
                 <div className="grid grid-cols-2 gap-4">
@@ -2494,7 +2517,7 @@ export function AdminDashboard() {
           </div>
         )}
 
-        {['pharmacies', 'labs', 'physios', 'hospitals', 'ambulances'].includes(activeTab) && (
+        {['pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursing'].includes(activeTab) && (
           <div className="p-4 bg-sky-50 border-b border-sky-100 flex items-center justify-between">
             <p className="text-sm text-sky-700 font-medium">
               Quickly populate your directory with sample centers.
@@ -2596,7 +2619,7 @@ export function AdminDashboard() {
           </table>
         )}
 
-        {['pharmacies', 'labs', 'physios', 'hospitals', 'ambulances'].includes(activeTab) && (
+        {['pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursing'].includes(activeTab) && (
           <table className="w-full text-left">
             <thead className="bg-slate-50 border-b border-slate-100">
               <tr>
@@ -2610,7 +2633,8 @@ export function AdminDashboard() {
               {(activeTab === 'pharmacies' ? mergedPharmacies : 
                 activeTab === 'labs' ? mergedLabs : 
                 activeTab === 'physios' ? mergedPhysios : 
-                activeTab === 'hospitals' ? mergedHospitals : mergedAmbulances).map((item) => (
+                activeTab === 'hospitals' ? mergedHospitals : 
+                activeTab === 'nursing' ? mergedNursings : mergedAmbulances).map((item) => (
                 <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-4 font-medium text-slate-900">{item.name}</td>
                   <td className="px-6 py-4 text-sm text-slate-500">{item.location}</td>
@@ -2900,6 +2924,7 @@ export function AdminDashboard() {
                             >
                               <option value="Pharmacy">ফার্মেসি (Pharmacy)</option>
                               <option value="Diagnostic">ডায়াগনস্টিক সেন্টার</option>
+                              <option value="Nursing">নার্সিং সার্ভিস (Nursing)</option>
                               <option value="Ambulance">অ্যাম্বুলেন্স সার্ভিস</option>
                               <option value="Clinic">ক্লিনিক/হাসপাতাল</option>
                               <option value="Other">অন্যান্য</option>
