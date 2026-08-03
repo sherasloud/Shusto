@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { collection, query, getDocs, doc, updateDoc, setDoc, where, deleteDoc, onSnapshot, getDoc, increment, orderBy, limit } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, setDoc, where, deleteDoc, onSnapshot, getDoc, increment, orderBy, limit, addDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { getApiUrl } from '../utils/api';
 import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit, Store } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { TransactionsPanel } from './TransactionsPanel';
 import { MerchantPanel } from './MerchantPanel';
 import { useAuth } from '../AuthContext';
@@ -393,6 +393,60 @@ export function AdminDashboard() {
   }, []);
 
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const [showAddShopModal, setShowAddShopModal] = useState(false);
+  const [newShopData, setNewShopData] = useState({
+    shopName: '',
+    category: 'Pharmacy',
+    address: '',
+    phone: '',
+    userEmail: ''
+  });
+
+  const handleAddShop = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      // Find user by email to get UID and Name
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('email', '==', newShopData.userEmail.toLowerCase().trim()));
+      const userSnap = await getDocs(q);
+      
+      if (userSnap.empty) {
+        alert("এই ইমেইল দিয়ে কোনো ইউজার পাওয়া যায়নি।");
+        setLoading(false);
+        return;
+      }
+
+      const targetUser = userSnap.docs[0].data();
+      
+      await addDoc(collection(db, 'shop_requests'), {
+        shopName: newShopData.shopName,
+        category: newShopData.category,
+        address: newShopData.address,
+        phone: newShopData.phone,
+        userId: userSnap.docs[0].id,
+        userEmail: targetUser.email,
+        userName: targetUser.displayName || 'Unknown',
+        status: 'approved',
+        createdAt: new Date().toISOString()
+      });
+
+      setShowAddShopModal(false);
+      setNewShopData({ shopName: '', category: 'Pharmacy', address: '', phone: '', userEmail: '' });
+      
+      // Refresh list
+      const snapshot = await getDocs(query(collection(db, 'shop_requests'), orderBy('createdAt', 'desc')));
+      setShopRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      
+      showSuccess('Shop added successfully!');
+    } catch (err) {
+      console.error("Error adding shop:", err);
+      alert("শপ যোগ করা সম্ভব হয়নি।");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const showSuccess = (msg: string) => {
     setSuccessMessage(msg);
@@ -1168,7 +1222,8 @@ export function AdminDashboard() {
     { id: 'manager', label: 'Manager', icon: Shield, split: 0 },
   ];
 
-  if (loading && users.length === 0) return <div className="p-8 text-center text-slate-500 font-medium animate-pulse">লোড হচ্ছে...</div>;
+  // Remove boring loading state as requested
+  // if (loading && users.length === 0) return <div className="p-8 text-center text-slate-500 font-medium animate-pulse">লোড হচ্ছে...</div>;
 
   return (
     <div className="space-y-8">
@@ -1227,17 +1282,17 @@ export function AdminDashboard() {
           </div>
         </div>
 
-        {roles.filter(r => r.split > 0).slice(0, 2).map(role => (
+        {roles.filter(r => r.split > 0).map(role => (
           <div key={role.id} className="bg-white p-6 rounded-[32px] border border-slate-100 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 bg-slate-50 text-slate-600 rounded-2xl flex items-center justify-center">
                 <role.icon size={24} />
               </div>
-              <p className="text-lg font-black text-sky-600">{role.split * 100}%</p>
+              <p className="text-lg font-black text-sky-600">{(role.split * 100).toFixed(0)}%</p>
             </div>
             <div>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{role.label} Share</p>
-              <p className="text-[10px] text-slate-400">Shusto Profit: {(1 - role.split) * 100}%</p>
+              <p className="text-[10px] text-slate-400">Shusto Profit: {((1 - role.split) * 100).toFixed(0)}%</p>
             </div>
           </div>
         ))}
@@ -1286,7 +1341,7 @@ export function AdminDashboard() {
                tab === 'investors' ? 'ইনভেস্টর' :
                tab === 'managers' ? 'ম্যানেজার' :
                tab === 'states' ? 'স্টেট' :
-               tab === 'shop_requests' ? 'শপ রিকোয়েস্ট' :
+               tab === 'shop_requests' ? 'শপ' :
                tab === 'transactions' ? 'লেনদেন' : 'অ্যাম্বুলেন্স'}
             </button>
           ))}
@@ -2786,10 +2841,119 @@ export function AdminDashboard() {
         )}
         {activeTab === 'shop_requests' && (
           <div className="p-8 space-y-6">
-            <div>
-              <h3 className="text-xl font-bold text-slate-900">নতুন শপ রেজিস্ট্রেশন রিকোয়েস্ট</h3>
-              <p className="text-sm text-slate-500">মোট আবেদন: {shopRequests.length}</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">শপ ম্যানেজমেন্ট</h3>
+                <p className="text-sm text-slate-500">মোট শপ: {shopRequests.length}</p>
+              </div>
+              <button 
+                onClick={() => setShowAddShopModal(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-sky-500 text-white rounded-2xl font-bold hover:bg-sky-600 transition-all shadow-lg shadow-sky-200"
+              >
+                <Plus size={18} /> নতুন শপ যোগ করুন
+              </button>
             </div>
+
+            {/* Add Shop Modal */}
+            <AnimatePresence>
+              {showAddShopModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setShowAddShopModal(false)}
+                    className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                  />
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                    className="relative w-full max-w-xl bg-white rounded-[32px] shadow-2xl overflow-hidden"
+                  >
+                    <div className="p-8 space-y-6">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-xl font-bold text-slate-900">নতুন শপ যোগ করুন</h3>
+                        <button onClick={() => setShowAddShopModal(false)} className="p-2 hover:bg-slate-50 rounded-xl transition-colors">
+                          <X size={20} className="text-slate-400" />
+                        </button>
+                      </div>
+
+                      <form onSubmit={handleAddShop} className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-500 ml-1">শপের নাম</label>
+                            <input 
+                              required
+                              type="text"
+                              className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-sky-500 text-sm font-medium"
+                              value={newShopData.shopName}
+                              onChange={(e) => setNewShopData({...newShopData, shopName: e.target.value})}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-500 ml-1">ক্যাটাগরি</label>
+                            <select 
+                              className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-sky-500 text-sm font-medium"
+                              value={newShopData.category}
+                              onChange={(e) => setNewShopData({...newShopData, category: e.target.value})}
+                            >
+                              <option value="Pharmacy">ফার্মেসি (Pharmacy)</option>
+                              <option value="Diagnostic">ডায়াগনস্টিক সেন্টার</option>
+                              <option value="Ambulance">অ্যাম্বুলেন্স সার্ভিস</option>
+                              <option value="Clinic">ক্লিনিক/হাসপাতাল</option>
+                              <option value="Other">অন্যান্য</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-slate-500 ml-1">ইউজার ইমেইল (যাকে শপটি দেওয়া হবে)</label>
+                          <input 
+                            required
+                            type="email"
+                            placeholder="user@example.com"
+                            className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-sky-500 text-sm font-medium"
+                            value={newShopData.userEmail}
+                            onChange={(e) => setNewShopData({...newShopData, userEmail: e.target.value})}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-500 ml-1">ফোন নম্বর</label>
+                            <input 
+                              required
+                              type="tel"
+                              className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-sky-500 text-sm font-medium"
+                              value={newShopData.phone}
+                              onChange={(e) => setNewShopData({...newShopData, phone: e.target.value})}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-500 ml-1">ঠিকানা</label>
+                            <input 
+                              required
+                              type="text"
+                              className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-sky-500 text-sm font-medium"
+                              value={newShopData.address}
+                              onChange={(e) => setNewShopData({...newShopData, address: e.target.value})}
+                            />
+                          </div>
+                        </div>
+
+                        <button 
+                          disabled={loading}
+                          className="w-full py-4 bg-sky-500 text-white rounded-2xl font-bold hover:bg-sky-600 transition-all shadow-lg shadow-sky-200 disabled:opacity-50 mt-4"
+                        >
+                          {loading ? "যোগ হচ্ছে..." : "শপ তৈরি করুন"}
+                        </button>
+                      </form>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
+            </AnimatePresence>
             <div className="bg-white rounded-[32px] border border-slate-100 overflow-hidden shadow-sm">
               <table className="w-full text-left">
                 <thead className="bg-slate-50 border-b border-slate-100">
@@ -2830,34 +2994,18 @@ export function AdminDashboard() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        {req.status === 'pending' && (
-                          <div className="flex gap-2">
-                            <button 
-                              onClick={async () => {
-                                if (confirm('আপনি কি এই শপটি অ্যাপ্রুভ করতে চান?')) {
-                                  await updateDoc(doc(db, 'shop_requests', req.id), { status: 'approved' });
-                                  setShopRequests(prev => prev.map(r => r.id === req.id ? { ...r, status: 'approved' } : r));
-                                  showSuccess('Shop approved successfully!');
-                                }
-                              }}
-                              className="px-3 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600 transition-all"
-                            >
-                              Approve
-                            </button>
-                            <button 
-                              onClick={async () => {
-                                if (confirm('আপনি কি এই আবেদনটি রিজেক্ট করতে চান?')) {
-                                  await updateDoc(doc(db, 'shop_requests', req.id), { status: 'rejected' });
-                                  setShopRequests(prev => prev.map(r => r.id === req.id ? { ...r, status: 'rejected' } : r));
-                                  showSuccess('Shop request rejected.');
-                                }
-                              }}
-                              className="px-3 py-1.5 bg-rose-50 text-rose-600 text-xs font-bold rounded-lg hover:bg-rose-100 transition-all"
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        )}
+                        <button 
+                          onClick={async () => {
+                            if (confirm('আপনি কি এই শপটি ডিলিট করতে চান?')) {
+                              await deleteDoc(doc(db, 'shop_requests', req.id));
+                              setShopRequests(prev => prev.filter(r => r.id !== req.id));
+                              showSuccess('Shop deleted.');
+                            }
+                          }}
+                          className="px-3 py-1.5 bg-rose-50 text-rose-600 text-xs font-bold rounded-lg hover:bg-rose-100 transition-all"
+                        >
+                          Delete
+                        </button>
                       </td>
                     </tr>
                   ))}

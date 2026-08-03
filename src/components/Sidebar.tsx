@@ -41,7 +41,7 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
       { id: 'messages', label: 'মেসেজ', icon: MessageCircle },
       { id: 'orders', label: 'আমার অর্ডার', icon: Package },
       { id: 'wallet', label: 'ওয়ালেট', icon: Wallet },
-      { id: 'new-shop', label: 'নতুন শপ (New Shop)', icon: Store },
+      { id: 'new-shop', label: 'শপ (Shop)', icon: Store },
       { id: 'medicine', label: 'ঔষধ স্টোর', icon: Pill },
       { id: 'prescriptions', label: 'প্রেসক্রিপশন', icon: FileText },
       { id: 'doctors', label: 'ডাক্তার', icon: Stethoscope },
