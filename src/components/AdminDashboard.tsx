@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { collection, query, getDocs, doc, updateDoc, setDoc, where, deleteDoc, onSnapshot, getDoc, increment, orderBy } from 'firebase/firestore';
+import { collection, query, getDocs, doc, updateDoc, setDoc, where, deleteDoc, onSnapshot, getDoc, increment, orderBy, limit } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { getApiUrl } from '../utils/api';
 import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit } from 'lucide-react';
@@ -77,10 +77,11 @@ interface Provider {
 
 export function AdminDashboard() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'users' | 'patients' | 'doctors' | 'medicines' | 'pharmacies' | 'labs' | 'physios' | 'hospitals' | 'ambulances' | 'transactions' | 'services' | 'merchant' | 'investors' | 'managers'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'patients' | 'doctors' | 'medicines' | 'pharmacies' | 'labs' | 'physios' | 'hospitals' | 'ambulances' | 'transactions' | 'services' | 'merchant' | 'investors' | 'managers' | 'states'>('users');
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [investors, setInvestors] = useState<UserProfile[]>([]);
   const [managers, setManagers] = useState<UserProfile[]>([]);
+  const [states, setStates] = useState<UserProfile[]>([]);
   const [userBalances, setUserBalances] = useState<Record<string, number>>({});
   const [manualDoctors, setManualDoctors] = useState<Doctor[]>([]);
   const [userDoctors, setUserDoctors] = useState<Doctor[]>([]);
@@ -112,8 +113,23 @@ export function AdminDashboard() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showRoleModal, setShowRoleModal] = useState<{ user: UserProfile, role: string } | null>(null);
-  const [showUserSearchModal, setShowUserSearchModal] = useState<{ role: 'investor' | 'manager' } | null>(null);
-  const [roleDetails, setRoleDetails] = useState({ name: '', specialty: 'General Physician', fee: 500, bmdcNumber: 'Pending', experience: '', degree: '', university: '', location: 'Pending', contact: 'Pending', division: '', district: '', thana: '' });
+  const [showUserSearchModal, setShowUserSearchModal] = useState<{ role: 'investor' | 'manager' | 'state' } | null>(null);
+  const [roleDetails, setRoleDetails] = useState({ 
+    name: '', 
+    specialty: 'General Physician', 
+    fee: 500, 
+    bmdcNumber: 'Pending', 
+    experience: '', 
+    degree: '', 
+    university: '', 
+    location: 'Pending', 
+    contact: 'Pending', 
+    division: '', 
+    district: '', 
+    thana: '',
+    investorId: '',
+    managerId: ''
+  });
 
   // Filter users based on search
   const filteredUsers = useMemo(() => {
@@ -122,7 +138,14 @@ export function AdminDashboard() {
       const email = (u.email || '').toLowerCase();
       const term = searchTerm.toLowerCase();
       return name.includes(term) || email.includes(term);
-    }).filter(u => activeTab === 'users' ? true : u.role === 'user');
+    }).filter(u => {
+      if (activeTab === 'users') return true;
+      if (activeTab === 'patients') return u.role === 'user';
+      if (activeTab === 'investors') return u.role === 'investor';
+      if (activeTab === 'managers') return u.role === 'manager';
+      if (activeTab === 'states') return u.role === 'state';
+      return true;
+    });
   }, [users, searchTerm, activeTab]);
 
   const handlePromoteUser = async () => {
@@ -139,7 +162,7 @@ export function AdminDashboard() {
         name: (roleDetails.name || targetUser.displayName || targetUser.email || 'User').trim()
       };
       
-      if (['doctor', 'pharmacy', 'lab', 'physio', 'hospital', 'ambulance'].includes(role)) {
+      if (['doctor', 'pharmacy', 'lab', 'physio', 'hospital', 'ambulance', 'manager', 'state'].includes(role)) {
         Object.assign(updateData, roleDetails);
       }
       
@@ -147,12 +170,13 @@ export function AdminDashboard() {
       await updateDoc(userRef, updateData);
       
       // 2. Update/Create record in specialized provider collection
-      if (['doctor', 'pharmacy', 'lab', 'physio', 'hospital', 'ambulance'].includes(role)) {
+      if (['doctor', 'pharmacy', 'lab', 'physio', 'hospital', 'ambulance', 'state'].includes(role)) {
         const collectionName = role === 'doctor' ? 'doctors' : 
                              role === 'pharmacy' ? 'pharmacies' : 
                              role === 'lab' ? 'labs' : 
                              role === 'physio' ? 'physios' : 
-                             role === 'hospital' ? 'hospitals' : 'ambulances';
+                             role === 'hospital' ? 'hospitals' : 
+                             role === 'state' ? 'states' : 'ambulances';
         
         // Use a consistent ID for linked accounts to avoid duplication
         const providerId = `u_${targetUser.uid}`;
@@ -188,6 +212,8 @@ export function AdminDashboard() {
         setInvestors(prev => [...prev.filter(i => i.uid !== targetUser.uid), updatedUser]);
       } else if (role === 'manager') {
         setManagers(prev => [...prev.filter(m => m.uid !== targetUser.uid), updatedUser]);
+      } else if (role === 'state') {
+        setStates(prev => [...prev.filter(s => s.uid !== targetUser.uid), updatedUser]);
       }
     } catch (error) {
       console.error("Promotion error:", error);
@@ -201,11 +227,11 @@ export function AdminDashboard() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        if (activeTab === 'users' || activeTab === 'patients' || activeTab === 'investors' || activeTab === 'managers') {
-          const snapshot = await getDocs(collection(db, 'users'));
+        if (activeTab === 'users' || activeTab === 'patients' || activeTab === 'investors' || activeTab === 'managers' || activeTab === 'states') {
+          const snapshot = await getDocs(query(collection(db, 'users'), limit(150)));
           let allUsers = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
           
-          // Deduplicate by email to handle cases where a user might have multiple docs
+          // Deduplicate by email
           const emailMap = new Map<string, UserProfile>();
           allUsers.forEach(u => {
             if (!u.email) {
@@ -226,7 +252,6 @@ export function AdminDashboard() {
           });
           allUsers = Array.from(emailMap.values());
 
-          // Sort by createdAt descending in-memory to include users without the field
           allUsers.sort((a, b) => {
             const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
             const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
@@ -238,10 +263,12 @@ export function AdminDashboard() {
             setInvestors(allUsers.filter(u => u.role === 'investor'));
           } else if (activeTab === 'managers') {
             setManagers(allUsers.filter(u => u.role === 'manager'));
+          } else if (activeTab === 'states') {
+            setStates(allUsers.filter(u => u.role === 'state'));
           }
           
           try {
-            const walletsSnap = await getDocs(collection(db, 'wallets'));
+            const walletsSnap = await getDocs(query(collection(db, 'wallets'), limit(100)));
             if (!walletsSnap.empty) {
               const balances: Record<string, number> = {};
               walletsSnap.docs.forEach(wDoc => {
@@ -268,7 +295,7 @@ export function AdminDashboard() {
           })) as any[];
           setUserDoctors(uDocs);
         } else if (activeTab === 'doctors') {
-          const snapshot = await getDocs(collection(db, 'doctors'));
+          const snapshot = await getDocs(query(collection(db, 'doctors'), limit(50)));
           const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Doctor));
           docs.sort((a, b) => {
             const dateA = a.createdAt ? new Date(a.createdAt).getTime() : (a.updatedAt ? new Date(a.updatedAt).getTime() : 0);
@@ -285,27 +312,27 @@ export function AdminDashboard() {
              setMedicines(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Medicine)));
           }
         } else if (activeTab === 'pharmacies') {
-          const snapshot = await getDocs(collection(db, 'pharmacies'));
+          const snapshot = await getDocs(query(collection(db, 'pharmacies'), limit(50)));
           const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Provider));
           docs.sort((a, b) => (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0));
           setPharmacies(docs);
         } else if (activeTab === 'labs') {
-          const snapshot = await getDocs(collection(db, 'labs'));
+          const snapshot = await getDocs(query(collection(db, 'labs'), limit(50)));
           const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Provider));
           docs.sort((a, b) => (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0));
           setLabs(docs);
         } else if (activeTab === 'physios') {
-          const snapshot = await getDocs(collection(db, 'physios'));
+          const snapshot = await getDocs(query(collection(db, 'physios'), limit(50)));
           const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Provider));
           docs.sort((a, b) => (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0));
           setPhysios(docs);
         } else if (activeTab === 'hospitals') {
-          const snapshot = await getDocs(collection(db, 'hospitals'));
+          const snapshot = await getDocs(query(collection(db, 'hospitals'), limit(50)));
           const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Provider));
           docs.sort((a, b) => (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0));
           setHospitals(docs);
         } else if (activeTab === 'ambulances') {
-          const snapshot = await getDocs(collection(db, 'ambulances'));
+          const snapshot = await getDocs(query(collection(db, 'ambulances'), limit(50)));
           const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Provider));
           docs.sort((a, b) => (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0));
           setAmbulances(docs);
@@ -1142,7 +1169,7 @@ export function AdminDashboard() {
     { id: 'manager', label: 'Manager', icon: Shield, split: 0 },
   ];
 
-  if (loading) return <div className="p-8 text-center">Loading users...</div>;
+  if (loading && users.length === 0) return <div className="p-8 text-center text-slate-500 font-medium animate-pulse">লোড হচ্ছে...</div>;
 
   return (
     <div className="space-y-8">
@@ -1238,7 +1265,7 @@ export function AdminDashboard() {
       <div className="space-y-6">
         {/* Row 1: Navigation Tabs */}
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 pb-4">
-          {(['users', 'patients', 'doctors', 'medicines', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'services', 'transactions', 'merchant', 'investors', 'managers'] as const).map((tab) => (
+          {(['users', 'patients', 'doctors', 'medicines', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'services', 'transactions', 'merchant', 'investors', 'managers', 'states'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -1259,6 +1286,7 @@ export function AdminDashboard() {
                tab === 'merchant' ? 'মার্চেন্ট' :
                tab === 'investors' ? 'ইনভেস্টর' :
                tab === 'managers' ? 'ম্যানেজার' :
+               tab === 'states' ? 'স্টেট' :
                tab === 'transactions' ? 'লেনদেন' : 'অ্যাম্বুলেন্স'}
             </button>
           ))}
@@ -1276,20 +1304,22 @@ export function AdminDashboard() {
           </button>
           
 
-          {['doctors', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'investors', 'managers'].includes(activeTab) && (
+          {['doctors', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'investors', 'managers', 'states'].includes(activeTab) && (
             <button 
               onClick={() => {
                 if (activeTab === 'investors') {
                   setShowUserSearchModal({ role: 'investor' });
                 } else if (activeTab === 'managers') {
                   setShowUserSearchModal({ role: 'manager' });
+                } else if (activeTab === 'states') {
+                  setShowUserSearchModal({ role: 'state' });
                 } else {
                   setShowAddModal(true);
                 }
               }}
               className={cn(
                 "flex items-center gap-2 px-6 py-3 font-bold rounded-2xl transition-all text-sm border",
-                ['doctors', 'pharmacies', 'investors', 'managers'].includes(activeTab) 
+                ['doctors', 'pharmacies', 'investors', 'managers', 'states'].includes(activeTab) 
                   ? "bg-sky-50 text-sky-600 border-sky-100 hover:bg-sky-100" 
                   : "bg-slate-50 text-slate-600 border-slate-100 hover:bg-slate-100"
               )}
@@ -1301,7 +1331,8 @@ export function AdminDashboard() {
                 activeTab === 'hospitals' ? 'হাসপাতাল যোগ করুন' :
                 activeTab === 'ambulances' ? 'অ্যাম্বুলেন্স যোগ করুন' : 
                 activeTab === 'investors' ? 'ইনভেস্টর যোগ করুন' :
-                activeTab === 'managers' ? 'ম্যানেজার যোগ করুন' : 'ডাক্তার যোগ করুন'
+                activeTab === 'managers' ? 'ম্যানেজার যোগ করুন' :
+                activeTab === 'states' ? 'স্টেট যোগ করুন' : 'ডাক্তার যোগ করুন'
               }
             </button>
           )}
@@ -1461,11 +1492,45 @@ export function AdminDashboard() {
                       </div>
                     </div>
                 </>
-              ) : ['investor', 'manager'].includes(showRoleModal.role) ? (
-                <div className="bg-sky-50 p-4 rounded-2xl border border-sky-100">
-                   <p className="text-sm text-sky-700 font-medium leading-relaxed">
-                     আপনি {showRoleModal.user.displayName} কে <strong>{showRoleModal.role}</strong> হিসেবে প্রমোট করতে যাচ্ছেন। নিশ্চিত করতে নিচের বাটনে ক্লিক করুন।
-                   </p>
+              ) : ['investor', 'manager', 'state'].includes(showRoleModal.role) ? (
+                <div className="space-y-4">
+                  <div className="bg-sky-50 p-4 rounded-2xl border border-sky-100">
+                    <p className="text-sm text-sky-700 font-medium leading-relaxed">
+                      আপনি {showRoleModal.user.displayName} কে <strong>{showRoleModal.role === 'state' ? 'স্টেট' : showRoleModal.role}</strong> হিসেবে প্রমোট করতে যাচ্ছেন।
+                    </p>
+                  </div>
+
+                  {showRoleModal.role === 'manager' && (
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1">ইনভেস্টর এসাইন করুন</label>
+                      <select 
+                        value={roleDetails.investorId} 
+                        onChange={e => setRoleDetails({...roleDetails, investorId: e.target.value})}
+                        className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:border-sky-500 bg-slate-50/50 font-medium transition-all"
+                      >
+                        <option value="">ইনভেস্টর সিলেক্ট করুন (ঐচ্ছিক)</option>
+                        {investors.map(i => (
+                          <option key={i.uid} value={i.uid}>{i.displayName || i.email}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {showRoleModal.role === 'state' && (
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest px-1">ম্যানেজার এসাইন করুন</label>
+                      <select 
+                        value={roleDetails.managerId} 
+                        onChange={e => setRoleDetails({...roleDetails, managerId: e.target.value})}
+                        className="w-full px-5 py-4 rounded-2xl border border-slate-200 focus:border-sky-500 bg-slate-50/50 font-medium transition-all"
+                      >
+                        <option value="">ম্যানেজার সিলেক্ট করুন (ঐচ্ছিক)</option>
+                        {managers.map(m => (
+                          <option key={m.uid} value={m.uid}>{m.displayName || m.email}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <>
@@ -2190,6 +2255,7 @@ export function AdminDashboard() {
                           user.role === 'doctor' ? "bg-sky-50 text-sky-600 border border-sky-100" :
                           user.role === 'investor' ? "bg-purple-50 text-purple-600 border border-purple-100" :
                           user.role === 'manager' ? "bg-indigo-50 text-indigo-600 border border-indigo-100" :
+                          user.role === 'state' ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
                           user.role === 'user' ? "bg-blue-50 text-blue-600 border border-blue-100" :
                           "bg-slate-100 text-slate-600 border border-slate-200"
                         )}>
@@ -2206,7 +2272,7 @@ export function AdminDashboard() {
                           <span className="text-xs text-rose-500 font-bold bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-xl">এডমিন (পরিবর্তন অসম্ভব)</span>
                         ) : (
                           <div className="flex flex-wrap gap-2">
-                            {['doctor', 'pharmacy', 'lab', 'physio', 'hospital', 'ambulance', 'investor', 'manager', 'user'].includes(user.role) && (
+                            {['doctor', 'pharmacy', 'lab', 'physio', 'hospital', 'ambulance', 'investor', 'manager', 'state', 'user'].includes(user.role) && (
                               <div className="flex flex-wrap gap-2">
                                 {user.role !== 'user' && (
                                   <button 
@@ -2218,6 +2284,7 @@ export function AdminDashboard() {
                                           setUsers(prev => prev.map(u => u.uid === user.uid ? { ...u, role: 'user' } : u));
                                           setInvestors(prev => prev.filter(i => i.uid !== user.uid));
                                           setManagers(prev => prev.filter(m => m.uid !== user.uid));
+                                          setStates(prev => prev.filter(s => s.uid !== user.uid));
                                           showSuccess(`${user.displayName} এখন একজন ইউজার।`);
                                         } catch (err) {
                                           alert("রোল রিসেট করতে ব্যর্থ হয়েছে।");

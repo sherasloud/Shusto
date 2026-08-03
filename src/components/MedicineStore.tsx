@@ -6,6 +6,7 @@ import { useAuth } from '../AuthContext';
 import { MEDICINE_PRESETS } from '../constants/medicinesData';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
+import { distributeCommissions } from '../utils/commissions';
 import { 
   DndContext, 
   closestCenter,
@@ -219,7 +220,7 @@ export function MedicineStore() {
     if (!user) return;
     
     const findNearestPharmacy = async () => {
-      const pharmaciesQuery = query(collection(db, 'pharmacies'));
+      const pharmaciesQuery = query(collection(db, 'pharmacies'), limit(20));
       const snapshot = await getDocs(pharmaciesQuery);
       const providers = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any));
       
@@ -261,7 +262,7 @@ export function MedicineStore() {
 
     try {
       let q;
-      const currentLimit = searchQuery ? 50 : 200;
+      const currentLimit = searchQuery ? 20 : 30;
       
       if (searchQuery) {
         q = query(
@@ -404,28 +405,14 @@ export function MedicineStore() {
 
         let adminBonus = total;
         
-        if (userData?.referredBy) {
-          const commission = total * 0.10;
-          const referrerWalletRef = doc(db, 'wallets', userData.referredBy);
-          
-          transaction.set(referrerWalletRef, {
-            uid: userData.referredBy,
-            balance: increment(commission),
-            updatedAt: new Date().toISOString()
-          }, { merge: true });
-
-          const affTxRef = doc(collection(db, 'transactions'));
-          transaction.set(affTxRef, {
-            userId: userData.referredBy,
-            amount: commission,
-            type: 'affiliate_commission',
-            status: 'success',
-            details: `Commission from ${user.displayName}'s medicine order (Ref: ${orderRef.id})`,
-            createdAt: new Date().toISOString()
-          });
-
-          adminBonus -= commission;
-        }
+        // Distribute multi-level commissions
+        adminBonus = await distributeCommissions(
+          transaction,
+          user.uid,
+          total,
+          adminUid,
+          `Medicine Order ${orderRef.id}`
+        );
 
         transaction.set(adminWalletRef, {
           uid: adminUid,
@@ -557,12 +544,12 @@ export function MedicineStore() {
         </div>
       </div>
 
-      {loading ? (
+      {loading && medicines.length === 0 ? (
         <div className="p-12 text-center flex flex-col items-center gap-4">
           <Loader2 className="animate-spin text-sky-500" size={40} />
-          <p className="text-slate-500 font-medium">Searching 22,000+ medicines...</p>
+          <p className="text-slate-500 font-medium">ঔষধ খোঁজা হচ্ছে (Searching 22,000+ medicines...)</p>
         </div>
-      ) : medicines.length === 0 ? (
+      ) : medicines.length === 0 && !loading ? (
         <div className="p-12 text-center bg-white rounded-[40px] border border-dashed border-slate-200 text-slate-400">
           No medicines found matching your criteria.
         </div>

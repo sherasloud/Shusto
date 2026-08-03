@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Star, Clock, Search } from 'lucide-react';
-import { collection, onSnapshot, query, addDoc, where, getDocs, doc, getDoc, updateDoc, increment, runTransaction } from 'firebase/firestore';
+import { collection, onSnapshot, query, addDoc, where, getDocs, doc, getDoc, updateDoc, increment, runTransaction, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../AuthContext';
 import { cn } from '../lib/utils';
+import { distributeCommissions } from '../utils/commissions';
 import { FALLBACK_PROVIDERS } from '../constants/fallbackProviders';
 
 interface Appointment {
@@ -51,8 +52,8 @@ export function DoctorDirectory() {
   }, [user]);
 
   useEffect(() => {
-    // Fetch ONLY from 'doctors' collection
-    const qDoctors = query(collection(db, 'doctors'));
+    // Fetch ONLY from 'doctors' collection with limit
+    const qDoctors = query(collection(db, 'doctors'), limit(50));
     const unsubDoctors = onSnapshot(qDoctors, (snapshot) => {
       const docs = snapshot.docs
         .map(doc => ({
@@ -106,6 +107,10 @@ export function DoctorDirectory() {
       // If fee is 0 or invalid, we handle it as free or error
       // But usually doctor fee should be > 0
 
+      const adminQuery = query(collection(db, 'users'), where('role', '==', 'admin'), limit(1));
+      const adminSnap = await getDocs(adminQuery);
+      const adminUid = !adminSnap.empty ? adminSnap.docs[0].id : 'admin_placeholder';
+
       await runTransaction(db, async (transaction) => {
         const walletRef = doc(db, 'wallets', user.uid);
         const walletSnap = await transaction.get(walletRef);
@@ -138,6 +143,23 @@ export function DoctorDirectory() {
             balance: increment(-fee),
             updatedAt: new Date().toISOString()
           });
+
+          // Distribute multi-level commissions
+          const adminNetProfit = await distributeCommissions(
+            transaction,
+            user.uid,
+            fee,
+            adminUid,
+            `Doctor Appointment with ${bookingDoctor.name}`
+          );
+
+          // Give remaining to admin
+          const adminWalletRef = doc(db, 'wallets', adminUid);
+          transaction.set(adminWalletRef, {
+            uid: adminUid,
+            balance: increment(adminNetProfit),
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
 
           const txRef = doc(collection(db, 'transactions'));
           transaction.set(txRef, {

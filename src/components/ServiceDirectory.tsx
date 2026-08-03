@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Search, MapPin, Phone, ExternalLink, Clock, CheckCircle, Tag, XCircle, Navigation, ChevronDown, Activity, X, Truck, Filter, MessageCircle } from 'lucide-react';
-import { collection, onSnapshot, query, addDoc, where, doc, getDoc, updateDoc, increment, runTransaction, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, addDoc, where, doc, getDoc, updateDoc, increment, runTransaction, getDocs, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../AuthContext';
 import { useMapsLibrary } from '@vis.gl/react-google-maps';
+import { distributeCommissions } from '../utils/commissions';
 import { PlacesAutocomplete } from './PlacesAutocomplete';
 import { cn } from '../lib/utils';
 import { AMBULANCE_ROUTES, LAB_SERVICES_PRESETS, PHYSIO_SERVICES_PRESETS, AMBULANCE_PRICE_DETECTION_DATABASE } from '../constants';
@@ -406,7 +407,7 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
                          type === 'hospital' ? 'hospitals' : 'ambulances';
     
     // Still fetch providers for context/mapping if needed, but primary view is services
-    const qProviders = query(collection(db, collectionName));
+    const qProviders = query(collection(db, collectionName), limit(100));
     const fetchProviders = async () => {
       try {
         const snapshot = await getDocs(qProviders);
@@ -485,7 +486,8 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
     if (type === 'pharmacy' || type === 'hospital') {
       const qPosts = query(
         collection(db, 'posts'),
-        where('providerType', '==', type)
+        where('providerType', '==', type),
+        limit(100)
       );
       getDocs(qPosts).then((snapshot) => {
         setAllProviderPosts(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Post)));
@@ -500,7 +502,7 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
     if (type === 'lab' || type === 'physio') {
       setLoading(true);
       const globalColl = type === 'lab' ? 'labTests' : 'physioServices';
-      const qGlobal = query(collection(db, globalColl));
+      const qGlobal = query(collection(db, globalColl), limit(100));
       getDocs(qGlobal).then((snapshot) => {
         let services = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         
@@ -611,6 +613,10 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
                            nearestCenter?.email?.toLowerCase().trim() || 
                            'shustobd@gmail.com';
       
+      const adminQuery = query(collection(db, 'users'), where('role', '==', 'admin'), limit(1));
+      const adminSnap = await getDocs(adminQuery);
+      const adminUid = !adminSnap.empty ? adminSnap.docs[0].id : 'admin_placeholder';
+
       if (price > 0) {
         await runTransaction(db, async (transaction) => {
           const walletRef = doc(db, 'wallets', user.uid);
@@ -648,6 +654,23 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
             balance: increment(-price),
             updatedAt: new Date().toISOString()
           });
+
+          // Distribute multi-level commissions
+          const adminNetProfit = await distributeCommissions(
+            transaction,
+            user.uid,
+            price,
+            adminUid,
+            `Service Request ${requestRef.id} (${type})`
+          );
+
+          // Give remaining to admin
+          const adminWalletRef = doc(db, 'wallets', adminUid);
+          transaction.set(adminWalletRef, {
+            uid: adminUid,
+            balance: increment(adminNetProfit),
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
 
           const txRef = doc(collection(db, 'transactions'));
           transaction.set(txRef, {

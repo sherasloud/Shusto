@@ -17,6 +17,7 @@ import { AmbulanceDashboard } from './components/AmbulanceDashboard';
 import { LabDashboard } from './components/LabDashboard';
 import { InvestorDashboard } from './components/InvestorDashboard';
 import { ManagerDashboard } from './components/ManagerDashboard';
+import { StateDashboard } from './components/StateDashboard';
 import { ServiceDirectory } from './components/ServiceDirectory';
 import { Wallet } from './components/Wallet';
 import { Profile } from './components/Profile';
@@ -76,12 +77,7 @@ function AppContent() {
   }, [user]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-4">
-        <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-slate-500 font-medium">লোড হচ্ছে, দয়া করে অপেক্ষা করুন...</p>
-      </div>
-    );
+    return null; // Return null to avoid flashing a loading screen while auth resolves
   }
 
   if (error) {
@@ -166,6 +162,7 @@ function AppContent() {
     if (user.role === 'lab') return <LabDashboard />;
     if (user.role === 'investor') return <InvestorDashboard />;
     if (user.role === 'manager') return <ManagerDashboard />;
+    if (user.role === 'state') return <StateDashboard />;
     
     // Default patient dashboard
     return <Dashboard />;

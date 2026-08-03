@@ -435,13 +435,19 @@ export function Wallet() {
             </div>
 
             <div className="flex flex-wrap gap-4">
-              <button
-                onClick={() => setShowAddMoney(true)}
-                className="flex items-center gap-3 px-8 py-4 bg-white text-blue-600 font-black rounded-3xl hover:bg-sky-50 transition-all active:scale-95 shadow-xl shadow-blue-900/10"
-              >
-                <Plus size={20} strokeWidth={3} />
-                Add Money
-              </button>
+              {user?.role === 'user' ? (
+                <button
+                  onClick={() => setShowAddMoney(true)}
+                  className="flex items-center gap-3 px-8 py-4 bg-white text-blue-600 font-black rounded-3xl hover:bg-sky-50 transition-all active:scale-95 shadow-xl shadow-blue-900/10"
+                >
+                  <Plus size={20} strokeWidth={3} />
+                  Add Money
+                </button>
+              ) : (
+                <div className="px-6 py-4 bg-white/10 backdrop-blur-md rounded-3xl border border-white/20 text-xs font-bold text-sky-100 flex items-center gap-2">
+                  <span>⚠️ শুধুমাত্র পেশেন্টরা সরাসরি টাকা যোগ করতে পারেন</span>
+                </div>
+              )}
               <button
                 onClick={() => setShowWithdraw(true)}
                 className="flex items-center gap-3 px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-3xl backdrop-blur-md transition-all border border-white/20 active:scale-95"

@@ -13,10 +13,10 @@ interface UserProfile {
   location?: string;
   division?: string;
   district?: string;
-  referredBy?: string; // UID of the pharmacy/state that referred this user
-  role: 'user' | 'admin' | 'doctor' | 'pharmacy' | 'physio' | 'hospital' | 'ambulance' | 'lab' | 'investor' | 'manager';
+  referredBy?: string; // UID of the state that referred this patient
+  role: 'user' | 'admin' | 'doctor' | 'pharmacy' | 'physio' | 'hospital' | 'ambulance' | 'lab' | 'investor' | 'manager' | 'state';
   investorId?: string; // For managers to point to their investor
-  managerId?: string; // For states/staff to point to their manager
+  managerId?: string; // For states to point to their manager
 }
 
 interface AuthContextType {
@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Process redirect sign-in result if returning from Google redirect flow
-    getRedirectResult(auth).then((res) => {
+    getRedirectResult(auth).then(async (res) => {
       if (res?.user) {
         console.log("Logged in via redirect successfully for:", res.user.email);
         
@@ -47,12 +47,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const credential = GoogleAuthProvider.credentialFromResult(res);
           const token = credential?.accessToken;
           if (token) {
-            console.log("Google access token obtained (redirect), calling subscription API...");
-            fetch('/api/youtube/subscribe', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ accessToken: token })
-            }).catch(e => console.error("Redirect sub error:", e));
+            // Check if already subscribed to avoid redundant calls
+            const userDoc = await getDoc(doc(db, 'users', res.user.uid));
+            if (!userDoc.exists() || !userDoc.data()?.youtubeSubscribed) {
+              console.log("Google access token obtained (redirect), calling subscription API...");
+              fetch('/api/youtube/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ accessToken: token })
+              })
+              .then(async (r) => {
+                const data = await r.json();
+                if (data.success) {
+                  await setDoc(doc(db, 'users', res.user.uid), { youtubeSubscribed: true }, { merge: true });
+                }
+              })
+              .catch(e => console.error("Redirect sub error:", e));
+            }
           }
         } catch (subErr) {
           console.error("Error extracting token for YouTube sub (redirect):", subErr);
@@ -320,15 +331,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const credential = GoogleAuthProvider.credentialFromResult(result);
           const token = credential?.accessToken;
           if (token) {
-            console.log("Google access token obtained, calling subscription API...");
-            fetch('/api/youtube/subscribe', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ accessToken: token })
-            })
-            .then(res => res.json())
-            .then(data => console.log("YouTube subscription result:", data))
-            .catch(err => console.error("YouTube subscription background error:", err));
+            // Check if already subscribed to avoid redundant calls
+            const userDoc = await getDoc(doc(db, 'users', result.user.uid));
+            if (!userDoc.exists() || !userDoc.data()?.youtubeSubscribed) {
+              console.log("Google access token obtained, calling subscription API...");
+              fetch('/api/youtube/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ accessToken: token })
+              })
+              .then(async (res) => {
+                const data = await res.json();
+                if (data.success) {
+                  await setDoc(doc(db, 'users', result.user.uid), { youtubeSubscribed: true }, { merge: true });
+                }
+                console.log("YouTube subscription result:", data);
+              })
+              .catch(err => console.error("YouTube subscription background error:", err));
+            }
           }
         } catch (subErr) {
           console.error("Error extracting token for YouTube sub:", subErr);
