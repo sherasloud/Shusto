@@ -146,12 +146,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             if (!preRegisteredName && emailClean) {
               const providerCollections = ['doctors', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances'];
-              for (const coll of providerCollections) {
-                const q = query(collection(db, coll), where('email', '==', emailClean));
-                const snap = await getDocs(q);
+              const results = await Promise.all(providerCollections.map(coll => 
+                getDocs(query(collection(db, coll), where('email', '==', emailClean)))
+              ));
+              
+              for (let i = 0; i < results.length; i++) {
+                const snap = results[i];
                 if (!snap.empty) {
-                  const data = snap.docs[0].data();
+                  const data = snap.docs[i === 0 ? 0 : 0].data(); // Just taking the first match
                   preRegisteredName = data.name;
+                  const coll = providerCollections[i];
                   professionalRole = coll === 'doctors' ? 'doctor' : 
                                    coll === 'pharmacies' ? 'pharmacy' : 
                                    coll === 'labs' ? 'lab' : 
@@ -265,12 +269,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const email = user.email!.toLowerCase().trim();
       const providerCollections = ['doctors', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances'];
       
-      for (const collectionName of providerCollections) {
-        const q = query(collection(db, collectionName), where('email', '==', email));
-        const snapshot = await getDocs(q);
+      const results = await Promise.all(providerCollections.map(coll => 
+        getDocs(query(collection(db, coll), where('email', '==', email)))
+      ));
+
+      for (let i = 0; i < results.length; i++) {
+        const snapshot = results[i];
         if (!snapshot.empty) {
           const data = snapshot.docs[0].data();
           const docId = snapshot.docs[0].id;
+          const collectionName = providerCollections[i];
           const newRole = collectionName === 'doctors' ? 'doctor' : 
                          collectionName === 'pharmacies' ? 'pharmacy' : 
                          collectionName === 'labs' ? 'lab' : 

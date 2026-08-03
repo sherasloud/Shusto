@@ -77,7 +77,14 @@ function AppContent() {
   }, [user]);
 
   if (loading) {
-    return null; // Return null to avoid flashing a loading screen while auth resolves
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="flex flex-col items-center gap-2">
+          <div className="w-8 h-8 border-2 border-sky-500/10 border-t-sky-500 rounded-full animate-spin" />
+          <p className="text-slate-300 text-[10px] font-bold tracking-widest uppercase animate-pulse">Shusto</p>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
