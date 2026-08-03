@@ -27,6 +27,7 @@ import { MyOrders } from './components/MyOrders';
 import { Messages } from './components/Messages';
 import { BottomNav } from './components/BottomNav';
 import { Welcome } from './components/Welcome';
+import { ShopRegistration } from './components/ShopRegistration';
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { AlertCircle, Phone, PhoneOff } from 'lucide-react';
@@ -45,6 +46,14 @@ function AppContent() {
   const [incomingCall, setIncomingCall] = useState<{ id: string; channel: string; doctorId: string; doctorName?: string } | null>(null);
   const [callAccepted, setCallAccepted] = useState(false);
   const [hasSeenWelcome, setHasSeenWelcome] = useState(() => localStorage.getItem('hasSeenWelcome') === 'true');
+
+  useEffect(() => {
+    const handleSwitchTab = (e: any) => {
+      setActiveTab(e.detail);
+    };
+    window.addEventListener('switchTab', handleSwitchTab);
+    return () => window.removeEventListener('switchTab', handleSwitchTab);
+  }, []);
 
   useEffect(() => {
     if (!user || user.role !== 'user') return;
@@ -75,17 +84,6 @@ function AppContent() {
 
     return () => unsubscribe();
   }, [user]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="flex flex-col items-center gap-2">
-          <div className="w-8 h-8 border-2 border-sky-500/10 border-t-sky-500 rounded-full animate-spin" />
-          <p className="text-slate-300 text-[10px] font-bold tracking-widest uppercase animate-pulse">Shusto</p>
-        </div>
-      </div>
-    );
-  }
 
   if (error) {
     return (
@@ -146,6 +144,7 @@ function AppContent() {
         case 'profile': return <Profile />;
         case 'messages': return <Messages />;
         case 'orders': return <MyOrders />;
+        case 'new-shop': return <ShopRegistration />;
         case 'privacy': return <PrivacyPolicy onBack={() => setActiveTab('dashboard')} />;
         case 'medicine': return <MedicineStore />;
         case 'prescriptions': return <Prescriptions />;

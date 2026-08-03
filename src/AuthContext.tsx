@@ -32,9 +32,27 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<UserProfile | null>(() => {
+    const cached = localStorage.getItem('shusto_user_cache');
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
+  const [loading, setLoading] = useState(!localStorage.getItem('shusto_user_cache'));
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('shusto_user_cache', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('shusto_user_cache');
+    }
+  }, [user]);
 
   useEffect(() => {
     // Process redirect sign-in result if returning from Google redirect flow
@@ -89,10 +107,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const timeout = setTimeout(() => {
       if (loading && !sessionStorage.getItem('shusto_demo_user')) {
-        setError("সংযোগের সময় পার হয়ে গেছে। দয়া করে আপনার ইন্টারনেট চেক করুন অথবা পেজটি রিফ্রেশ করুন।");
         setLoading(false);
       }
-    }, 30000);
+    }, 5000);
 
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       clearTimeout(timeout);
@@ -111,7 +128,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      setLoading(true);
+      // If we have a cached user that matches the logged in user, we don't need to block UI
+      if (!user || user.uid !== firebaseUser.uid) {
+        setLoading(true);
+      }
       setError(null);
 
       const email = firebaseUser.email?.toLowerCase().trim();
@@ -124,115 +144,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       unsubProfile = onSnapshot(userRef, async (userDoc) => {
         try {
           if (!userDoc.exists()) {
-            console.log("User profile not found, checking for manual placeholder or creating new...");
-            const cleanEmail = email?.replace(/[^a-zA-Z0-9]/g, '_');
-            const manualId = `email_${cleanEmail}`;
-            const manualRef = doc(db, 'users', manualId);
-            let manualData: any = null;
-            try {
-              const manualDoc = await getDoc(manualRef);
-              if (manualDoc.exists()) {
-                console.log("Found manual placeholder doc");
-                manualData = manualDoc.data();
-              }
-            } catch (placeholderErr) {
-              console.log("No manual placeholder found or no access (this is normal for new users)");
-            }
+            console.log("User profile not found, providing quick entry...");
             
-            // Check if this user was pre-registered in any professional collection
-            const emailClean = email?.toLowerCase().trim();
-            let preRegisteredName = manualData?.name || manualData?.displayName;
-            let professionalRole = manualData?.role;
+            // Initial simple profile
+            const quickProfile: any = {
+              uid: firebaseUser.uid,
+              displayName: firebaseUser.displayName || 'User',
+              email: email || null,
+              photoURL: firebaseUser.photoURL || null,
+              role: isDefaultAdmin ? 'admin' : (isHardcodedDoctor ? 'doctor' : 'user'),
+              createdAt: new Date().toISOString()
+            };
 
-            if (!preRegisteredName && emailClean) {
-              const providerCollections = ['doctors', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances'];
-              const results = await Promise.all(providerCollections.map(coll => 
-                getDocs(query(collection(db, coll), where('email', '==', emailClean)))
-              ));
-              
-              for (let i = 0; i < results.length; i++) {
-                const snap = results[i];
-                if (!snap.empty) {
-                  const data = snap.docs[i === 0 ? 0 : 0].data(); // Just taking the first match
-                  preRegisteredName = data.name;
-                  const coll = providerCollections[i];
-                  professionalRole = coll === 'doctors' ? 'doctor' : 
-                                   coll === 'pharmacies' ? 'pharmacy' : 
-                                   coll === 'labs' ? 'lab' : 
-                                   coll === 'physios' ? 'physio' : 
-                                   coll === 'hospitals' ? 'hospital' : 'ambulance';
-                  break;
+            setUser(quickProfile);
+            setLoading(false);
+
+            // Background processing for full profile
+            (async () => {
+              const cleanEmail = email?.replace(/[^a-zA-Z0-9]/g, '_');
+              const manualId = `email_${cleanEmail}`;
+              const manualRef = doc(db, 'users', manualId);
+              let manualData: any = null;
+              try {
+                const mDoc = await getDoc(manualRef);
+                if (mDoc.exists()) manualData = mDoc.data();
+              } catch (e) {}
+
+              const emailClean = email?.toLowerCase().trim();
+              let preRegisteredName = manualData?.name || manualData?.displayName;
+              let professionalRole = manualData?.role;
+
+              if (!preRegisteredName && emailClean) {
+                const providerCollections = ['doctors', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances'];
+                const results = await Promise.all(providerCollections.map(coll => 
+                  getDocs(query(collection(db, coll), where('email', '==', emailClean)))
+                ));
+                
+                for (let i = 0; i < results.length; i++) {
+                  if (!results[i].empty) {
+                    const data = results[i].docs[0].data();
+                    preRegisteredName = data.name;
+                    const coll = providerCollections[i];
+                    professionalRole = coll === 'doctors' ? 'doctor' : 
+                                     coll === 'pharmacies' ? 'pharmacy' : 
+                                     coll === 'labs' ? 'lab' : 
+                                     coll === 'physios' ? 'physio' : 
+                                     coll === 'hospitals' ? 'hospital' : 'ambulance';
+                    break;
+                  }
                 }
               }
-            }
 
-            let role: any = isDefaultAdmin ? 'admin' : (isHardcodedDoctor ? 'doctor' : (professionalRole || manualData?.role || 'user'));
-            const referralUID = sessionStorage.getItem('shusto_referral');
-            const referredByValue = referralUID || manualData?.referredBy;
+              const finalRole = isDefaultAdmin ? 'admin' : (isHardcodedDoctor ? 'doctor' : (professionalRole || 'user'));
+              const finalProfile = {
+                ...quickProfile,
+                ...manualData,
+                displayName: preRegisteredName || quickProfile.displayName,
+                name: preRegisteredName || quickProfile.displayName,
+                role: finalRole
+              };
 
-            const newProfile: any = {
-              uid: firebaseUser.uid,
-              displayName: preRegisteredName || firebaseUser.displayName || 'User',
-              email: email || null,
-              photoURL: firebaseUser.photoURL || manualData?.photoURL || null,
-              role: role,
-              createdAt: new Date().toISOString(),
-              ...(manualData || {})
-            };
-            
-            if (referredByValue) {
-              newProfile.referredBy = referredByValue;
-            }
-            
-            // Ensure name field is also present
-            if (preRegisteredName) {
-              newProfile.name = preRegisteredName;
-            }
-            
-            setUser(newProfile);
-            setLoading(false);
-            
-            await setDoc(userRef, newProfile);
-            console.log("User profile created/consolidated in Firestore");
-            // If manualData was found (meaning manualDoc exists), try to delete it
-            if (manualData) {
-              await deleteDoc(manualRef).catch(err => console.error("Could not delete manual placeholder:", err));
-            }
+              await setDoc(userRef, finalProfile);
+              if (manualData) await deleteDoc(manualRef).catch(() => {});
+            })();
           } else {
             const existingData = userDoc.data() as UserProfile;
-            let currentRole = existingData.role;
-            let needsUpdate = false;
-            let updatedDisplayName = existingData.displayName;
-
-            // If the user has a professional name (from a previous sync or update), make sure it is used
-            const profName = (existingData as any).hospitalName || (existingData as any).name;
-            const isProfNameBetter = profName && !profName.includes('@') && profName !== 'User' && !profName.includes('Twitter');
-            
-            if (isProfNameBetter && profName !== existingData.displayName) {
-              updatedDisplayName = profName;
-              needsUpdate = true;
-            }
-
-            if (isDefaultAdmin && currentRole !== 'admin') {
-              console.log("Elevating user to admin based on email");
-              currentRole = 'admin';
-              needsUpdate = true;
-            } else if (isHardcodedDoctor && currentRole !== 'doctor') {
-              console.log("Setting user as doctor based on email");
-              currentRole = 'doctor';
-              needsUpdate = true;
-            }
-
-            setUser({ ...existingData, role: currentRole, displayName: updatedDisplayName });
+            setUser(existingData);
             setLoading(false);
-
-            if (needsUpdate) {
-              await updateDoc(userRef, { 
-                role: currentRole,
-                displayName: updatedDisplayName,
-                name: updatedDisplayName // Keep name field in sync too
-              });
-            }
           }
         } catch (err) {
           console.error("Profile sync error details:", err);
@@ -240,18 +218,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }, (err) => {
         console.error("Snapshot real-time listener error:", err);
-        // If snapshot fails, we still want to show something to the user if possible
-        if (!user) {
-           setUser({
-              uid: firebaseUser.uid,
-              displayName: firebaseUser.displayName || 'User',
-              email: firebaseUser.email || null,
-              photoURL: firebaseUser.photoURL,
-              role: isDefaultAdmin ? 'admin' : (isHardcodedDoctor ? 'doctor' : 'user')
-           });
-        }
         setLoading(false);
       });
+
     });
 
     return () => {

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { collection, query, getDocs, doc, updateDoc, setDoc, where, deleteDoc, onSnapshot, getDoc, increment, orderBy, limit } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { getApiUrl } from '../utils/api';
-import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit } from 'lucide-react';
+import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit, Store } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion } from 'motion/react';
 import { TransactionsPanel } from './TransactionsPanel';
@@ -77,8 +77,9 @@ interface Provider {
 
 export function AdminDashboard() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'users' | 'patients' | 'doctors' | 'medicines' | 'pharmacies' | 'labs' | 'physios' | 'hospitals' | 'ambulances' | 'transactions' | 'services' | 'merchant' | 'investors' | 'managers' | 'states'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'patients' | 'doctors' | 'medicines' | 'pharmacies' | 'labs' | 'physios' | 'hospitals' | 'ambulances' | 'transactions' | 'services' | 'merchant' | 'investors' | 'managers' | 'states' | 'shop_requests'>('users');
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [shopRequests, setShopRequests] = useState<any[]>([]);
   const [investors, setInvestors] = useState<UserProfile[]>([]);
   const [managers, setManagers] = useState<UserProfile[]>([]);
   const [states, setStates] = useState<UserProfile[]>([]);
@@ -336,11 +337,9 @@ export function AdminDashboard() {
           const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Provider));
           docs.sort((a, b) => (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0));
           setAmbulances(docs);
-        } else if (activeTab === 'services') {
-          const labTestsSnap = await getDocs(collection(db, 'labTests'));
-          const physioServSnap = await getDocs(collection(db, 'physioServices'));
-          setLabTests(labTestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as GenericService)));
-          setPhysioServices(physioServSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as GenericService)));
+        } else if (activeTab === 'shop_requests') {
+          const snapshot = await getDocs(query(collection(db, 'shop_requests'), orderBy('createdAt', 'desc')));
+          setShopRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         }
         setLoading(false);
       } catch (err: any) {
@@ -1265,7 +1264,7 @@ export function AdminDashboard() {
       <div className="space-y-6">
         {/* Row 1: Navigation Tabs */}
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 pb-4">
-          {(['users', 'patients', 'doctors', 'medicines', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'services', 'transactions', 'merchant', 'investors', 'managers', 'states'] as const).map((tab) => (
+          {(['users', 'patients', 'doctors', 'medicines', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'services', 'transactions', 'merchant', 'investors', 'managers', 'states', 'shop_requests'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -1287,6 +1286,7 @@ export function AdminDashboard() {
                tab === 'investors' ? 'ইনভেস্টর' :
                tab === 'managers' ? 'ম্যানেজার' :
                tab === 'states' ? 'স্টেট' :
+               tab === 'shop_requests' ? 'শপ রিকোয়েস্ট' :
                tab === 'transactions' ? 'লেনদেন' : 'অ্যাম্বুলেন্স'}
             </button>
           ))}
@@ -2782,6 +2782,93 @@ export function AdminDashboard() {
                   </tbody>
                </table>
              </div>
+          </div>
+        )}
+        {activeTab === 'shop_requests' && (
+          <div className="p-8 space-y-6">
+            <div>
+              <h3 className="text-xl font-bold text-slate-900">নতুন শপ রেজিস্ট্রেশন রিকোয়েস্ট</h3>
+              <p className="text-sm text-slate-500">মোট আবেদন: {shopRequests.length}</p>
+            </div>
+            <div className="bg-white rounded-[32px] border border-slate-100 overflow-hidden shadow-sm">
+              <table className="w-full text-left">
+                <thead className="bg-slate-50 border-b border-slate-100">
+                  <tr>
+                    <th className="px-6 py-4 text-sm font-bold text-slate-900">Shop Name</th>
+                    <th className="px-6 py-4 text-sm font-bold text-slate-900">Category</th>
+                    <th className="px-6 py-4 text-sm font-bold text-slate-900">Applicant</th>
+                    <th className="px-6 py-4 text-sm font-bold text-slate-900">Contact</th>
+                    <th className="px-6 py-4 text-sm font-bold text-slate-900">Status</th>
+                    <th className="px-6 py-4 text-sm font-bold text-slate-900">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {shopRequests.map((req) => (
+                    <tr key={req.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-sky-50 rounded-xl flex items-center justify-center">
+                            <Store className="text-sky-500" size={20} />
+                          </div>
+                          <span className="font-bold text-slate-900">{req.shopName}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-500">{req.category}</td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm font-medium text-slate-900">{req.userName}</div>
+                        <div className="text-[10px] text-slate-400">{req.userEmail}</div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-500">{req.phone}</td>
+                      <td className="px-6 py-4">
+                        <span className={cn(
+                          "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                          req.status === 'approved' ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
+                          req.status === 'rejected' ? "bg-rose-50 text-rose-600 border border-rose-100" :
+                          "bg-amber-50 text-amber-600 border border-amber-100"
+                        )}>
+                          {req.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {req.status === 'pending' && (
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={async () => {
+                                if (confirm('আপনি কি এই শপটি অ্যাপ্রুভ করতে চান?')) {
+                                  await updateDoc(doc(db, 'shop_requests', req.id), { status: 'approved' });
+                                  setShopRequests(prev => prev.map(r => r.id === req.id ? { ...r, status: 'approved' } : r));
+                                  showSuccess('Shop approved successfully!');
+                                }
+                              }}
+                              className="px-3 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600 transition-all"
+                            >
+                              Approve
+                            </button>
+                            <button 
+                              onClick={async () => {
+                                if (confirm('আপনি কি এই আবেদনটি রিজেক্ট করতে চান?')) {
+                                  await updateDoc(doc(db, 'shop_requests', req.id), { status: 'rejected' });
+                                  setShopRequests(prev => prev.map(r => r.id === req.id ? { ...r, status: 'rejected' } : r));
+                                  showSuccess('Shop request rejected.');
+                                }
+                              }}
+                              className="px-3 py-1.5 bg-rose-50 text-rose-600 text-xs font-bold rounded-lg hover:bg-rose-100 transition-all"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {shopRequests.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic">No shop requests found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

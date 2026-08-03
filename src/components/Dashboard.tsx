@@ -14,13 +14,16 @@ import {
   Truck,
   MessageCircle,
   Package,
-  MapPin
+  MapPin,
+  MoreVertical,
+  Store
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { collection, query, where, onSnapshot, orderBy, limit, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { VideoCall } from './VideoCall';
 import { ChatWindow } from './ChatWindow';
+import { motion, AnimatePresence } from 'motion/react';
 
 export function Dashboard() {
   const { user, forceSync } = useAuth();
@@ -31,6 +34,7 @@ export function Dashboard() {
   const [activeCall, setActiveCall] = useState<{ id: string; channel: string; patientId: string } | null>(null);
   const [activeRequests, setActiveRequests] = useState<any[]>([]);
   const [activeChat, setActiveChat] = useState<{ id: string; name: string } | null>(null);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -170,11 +174,55 @@ export function Dashboard() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm">
-          <Calendar size={18} className="text-slate-400" />
-          <span className="text-sm font-medium text-slate-600">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-          </span>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm">
+            <Calendar size={18} className="text-slate-400" />
+            <span className="text-sm font-medium text-slate-600">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </span>
+          </div>
+          
+          <div className="relative">
+            <button 
+              onClick={() => setShowMoreMenu(!showMoreMenu)}
+              className="p-3 bg-white rounded-2xl border border-slate-100 shadow-sm text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <MoreVertical size={20} />
+            </button>
+            
+            <AnimatePresence>
+              {showMoreMenu && (
+                <>
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setShowMoreMenu(false)}
+                    className="fixed inset-0 z-40"
+                  />
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                    className="absolute right-0 mt-2 w-48 bg-white rounded-2xl border border-slate-100 shadow-xl z-50 overflow-hidden"
+                  >
+                    <button 
+                      onClick={() => {
+                        // In a real app, this would use the navigation context or a custom hook
+                        // For now, we'll assume the user can switch tabs via Sidebar or we can emit an event
+                        window.dispatchEvent(new CustomEvent('switchTab', { detail: 'new-shop' }));
+                        setShowMoreMenu(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                    >
+                      <Store size={18} className="text-sky-500" />
+                      নতুন শপ (New Shop)
+                    </button>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
 
