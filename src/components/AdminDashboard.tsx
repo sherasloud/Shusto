@@ -197,53 +197,6 @@ export function AdminDashboard() {
     }
   };
 
-  const handleManualCredit = async (targetUser: UserProfile) => {
-    const amountStr = window.prompt(`${targetUser.displayName} (${targetUser.email || targetUser.phoneNumber}) এর ওয়ালেটে কত টাকা যোগ করতে চান?`, "20");
-    if (!amountStr) return;
-    
-    const amount = Number(amountStr);
-    if (isNaN(amount) || amount <= 0) {
-      alert("সঠিক অংক লিখুন।");
-      return;
-    }
-
-    if (!window.confirm(`আপনি কি নিশ্চিতভাবে ${targetUser.displayName} কে ৳${amount} ক্রেডিট করতে চান?`)) return;
-
-    setLoading(true);
-    try {
-      const walletRef = doc(db, 'wallets', targetUser.uid);
-      const txRef = doc(collection(db, 'transactions'));
-      
-      await setDoc(walletRef, {
-        uid: targetUser.uid,
-        balance: increment(amount),
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-
-      await setDoc(txRef, {
-        tran_id: `manual_${Date.now()}`,
-        userId: targetUser.uid,
-        amount: amount,
-        type: 'add_money',
-        status: 'success',
-        method: 'manual_admin',
-        createdAt: new Date().toISOString()
-      });
-
-      setUserBalances(prev => ({
-        ...prev,
-        [targetUser.uid]: (prev[targetUser.uid] || 0) + amount
-      }));
-
-      showSuccess(`${targetUser.displayName} এর ওয়ালেটে ৳${amount} যুক্ত হয়েছে।`);
-    } catch (error) {
-      console.error("Manual credit error:", error);
-      alert("টাকা যোগ করতে ব্যর্থ হয়েছে।");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -2255,12 +2208,6 @@ export function AdminDashboard() {
                           <div className="flex flex-wrap gap-2">
                             {['doctor', 'pharmacy', 'lab', 'physio', 'hospital', 'ambulance', 'investor', 'manager', 'user'].includes(user.role) && (
                               <div className="flex flex-wrap gap-2">
-                                <button 
-                                  onClick={() => handleManualCredit(user)}
-                                  className="text-xs font-bold bg-emerald-50 text-emerald-600 px-3 py-2 rounded-xl hover:bg-emerald-100 transition-all border border-emerald-100 flex items-center gap-1"
-                                >
-                                  <DollarSign size={14} /> Credit
-                                </button>
                                 {user.role !== 'user' && (
                                   <button 
                                     onClick={async () => {

@@ -221,6 +221,70 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// YouTube Subscription API
+app.post("/api/youtube/subscribe", async (req, res) => {
+  const { accessToken } = req.body;
+  if (!accessToken) return res.status(400).json({ error: "Access token required" });
+
+  try {
+    const handle = '@SiamTheBin';
+    console.log(`[YOUTUBE_SUB] Processing subscription for ${handle}`);
+
+    // 1. Resolve handle to channel ID
+    const channelResp = await axios.get(`https://www.googleapis.com/youtube/v3/channels`, {
+      params: {
+        forHandle: handle,
+        part: 'id',
+        key: process.env.YOUTUBE_API_KEY // Optional if using user token for everything
+      },
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
+
+    if (!channelResp.data.items || channelResp.data.items.length === 0) {
+      console.error("[YOUTUBE_SUB] Channel not found for handle:", handle);
+      return res.status(404).json({ error: "YouTube channel not found" });
+    }
+
+    const channelId = channelResp.data.items[0].id;
+    console.log(`[YOUTUBE_SUB] Resolved channel ID: ${channelId}`);
+
+    // 2. Insert subscription
+    try {
+      const subResp = await axios.post(`https://www.googleapis.com/youtube/v3/subscriptions?part=snippet`, {
+        snippet: {
+          resourceId: {
+            kind: 'youtube#channel',
+            channelId: channelId
+          }
+        }
+      }, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log("[YOUTUBE_SUB] Subscription successful!");
+      res.json({ success: true, message: "Subscribed successfully" });
+    } catch (subErr: any) {
+      // Check if already subscribed (403 with specific reason)
+      if (subErr.response?.status === 403 && subErr.response?.data?.error?.errors?.[0]?.reason === 'subscriptionDuplicate') {
+        console.log("[YOUTUBE_SUB] User already subscribed.");
+        return res.json({ success: true, message: "Already subscribed" });
+      }
+      throw subErr;
+    }
+  } catch (error: any) {
+    console.error("[YOUTUBE_SUB] Error:", error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({ 
+      error: "YouTube subscription failed", 
+      details: error.response?.data || error.message 
+    });
+  }
+});
+
 // Simple diagnostic route to test serverless environment health
 app.get(["/api/test", "/direct-api/test", "/test"], (req, res) => {
   res.json({ status: "ok", env: process.env.NODE_ENV || "development", vercel: !!process.env.VERCEL });

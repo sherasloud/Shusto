@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
+import { User, onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, query, where, collection, getDocs, deleteDoc, onSnapshot, addDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebase';
 
@@ -41,6 +41,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     getRedirectResult(auth).then((res) => {
       if (res?.user) {
         console.log("Logged in via redirect successfully for:", res.user.email);
+        
+        // YouTube Subscription Logic for Redirect
+        try {
+          const credential = GoogleAuthProvider.credentialFromResult(res);
+          const token = credential?.accessToken;
+          if (token) {
+            console.log("Google access token obtained (redirect), calling subscription API...");
+            fetch('/api/youtube/subscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ accessToken: token })
+            }).catch(e => console.error("Redirect sub error:", e));
+          }
+        } catch (subErr) {
+          console.error("Error extracting token for YouTube sub (redirect):", subErr);
+        }
       }
     }).catch((err) => {
       console.error("Redirect sign in result error:", err);
@@ -298,6 +314,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const result = await signInWithPopup(auth, googleProvider);
         console.log("Login result obtained for:", result.user.email);
+
+        // YouTube Subscription Logic
+        try {
+          const credential = GoogleAuthProvider.credentialFromResult(result);
+          const token = credential?.accessToken;
+          if (token) {
+            console.log("Google access token obtained, calling subscription API...");
+            fetch('/api/youtube/subscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ accessToken: token })
+            })
+            .then(res => res.json())
+            .then(data => console.log("YouTube subscription result:", data))
+            .catch(err => console.error("YouTube subscription background error:", err));
+          }
+        } catch (subErr) {
+          console.error("Error extracting token for YouTube sub:", subErr);
+        }
+
       } catch (popupErr: any) {
         console.warn("signInWithPopup failed, error code:", popupErr.code, popupErr.message);
         

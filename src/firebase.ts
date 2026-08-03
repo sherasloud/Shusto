@@ -10,9 +10,10 @@ export const auth = getAuth(app);
 // Set persistence early to ensure session survives cross-origin navigation if possible
 setPersistence(auth, browserLocalPersistence).catch(console.error);
 
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId);
 console.log("Firebase Services initialized");
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('https://www.googleapis.com/auth/youtube.force-ssl');
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 // Connection test
