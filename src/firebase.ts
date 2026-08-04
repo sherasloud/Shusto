@@ -13,7 +13,6 @@ setPersistence(auth, browserLocalPersistence).catch(console.error);
 export const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId);
 console.log("Firebase Services initialized");
 export const googleProvider = new GoogleAuthProvider();
-googleProvider.addScope('https://www.googleapis.com/auth/youtube.force-ssl');
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 // Connection test

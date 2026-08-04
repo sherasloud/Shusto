@@ -51,11 +51,11 @@ export function Login() {
             <p className="mb-3 text-xs leading-relaxed text-rose-900">{error}</p>
 
             <div className="text-xs space-y-2 border-t border-rose-200/80 pt-3 text-slate-700">
-              <p className="font-semibold text-rose-800">গুগল লগইন চালু করার ৩টি সহজ উপায়:</p>
+              <p className="font-semibold text-rose-800">গুগল লগইন সমস্যার সমাধান (৩টি পদক্ষেপ):</p>
               <ol className="list-decimal list-inside space-y-1 text-slate-700 text-[11px] leading-relaxed">
                 <li><strong className="text-sky-700">নতুন ট্যাবে অ্যাপ খুলুন:</strong> AI Studio আইফ্রেম পপ-আপ ব্লক করতে পারে। নিচে <span className="font-bold">"নতুন ট্যাবে খুলুন"</span> বাটনে চাপ দিন।</li>
-                <li><strong className="text-slate-800">Firebase Console Google Auth:</strong> আপনার ফায়ারবেস প্রজেক্টে <code className="bg-rose-100 px-1 rounded text-rose-900">Authentication &gt; Sign-in method</code> এ <strong>Google</strong> Provider টি Enable করুন।</li>
-                <li><strong className="text-slate-800">Authorized Domains:</strong> <code className="bg-rose-100 px-1 rounded text-rose-900">Authentication &gt; Settings &gt; Authorized domains</code> এ বর্তমান ডোমেইন (<code className="text-rose-900">{window.location.hostname}</code>) এড করুন।</li>
+                <li><strong className="text-slate-800">Authorized Domains:</strong> আপনার ফায়ারবেস কনসোলে <code className="bg-rose-100 px-1 rounded text-rose-900">Authentication &gt; Settings &gt; Authorized domains</code> এ বর্তমান ডোমেইন (<code className="text-rose-900">{window.location.hostname}</code>) এড করুন।</li>
+                <li><strong className="text-slate-800">OAuth Verification:</strong> "Google hasn't verified this app" ওয়ার্নিং আসলে <span className="font-bold">"Advanced"</span> এ ক্লিক করে <span className="font-bold">"Go to shusto.com (unsafe)"</span> সিলেক্ট করুন। (আমি অপ্রয়োজনীয় YouTube scope সরিয়ে দিয়েছি যাতে এটি দ্রুত কাজ করে)।</li>
               </ol>
               
               <button 
