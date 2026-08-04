@@ -11,6 +11,7 @@ export const auth = getAuth(app);
 setPersistence(auth, browserLocalPersistence).catch(console.error);
 
 export const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId);
+console.log("Using Database ID:", (firebaseConfig as any).firestoreDatabaseId);
 console.log("Firebase Services initialized");
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
