@@ -9,7 +9,7 @@ import { TransactionsPanel } from './TransactionsPanel';
 import { MerchantPanel } from './MerchantPanel';
 import { useAuth } from '../AuthContext';
 
-import { AMBULANCE_ROUTES, LAB_SERVICES_PRESETS, PHYSIO_SERVICES_PRESETS, HOSPITAL_SERVICES_PRESETS } from '../constants';
+import { AMBULANCE_ROUTES, LAB_SERVICES_PRESETS, PHYSIO_SERVICES_PRESETS, HOSPITAL_SERVICES_PRESETS, NURSING_SERVICES_PRESETS } from '../constants';
 import { BANGLADESH_LOCATIONS } from '../constants/locations';
 
 interface UserProfile {
@@ -77,7 +77,7 @@ interface Provider {
 
 export function AdminDashboard() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'users' | 'patients' | 'doctors' | 'medicines' | 'pharmacies' | 'labs' | 'physios' | 'hospitals' | 'ambulances' | 'nursing' | 'transactions' | 'services' | 'merchant' | 'investors' | 'managers' | 'states' | 'shop_requests'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'patients' | 'doctors' | 'medicines' | 'pharmacies' | 'labs' | 'physios' | 'hospitals' | 'ambulances' | 'nursings' | 'transactions' | 'services' | 'merchant' | 'investors' | 'managers' | 'states' | 'shop_requests'>('users');
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [shopRequests, setShopRequests] = useState<any[]>([]);
   const [investors, setInvestors] = useState<UserProfile[]>([]);
@@ -97,6 +97,7 @@ export function AdminDashboard() {
   const [physioServices, setPhysioServices] = useState<GenericService[]>([]);
   const [adminBalance, setAdminBalance] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [updatingDoctorId, setUpdatingDoctorId] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState<any>(null);
@@ -229,6 +230,7 @@ export function AdminDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      setFetchError(null);
       try {
         if (activeTab === 'users' || activeTab === 'patients' || activeTab === 'investors' || activeTab === 'managers' || activeTab === 'states') {
           const snapshot = await getDocs(query(collection(db, 'users'), limit(150)));
@@ -339,7 +341,7 @@ export function AdminDashboard() {
           const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Provider));
           docs.sort((a, b) => (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0));
           setAmbulances(docs);
-        } else if (activeTab === 'nursing') {
+        } else if (activeTab === 'nursings') {
           const snapshot = await getDocs(query(collection(db, 'nursings'), limit(50)));
           const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Provider));
           docs.sort((a, b) => (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0));
@@ -351,7 +353,10 @@ export function AdminDashboard() {
         setLoading(false);
       } catch (err: any) {
         console.error("Admin dashboard fetch error:", err);
-        if (err.message?.includes('quota')) {
+        const errMsg = err.message || '';
+        if (errMsg.includes('quota') || errMsg.includes('resource-exhausted') || errMsg.includes('Quota exceeded')) {
+          setFetchError('QUOTA_EXCEEDED');
+          
           const cacheKey = activeTab === 'users' || activeTab === 'patients' ? 'admin_cached_users' : 
                           activeTab === 'doctors' ? 'admin_cached_doctors' :
                           activeTab === 'medicines' ? 'admin_cached_meds' : '';
@@ -365,7 +370,8 @@ export function AdminDashboard() {
               else if (activeTab === 'users' || activeTab === 'patients') setUsers(data);
             }
           }
-          alert("Firebase Quota Limit শেষ হয়ে গেছে। বর্তমানে ক্যাশ (Cached) ডাটা দেখানো হচ্ছে। কাল রিসেট হলে আপনার আসল সব ডাটা আবার দেখা নিশ্চিত হবে।");
+        } else {
+          setFetchError(errMsg);
         }
         setLoading(false);
       }
@@ -619,7 +625,7 @@ export function AdminDashboard() {
           activeTab === 'labs' ? 'labs' : 
           activeTab === 'physios' ? 'physios' : 
           activeTab === 'hospitals' ? 'hospitals' : 
-          activeTab === 'nursing' ? 'nursings' : 'ambulances';
+          activeTab === 'nursings' ? 'nursings' : 'ambulances';
         
         const type = activeTab.slice(0, -1);
         
@@ -673,7 +679,7 @@ export function AdminDashboard() {
         activeTab === 'labs' ? 'labs' : 
         activeTab === 'physios' ? 'physios' : 
         activeTab === 'hospitals' ? 'hospitals' : 
-        activeTab === 'nursing' ? 'nursings' : 'ambulances';
+        activeTab === 'nursings' ? 'nursings' : 'ambulances';
       
       const type = activeTab.slice(0, -1);
       
@@ -689,19 +695,20 @@ export function AdminDashboard() {
         const id = p.email.replace(/[^a-zA-Z0-9]/g, '_');
         await setDoc(doc(db, collectionName, id), { ...p, id, type: activeTab.slice(0, -1) });
         
-        // If Hospital, seed some sample services (posts) so they show up in Directory
-        if (type === 'hospital') {
-          for (const service of HOSPITAL_SERVICES_PRESETS.slice(0, 4)) {
-            const postId = `post_hosp_${id}_${service.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+        // If Hospital or Nursing, seed some sample services (posts) so they show up in Directory
+        if (type === 'hospital' || type === 'nursing') {
+          const presets = type === 'hospital' ? HOSPITAL_SERVICES_PRESETS : NURSING_SERVICES_PRESETS;
+          for (const service of presets.slice(0, 4)) {
+            const postId = `post_${type}_${id}_${service.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
             await setDoc(doc(db, 'posts', postId), {
               id: postId,
               title: service.name,
-              description: service.description,
+              description: service.description || '',
               price: service.price,
               image: service.image || '',
               providerId: id,
               providerName: p.name,
-              providerType: 'hospital',
+              providerType: type,
               createdAt: new Date().toISOString()
             });
           }
@@ -724,7 +731,7 @@ export function AdminDashboard() {
                    activeTab === 'labs' ? 'lab' : 
                    activeTab === 'physios' ? 'physio' : 
                    activeTab === 'hospitals' ? 'hospital' : 
-                   activeTab === 'nursing' ? 'nursing' : 'ambulance';
+                   activeTab === 'nursings' ? 'nursing' : 'ambulance';
       
       const collectionName = activeTab;
       const cleanName = newProvider.name.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_');
@@ -1247,6 +1254,33 @@ export function AdminDashboard() {
 
   return (
     <div className="space-y-8">
+      {/* Quota Error Alert */}
+      {fetchError === 'QUOTA_EXCEEDED' && (
+        <div className="bg-red-50 border-2 border-red-200 p-8 rounded-[32px] text-center space-y-4">
+          <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <Activity size={40} />
+          </div>
+          <h2 className="text-3xl font-black text-red-900">Firebase Quota Exceeded!</h2>
+          <p className="text-red-700 max-w-lg mx-auto font-medium">
+            দুঃখিত, আজকের জন্য ফায়ারবেসের ডেটা ব্যবহারের সীমা (Free Quota) শেষ হয়ে গেছে। 
+            আগামীকাল বাংলাদেশ সময় দুপুর ১টায় এটি আবার রিসেট হবে। বর্তমানে ক্যাশ (Cached) ডেটা দেখানো হচ্ছে, নতুন কোনো ডেটা লোড হবে না।
+          </p>
+          <div className="pt-4">
+             <button 
+               onClick={() => window.location.reload()}
+               className="px-8 py-3 bg-red-600 text-white rounded-2xl font-bold shadow-lg shadow-red-500/30 hover:bg-red-700 transition-all"
+             >
+               রিফ্রেশ করে দেখুন
+             </button>
+          </div>
+        </div>
+      )}
+
+      {fetchError && fetchError !== 'QUOTA_EXCEEDED' && (
+        <div className="bg-amber-50 border border-amber-100 p-6 rounded-3xl text-amber-800 font-medium">
+          Error loading data: {fetchError}
+        </div>
+      )}
       {/* Hidden File Input for Doctor Images */}
       <input 
         id="doctor-image-upload"
@@ -1339,7 +1373,7 @@ export function AdminDashboard() {
       <div className="space-y-6">
         {/* Row 1: Navigation Tabs */}
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 pb-4">
-          {(['users', 'patients', 'doctors', 'medicines', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursing', 'services', 'transactions', 'merchant', 'investors', 'managers', 'states', 'shop_requests'] as const).map((tab) => (
+          {(['users', 'patients', 'doctors', 'medicines', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursings', 'services', 'transactions', 'merchant', 'investors', 'managers', 'states', 'shop_requests'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -1362,7 +1396,7 @@ export function AdminDashboard() {
                tab === 'managers' ? 'ম্যানেজার' :
                tab === 'states' ? 'স্টেট' :
                tab === 'shop_requests' ? 'শপ' :
-               tab === 'nursing' ? 'নার্সিং সার্ভিস' :
+               tab === 'nursings' ? 'নার্সিং সার্ভিস' :
                tab === 'transactions' ? 'লেনদেন' : 'অ্যাম্বুলেন্স'}
             </button>
           ))}
@@ -1380,7 +1414,7 @@ export function AdminDashboard() {
           </button>
           
 
-          {['doctors', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursing', 'investors', 'managers', 'states'].includes(activeTab) && (
+          {['doctors', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursings', 'investors', 'managers', 'states'].includes(activeTab) && (
             <button 
               onClick={() => {
                 if (activeTab === 'investors') {
@@ -1395,7 +1429,7 @@ export function AdminDashboard() {
               }}
               className={cn(
                 "flex items-center gap-2 px-6 py-3 font-bold rounded-2xl transition-all text-sm border",
-                ['doctors', 'pharmacies', 'nursing', 'investors', 'managers', 'states'].includes(activeTab) 
+                ['doctors', 'pharmacies', 'nursings', 'investors', 'managers', 'states'].includes(activeTab) 
                   ? "bg-sky-50 text-sky-600 border-sky-100 hover:bg-sky-100" 
                   : "bg-slate-50 text-slate-600 border-slate-100 hover:bg-slate-100"
               )}
@@ -1405,7 +1439,7 @@ export function AdminDashboard() {
                 activeTab === 'labs' ? 'ল্যাব যোগ করুন' :
                 activeTab === 'physios' ? 'ফিজিওথেরাপি যোগ করুন' :
                 activeTab === 'hospitals' ? 'হাসপাতাল যোগ করুন' :
-                activeTab === 'nursing' ? 'নার্সিং সার্ভিস যোগ করুন' :
+                activeTab === 'nursings' ? 'নার্সিং সার্ভিস যোগ করুন' :
                 activeTab === 'ambulances' ? 'অ্যাম্বুলেন্স যোগ করুন' : 
                 activeTab === 'investors' ? 'ইনভেস্টর যোগ করুন' :
                 activeTab === 'managers' ? 'ম্যানেজার যোগ করুন' :
@@ -1897,7 +1931,7 @@ export function AdminDashboard() {
                   activeTab === 'labs' ? 'Lab' :
                   activeTab === 'physios' ? 'Physio' :
                   activeTab === 'hospitals' ? 'Hospital' :
-                  activeTab === 'nursing' ? 'Nursing' :
+                  activeTab === 'nursings' ? 'Nursing' :
                   activeTab === 'ambulances' ? 'Ambulance' : 'Doctor'
                 }
               </h2>
@@ -1906,7 +1940,7 @@ export function AdminDashboard() {
               </button>
             </div>
             
-            {['pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursing'].includes(activeTab) && (
+            {['pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursings'].includes(activeTab) && (
               <form onSubmit={handleAddGeneralProvider} className="space-y-4">
                 <input required type="text" placeholder="Name" value={newProvider.name} onChange={e => setNewProvider({...newProvider, name: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-slate-200" />
                 <div className="grid grid-cols-2 gap-4">
@@ -2517,7 +2551,7 @@ export function AdminDashboard() {
           </div>
         )}
 
-        {['pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursing'].includes(activeTab) && (
+        {['pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursings'].includes(activeTab) && (
           <div className="p-4 bg-sky-50 border-b border-sky-100 flex items-center justify-between">
             <p className="text-sm text-sky-700 font-medium">
               Quickly populate your directory with sample centers.
@@ -2634,7 +2668,7 @@ export function AdminDashboard() {
                 activeTab === 'labs' ? mergedLabs : 
                 activeTab === 'physios' ? mergedPhysios : 
                 activeTab === 'hospitals' ? mergedHospitals : 
-                activeTab === 'nursing' ? mergedNursings : mergedAmbulances).map((item) => (
+                activeTab === 'nursings' ? mergedNursings : mergedAmbulances).map((item) => (
                 <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-4 font-medium text-slate-900">{item.name}</td>
                   <td className="px-6 py-4 text-sm text-slate-500">{item.location}</td>

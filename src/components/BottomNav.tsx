@@ -11,7 +11,8 @@ import {
   Activity,
   Building,
   Truck,
-  TestTube
+  TestTube,
+  Heart
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../AuthContext';
@@ -34,6 +35,7 @@ export function BottomNav({ activeTab, setActiveTab, onMenuClick }: BottomNavPro
     if (user?.role === 'hospital') return { label: 'হাসপাতাল', icon: Building };
     if (user?.role === 'ambulance') return { label: 'অ্যাম্বুলেন্স', icon: Truck };
     if (user?.role === 'lab') return { label: 'ল্যাব', icon: TestTube };
+    if (user?.role === 'nursing') return { label: 'নার্সিং', icon: Heart };
     return { label: 'হোম', icon: Home };
   };
 

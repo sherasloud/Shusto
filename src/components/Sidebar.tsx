@@ -74,6 +74,8 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
       dashboardItem = { id: 'dashboard', label: 'অ্যাম্বুলেন্স প্যানেল', icon: Truck };
     } else if (user?.role === 'lab') {
       dashboardItem = { id: 'dashboard', label: 'ল্যাব প্যানেল', icon: FlaskConical };
+    } else if (user?.role === 'nursing') {
+      dashboardItem = { id: 'dashboard', label: 'নার্সিং প্যানেল', icon: Heart };
     }
 
     return [dashboardItem, ...commonItems];
@@ -110,7 +112,8 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
                    user?.role === 'physio' ? 'ফিজিওথেরাপি' : 
                    user?.role === 'hospital' ? 'হাসপাতাল' : 
                    user?.role === 'ambulance' ? 'অ্যাম্বুলেন্স' : 
-                   user?.role === 'lab' ? 'ল্যাব প্যানেল' : 'পেশেন্ট অ্যাপ'}
+                   user?.role === 'lab' ? 'ল্যাব প্যানেল' : 
+                   user?.role === 'nursing' ? 'নার্সিং প্যানেল' : 'পেশেন্ট অ্যাপ'}
                 </span>
                 <button 
                   onClick={() => forceSync()}

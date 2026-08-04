@@ -112,6 +112,10 @@ service cloud.firestore {
          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
     }
 
+    function isNursing() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'nursing';
+    }
+
     function isDoctor() {
       return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'doctor';
     }
@@ -163,7 +167,7 @@ service cloud.firestore {
              (!('address' in data) || data.address is string) &&
              (!('photoURL' in data) || data.photoURL is string) &&
              (!('referredBy' in data) || data.referredBy is string) &&
-             (!('role' in data) || data.role in ['user', 'admin', 'doctor', 'pharmacy', 'physio', 'hospital', 'ambulance', 'lab']);
+             (!('role' in data) || data.role in ['user', 'admin', 'doctor', 'pharmacy', 'physio', 'hospital', 'ambulance', 'lab', 'nursing']);
     }
 
     function isValidMedicine(data) {
@@ -210,8 +214,8 @@ service cloud.firestore {
 
     function isValidServiceRequest(data) {
       return data.keys().hasAll(['userId', 'status']) &&
-             (!('serviceType' in data) || data.serviceType in ['ambulance', 'physio', 'hospital', 'lab', 'service', 'pharmacy']) &&
-             (!('providerType' in data) || data.providerType in ['ambulance', 'physio', 'hospital', 'lab', 'service', 'pharmacy', 'medicine']);
+             (!('serviceType' in data) || data.serviceType in ['ambulance', 'physio', 'hospital', 'lab', 'service', 'pharmacy', 'nursing']) &&
+             (!('providerType' in data) || data.providerType in ['ambulance', 'physio', 'hospital', 'lab', 'service', 'pharmacy', 'medicine', 'nursing']);
     }
 
     function isValidOrder(data) {
@@ -247,7 +251,7 @@ service cloud.firestore {
 
     match /posts/{postId} {
       allow read: if true;
-      allow create: if isAuthenticated() && (isAdmin() || isDoctor() || isPharmacy() || isPhysio() || isHospital() || isAmbulance() || isLab());
+      allow create: if isAuthenticated() && (isAdmin() || isDoctor() || isPharmacy() || isPhysio() || isHospital() || isAmbulance() || isLab() || isNursing());
       allow update: if isAuthenticated() && (isAdmin() || resource.data.providerId == request.auth.uid || resource.data.providerId == 'u_' + request.auth.uid);
       allow delete: if isAuthenticated() && (isAdmin() || resource.data.providerId == request.auth.uid || resource.data.providerId == 'u_' + request.auth.uid);
     }
@@ -287,6 +291,12 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /nursings/{id} {
+      allow read: if true;
+      allow create, update: if (isAdmin() || isManager() || isInvestor()) && isValidProvider(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
     match /prescriptions/{prescriptionId} {
       allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.doctorId || isAdmin());
       allow create: if isAuthenticated() && (isAdmin() || isDoctor());
@@ -315,9 +325,9 @@ service cloud.firestore {
     }
 
     match /serviceRequests/{requestId} {
-      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin() || isPhysio() || isHospital() || isAmbulance() || isLab() || isPharmacy());
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin() || isPhysio() || isHospital() || isAmbulance() || isLab() || isPharmacy() || isNursing());
       allow create: if isAuthenticated() && isValidServiceRequest(request.resource.data);
-      allow update: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin() || isPhysio() || isHospital() || isAmbulance() || isLab() || isPharmacy());
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin() || isPhysio() || isHospital() || isAmbulance() || isLab() || isPharmacy() || isNursing());
       allow delete: if isAdmin();
     }
 

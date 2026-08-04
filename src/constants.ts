@@ -84,6 +84,16 @@ export const HOSPITAL_SERVICES_PRESETS = [
   { name: 'Dialysis (Per Session)', price: 3500, description: 'কিডনি রোগীদের জন্য নিরাপদ ডায়ালাইসিস সুবিধা।', image: 'https://images.unsplash.com/photo-1579152276506-4b609462f48d?auto=format&fit=crop&q=80&w=800' }
 ];
 
+export const NURSING_SERVICES_PRESETS = [
+  { name: 'Home Nursing Care (12h)', price: 1500, description: '১২ ঘণ্টা দক্ষ নার্সিং সেবা আপনার বাসায়। ইনজেকশন, ড্রেসিং এবং ভাইটাল চেকআপ সহ।', image: 'https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?auto=format&fit=crop&q=80&w=800' },
+  { name: 'Home Nursing Care (24h)', price: 2500, description: '২৪ ঘণ্টা সার্বক্ষণিক নার্সিং সেবা। আইসিইউ ফেরত রোগীদের বিশেষ যত্ন।', image: 'https://images.unsplash.com/photo-1586773860418-d319a39ec55e?auto=format&fit=crop&q=80&w=800' },
+  { name: 'Post-Operative Care', price: 1800, description: 'অপারেশনের পরবর্তী বিশেষ যত্ন এবং ঔষধ ব্যবস্থাপনা।', image: 'https://images.unsplash.com/photo-1576765608535-5f04d1e3f289?auto=format&fit=crop&q=80&w=800' },
+  { name: 'Wound Dressing at Home', price: 500, description: 'সার্জিক্যাল বা সাধারণ ক্ষত ড্রেসিং এবং ব্যান্ডেজ পরিবর্তন।', image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&q=80&w=800' },
+  { name: 'NG Tube/Catheter Care', price: 800, description: 'এনজি টিউব বা ক্যাথেটার পরিবর্তন এবং পরিষ্কার করার সেবা।', image: 'https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&q=80&w=800' },
+  { name: 'Injection/IV Infusion', price: 400, description: 'বাসায় এসে দক্ষ হাতে ইনজেকশন বা স্যালাইন পুশ।', image: 'https://images.unsplash.com/photo-1579152276506-4b609462f48d?auto=format&fit=crop&q=80&w=800' }
+];
+
+
 export interface AmbulanceRouteData {
   from: string;
   to: string;
