@@ -25,6 +25,7 @@ interface PrescriptionItem {
 export function DoctorDashboard() {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
   const prevAppointmentsRef = useRef<Appointment[]>([]);
   const { addToast, ToastContainer } = useToast();
   const [activeCall, setActiveCall] = useState<{ id: string; channel: string; patientId: string; appointmentId: string } | null>(null);
@@ -119,6 +120,7 @@ export function DoctorDashboard() {
       
       setAppointments(list);
       setStats({ total: list.length, today: todayCount, completed: completedCount });
+      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -360,6 +362,15 @@ export function DoctorDashboard() {
     newItems[index][field] = value;
     setPrescriptionItems(newItems);
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20 space-y-4">
+        <div className="w-12 h-12 border-4 border-sky-500/20 border-t-sky-500 rounded-full animate-spin" />
+        <p className="text-slate-500 font-medium">ড্যাশবোর্ড লোড হচ্ছে...</p>
+      </div>
+    );
+  }
 
   if (activeCall) {
     return (

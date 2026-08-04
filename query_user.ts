@@ -31,6 +31,7 @@ try {
 
   const appInstance = admin.app();
   const db = getFirestore(appInstance, firebaseConfig?.firestoreDatabaseId);
+  console.log("Script using Database ID:", firebaseConfig?.firestoreDatabaseId || "(default)");
 
   async function run() {
     const users = await db.collection("users").where("email", "==", "shustobd@gmail.com").get();

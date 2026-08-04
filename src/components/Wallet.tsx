@@ -38,7 +38,9 @@ export function Wallet() {
   const { user } = useAuth();
   const [balance, setBalance] = useState(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [walletLoaded, setWalletLoaded] = useState(false);
+  const [transactionsLoaded, setTransactionsLoaded] = useState(false);
+  const loading = !walletLoaded || !transactionsLoaded;
   const [showAddMoney, setShowAddMoney] = useState(false);
   const [amount, setAmount] = useState("");
   const [showWithdraw, setShowWithdraw] = useState(false);
@@ -69,7 +71,8 @@ export function Wallet() {
         const amt = Number(amtStr);
         if (isNaN(amt) || amt <= 0) return;
 
-        setLoading(true); // Show spinner while we guarantee the credit is synced
+        setWalletLoaded(false);
+        setTransactionsLoaded(false);
         setProcessing(true);
         try {
           // Check transaction document atomically using a read/write lock to avoid dual client-server credits
@@ -167,8 +170,10 @@ export function Wallet() {
       } else {
         setBalance(0);
       }
+      setWalletLoaded(true);
     }, (error) => {
       console.error("Wallet DB Error:", error);
+      setWalletLoaded(true); // Don't block UI indefinitely on error
       alert("ডেটাবেস এর সাথে কানেক্ট করতে সমস্যা হচ্ছে (হয়তো কোটা শেষ)। আপনার ব্যালেন্স সাময়িকভাবে দেখা যাচ্ছে না।");
     });
 
@@ -188,9 +193,10 @@ export function Wallet() {
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         ),
       );
-      setLoading(false);
+      setTransactionsLoaded(true);
     }, (error) => {
       console.error("Transactions DB Error:", error);
+      setTransactionsLoaded(true);
     });
 
     return () => {

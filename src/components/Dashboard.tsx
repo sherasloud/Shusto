@@ -136,6 +136,15 @@ export function Dashboard() {
     { label: 'রক্তচাপ', value: '১২০/৮০', icon: Droplets, color: 'text-blue-500', bg: 'bg-blue-50' },
   ];
 
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20 space-y-4">
+        <div className="w-12 h-12 border-4 border-sky-500/20 border-t-sky-500 rounded-full animate-spin" />
+        <p className="text-slate-500 font-medium">ড্যাশবোর্ড লোড হচ্ছে...</p>
+      </div>
+    );
+  }
+
   if (activeCall) {
     return (
       <VideoCall 

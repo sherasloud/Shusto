@@ -408,12 +408,20 @@ export function GenericProviderDashboard({ type, title, description }: GenericPr
         const orderList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ServiceRequest));
         console.log(`[Dashboard] Orders fetched for ${myProviderId}:`, orderList);
         setOrders(orderList);
+        setLoading(false);
+    }, (err) => {
+        console.error("Orders error:", err);
+        setLoading(false);
     });
 
     const unsubRequests = onSnapshot(qRequests, (snapshot) => {
         const requestList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ServiceRequest));
         console.log(`[Dashboard] Requests fetched for ${myProviderId}:`, requestList);
         setServiceRequests(requestList);
+        setLoading(false);
+    }, (err) => {
+        console.error("Requests error:", err);
+        setLoading(false);
     });
 
     // Posts listener
@@ -429,6 +437,10 @@ export function GenericProviderDashboard({ type, title, description }: GenericPr
         ...doc.data()
       })) as Post[];
       setPosts(list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      setLoading(false);
+    }, (err) => {
+      console.error("Posts error:", err);
+      setLoading(false);
     });
 
     return () => {
@@ -831,6 +843,15 @@ export function GenericProviderDashboard({ type, title, description }: GenericPr
       setLoading(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20 space-y-4">
+        <div className="w-12 h-12 border-4 border-sky-500/20 border-t-sky-500 rounded-full animate-spin" />
+        <p className="text-slate-500 font-medium">ড্যাশবোর্ড লোড হচ্ছে...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
