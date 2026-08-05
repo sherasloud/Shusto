@@ -93,52 +93,12 @@ export function Login() {
           </button>
 
           <button
-            onClick={handleOpenNewTab}
-            className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl border border-sky-200 text-sky-700 bg-sky-50/50 hover:bg-sky-50 font-medium text-xs transition-all"
+            onClick={() => demoLogin('user')}
+            className="w-full flex items-center justify-center gap-2 py-4 px-6 rounded-2xl border border-sky-200 text-sky-700 bg-sky-50 hover:bg-sky-100 font-semibold transition-all active:scale-[0.98]"
           >
-            <ExternalLink size={14} />
-            পপ-আপ সমস্যা হলে নতুন ট্যাবে খুলুন
+            <UserCheck size={18} />
+            App ঘুরে দেখুন
           </button>
-        </div>
-
-        {/* Quick Demo Access for instant testing */}
-        <div className="mt-6 pt-6 border-t border-slate-100">
-          <button
-            onClick={() => setShowDemoOptions(!showDemoOptions)}
-            className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center justify-center gap-1.5 mx-auto"
-          >
-            <UserCheck size={14} />
-            {showDemoOptions ? 'ডেমো অপশন লুকান' : 'প্রিভিউ / টেস্টের জন্য ডেমো লগইন করুন'}
-          </button>
-
-          {showDemoOptions && (
-            <div className="mt-3 grid grid-cols-2 gap-2 animate-fadeIn">
-              <button
-                onClick={() => demoLogin('user')}
-                className="py-2 px-3 text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-medium border border-emerald-200 transition"
-              >
-                👤 রোগী (Patient)
-              </button>
-              <button
-                onClick={() => demoLogin('doctor')}
-                className="py-2 px-3 text-xs bg-sky-50 hover:bg-sky-100 text-sky-800 rounded-xl font-medium border border-sky-200 transition"
-              >
-                👨‍⚕️ ডাক্তার (Doctor)
-              </button>
-              <button
-                onClick={() => demoLogin('pharmacy')}
-                className="py-2 px-3 text-xs bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-xl font-medium border border-amber-200 transition"
-              >
-                💊 ফার্মেসি (Pharmacy)
-              </button>
-              <button
-                onClick={() => demoLogin('admin')}
-                className="py-2 px-3 text-xs bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-xl font-medium border border-purple-200 transition"
-              >
-                ⚡ এডমিন (Admin)
-              </button>
-            </div>
-          )}
         </div>
 
         <p className="mt-6 text-[11px] text-slate-400">
