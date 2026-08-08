@@ -2,11 +2,12 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { collection, query, getDocs, doc, updateDoc, setDoc, where, deleteDoc, onSnapshot, getDoc, increment, orderBy, limit, addDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { getApiUrl } from '../utils/api';
-import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit, Store, Heart } from 'lucide-react';
+import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit, Store, Heart, TrendingUp } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { TransactionsPanel } from './TransactionsPanel';
 import { MerchantPanel } from './MerchantPanel';
+import { ProfitsPanel } from './ProfitsPanel';
 import { useAuth } from '../AuthContext';
 
 import { AMBULANCE_ROUTES, LAB_SERVICES_PRESETS, PHYSIO_SERVICES_PRESETS, HOSPITAL_SERVICES_PRESETS, NURSING_SERVICES_PRESETS } from '../constants';
@@ -77,7 +78,7 @@ interface Provider {
 
 export function AdminDashboard() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'users' | 'patients' | 'doctors' | 'medicines' | 'pharmacies' | 'labs' | 'physios' | 'hospitals' | 'ambulances' | 'nursings' | 'transactions' | 'services' | 'merchant' | 'investors' | 'managers' | 'states' | 'shop_requests'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'patients' | 'doctors' | 'medicines' | 'pharmacies' | 'labs' | 'physios' | 'hospitals' | 'ambulances' | 'nursings' | 'transactions' | 'services' | 'merchant' | 'investors' | 'managers' | 'states' | 'shop_requests' | 'profits'>('users');
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [shopRequests, setShopRequests] = useState<any[]>([]);
   const [investors, setInvestors] = useState<UserProfile[]>([]);
@@ -1316,21 +1317,24 @@ export function AdminDashboard() {
           <div className="relative z-10">
             <p className="text-sky-400 font-bold uppercase tracking-widest text-xs mb-2">Total Accumulated Profit</p>
             <h2 className="text-5xl font-black mb-6">৳{adminBalance.toLocaleString()}</h2>
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-3">
               <button 
-                onClick={() => setActiveTab('transactions')}
-                className="px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-2xl font-bold flex items-center gap-2 transition-all"
+                onClick={() => setActiveTab('profits')}
+                className="px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white rounded-2xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-sky-500/20"
               >
-                <DollarSign size={18} /> লেনদেন দেখুন
+                <TrendingUp size={18} /> লভ্যাংশ হিসাব (Profits)
               </button>
               <button 
-                onClick={() => {
-                   // Redirect to common wallet or show message
-                   alert('অ্যাডমিন হিসেবে আপনার প্রফিট তুলতে সরাসরি আপনার পার্সোনাল ওয়ালেট সেকশনে যান।');
-                }}
-                className="px-6 py-3 bg-sky-500 hover:bg-sky-600 rounded-2xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-sky-500/20"
+                onClick={() => setActiveTab('profits')}
+                className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-emerald-500/20"
               >
-                Withdraw Profit
+                <Building size={18} /> Bank থেকে তুলে নিব
+              </button>
+              <button 
+                onClick={() => setActiveTab('transactions')}
+                className="px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-2xl font-bold flex items-center gap-2 transition-all text-white"
+              >
+                <DollarSign size={18} /> লেনদেন দেখুন
               </button>
             </div>
           </div>
@@ -1373,7 +1377,7 @@ export function AdminDashboard() {
       <div className="space-y-6">
         {/* Row 1: Navigation Tabs */}
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 pb-4">
-          {(['users', 'patients', 'doctors', 'medicines', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursings', 'services', 'transactions', 'merchant', 'investors', 'managers', 'states', 'shop_requests'] as const).map((tab) => (
+          {(['profits', 'users', 'patients', 'doctors', 'medicines', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursings', 'services', 'transactions', 'merchant', 'investors', 'managers', 'states', 'shop_requests'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -1382,7 +1386,8 @@ export function AdminDashboard() {
                 activeTab === tab ? "bg-sky-500 text-white shadow-lg shadow-sky-500/20" : "text-slate-400 hover:bg-slate-50"
               )}
             >
-              {tab === 'users' ? 'সকল ইউজার' : 
+              {tab === 'profits' ? '💰 লভ্যাংশ (Profits)' :
+               tab === 'users' ? 'সকল ইউজার' : 
                tab === 'patients' ? 'রোগী' :
                tab === 'doctors' ? 'ডাক্তার' :
                tab === 'medicines' ? 'ঔষধ' :
@@ -2687,6 +2692,10 @@ export function AdminDashboard() {
             </tbody>
           </table>
         )}
+        {activeTab === 'profits' && (
+          <ProfitsPanel adminBalance={adminBalance} adminUid={user?.uid} />
+        )}
+
         {activeTab === 'transactions' && (
           <TransactionsPanel isAdmin />
         )}
