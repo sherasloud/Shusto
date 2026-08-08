@@ -65,13 +65,14 @@ export function DoctorDirectory() {
         console.log("No doctors found in database.");
       }
       
-      const verifiedDocs = docs.filter(d => d.bmdcNumber && d.fee && d.fee > 0);
+      // Include all valid doctors with a name
+      const validDocs = docs.filter(d => d.name && d.name.trim() !== '');
       
-      if (verifiedDocs.length > 0) {
-        localStorage.setItem('cached_doctors', JSON.stringify(verifiedDocs));
+      if (validDocs.length > 0) {
+        localStorage.setItem('cached_doctors', JSON.stringify(validDocs));
       }
       
-      setDoctors(verifiedDocs);
+      setDoctors(validDocs);
       setLoading(false);
     }, (error: any) => {
       console.error("Doctors fetch error:", error);

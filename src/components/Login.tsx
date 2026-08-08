@@ -92,9 +92,19 @@ export function Login() {
             {isLoggingIn ? 'গুগলের সাথে সংযুক্ত হচ্ছে...' : 'Continue with Google'}
           </button>
 
+          {window.self !== window.top && (
+            <button
+              onClick={handleOpenNewTab}
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-sky-200 text-sky-800 bg-sky-50/60 hover:bg-sky-100 font-semibold text-xs transition-all"
+            >
+              <ExternalLink size={14} />
+              নতুন ট্যাবে অ্যাপ খুলুন (Google Auth-এর জন্য)
+            </button>
+          )}
+
           <button
             onClick={() => demoLogin('user')}
-            className="w-full flex items-center justify-center gap-2 py-4 px-6 rounded-2xl border border-sky-200 text-sky-700 bg-sky-50 hover:bg-sky-100 font-semibold transition-all active:scale-[0.98]"
+            className="w-full flex items-center justify-center gap-2 py-4 px-6 rounded-2xl border border-slate-200 text-slate-700 bg-slate-50 hover:bg-slate-100 font-semibold transition-all active:scale-[0.98]"
           >
             <UserCheck size={18} />
             App ঘুরে দেখুন

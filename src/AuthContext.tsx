@@ -281,15 +281,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const result = await signInWithPopup(auth, googleProvider);
         console.log("Login result obtained for:", result.user.email);
       } catch (popupErr: any) {
-        console.warn("signInWithPopup failed, error code:", popupErr.code, popupErr.message);
+        console.warn("signInWithPopup failed, error code:", popupErr?.code, popupErr?.message);
         
-        // If inside iframe or popup blocked/closed/cross-origin, attempt redirect fallback
+        // If inside iframe, do NOT call signInWithRedirect because Google OAuth blocks iframe embedding with X-Frame-Options
+        if (isInIframe) {
+          throw new Error(`আইফ্রেম (Preview) সিকিউরিটি প্রিভিউয়ের কারণে গুগলে সরাসরি পপ-আপ খোলা যাচ্ছে না। অনুগ্রহ করে 'নতুন ট্যাবে খুলুন' বাটনে ক্লিক করে অ্যাপটি নতুন ট্যাবে ব্যবহার করুন অথবা 'App ঘুরে দেখুন' বাটনে চাপুন। (অথবা ফায়ারবেস Authorized Domain এ ${window.location.hostname} যুক্ত আছে কিনা নিশ্চিত করুন)`);
+        }
+
         if (
-          popupErr.code === 'auth/popup-blocked' ||
-          popupErr.code === 'auth/cancelled-popup-request' ||
-          popupErr.code === 'auth/internal-error' ||
-          popupErr.code === 'auth/popup-closed-by-user' ||
-          isInIframe
+          popupErr?.code === 'auth/popup-blocked' ||
+          popupErr?.code === 'auth/cancelled-popup-request' ||
+          popupErr?.code === 'auth/internal-error'
         ) {
           console.log("Attempting signInWithRedirect fallback...");
           await signInWithRedirect(auth, googleProvider);
@@ -302,13 +304,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (err.code === 'auth/network-request-failed') {
         setError("নেটওয়ার্ক সমস্যা: আপনার ইন্টারনেট সংযোগ পরীক্ষা করুন। ভিপিএন বা অ্যাড-ব্লকার থাকলে তা বন্ধ করে আবার চেষ্টা করুন।");
       } else if (err.code === 'auth/popup-blocked') {
-        setError("পপ-আপ ব্লক করা: আপনার ব্রাউজার লগইন উইন্ডোটি খুলতে বাধা দিয়েছে। নিচে 'নতুন ট্যাবে অ্যাপ খুলুন' বাটনে ক্লিক করুন।");
+        setError("পপ-আপ ব্লক করা: আপনার ব্রাউজার লগইন উইন্ডোটি খুলতে বাধা দিয়েছে। নিচে 'নতুন ট্যাবে খুলুন' বাটনে চাপ দিয়ে লগইন করুন।");
       } else if (err.code === 'auth/operation-not-allowed') {
         setError("ফায়ারবেস কনসোলে Google Provider বন্ধ রয়েছে। Firebase Console > Authentication > Sign-in method-এ গিয়ে Google এনাবল করুন।");
       } else if (err.code === 'auth/unauthorized-domain') {
-        setError(`এই ডোমেইনটি (${window.location.hostname}) অনুমোদিত নয়। Firebase Console > Authentication > Settings > Authorized domains-এ যুক্ত করুন।`);
-      } else if (err.code === 'auth/internal-error' && err.message?.includes('cross-origin')) {
-        setError("ব্রাউজার সিকিউরিটি (Cross-Origin) সীমাবদ্ধতা: অনুগ্রহ করে অ্যাপটি নতুন ট্যাবে খুলে চেষ্টা করুন।");
+        setError(`এই ডোমেইনটি (${window.location.hostname}) অনুমোদিত নয়। Firebase Console > Authentication > Settings > Authorized domains-এ ${window.location.hostname} যুক্ত করুন।`);
       } else if (err.code === 'auth/popup-closed-by-user') {
         setError(null);
       } else {

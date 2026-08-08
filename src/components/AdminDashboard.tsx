@@ -102,6 +102,7 @@ export function AdminDashboard() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [updatingDoctorId, setUpdatingDoctorId] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState<any>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Form states
   const [newDoctor, setNewDoctor] = useState({ name: '', specialty: '', fee: 0, bmdcNumber: '', experience: '', degree: '', university: '', email: '', image: '', division: '', district: '', thana: '' });
@@ -233,7 +234,7 @@ export function AdminDashboard() {
       setLoading(true);
       setFetchError(null);
       try {
-        if (activeTab === 'users' || activeTab === 'patients' || activeTab === 'investors' || activeTab === 'managers' || activeTab === 'states') {
+        if (activeTab === 'users' || activeTab === 'patients' || activeTab === 'investors' || activeTab === 'managers' || activeTab === 'states' || activeTab === 'doctors') {
           const snapshot = await getDocs(query(collection(db, 'users'), limit(150)));
           let allUsers = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
           
@@ -300,7 +301,9 @@ export function AdminDashboard() {
             isUserAccount: true
           })) as any[];
           setUserDoctors(uDocs);
-        } else if (activeTab === 'doctors') {
+        }
+        
+        if (activeTab === 'doctors') {
           const snapshot = await getDocs(query(collection(db, 'doctors'), limit(50)));
           const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Doctor));
           docs.sort((a, b) => {
@@ -469,62 +472,93 @@ export function AdminDashboard() {
 
   const handleAddDoctor = async (e: React.FormEvent) => {
     e.preventDefault();
-    const email = newDoctor.email.toLowerCase().trim();
+    if (isSubmitting) return;
+
+    const email = newDoctor.email ? newDoctor.email.toLowerCase().trim() : '';
+    if (!newDoctor.name.trim()) {
+      alert("Doctor name is required.");
+      return;
+    }
+    if (!email) {
+      alert("Doctor email is required.");
+      return;
+    }
+
+    setIsSubmitting(true);
     const cleanEmail = email.replace(/[^a-zA-Z0-9]/g, '_');
     const id = `doc_${cleanEmail}`;
     const existing = manualDoctors.find(d => d.id === id);
     
     try {
-      // 1. Find if a user already exists with this email to get their real UID
-      let realUserId = null;
-      const userQuery = query(collection(db, 'users'), where('email', '==', email));
-      const userSnapshot = await getDocs(userQuery);
-      if (!userSnapshot.empty) {
-        realUserId = userSnapshot.docs[0].id;
-      }
-
-      // 2. Update or create manual doctor record in 'doctors' collection
-      const doctorData = { 
+      const doctorData: Doctor = { 
         ...newDoctor, 
+        name: newDoctor.name.trim(),
         email,
         id,
-        division: newDoctor.division,
-        district: newDoctor.district,
-        userId: realUserId || `email_${cleanEmail}`, // Store the best available ID
-        createdAt: new Date().toISOString(),
+        specialty: newDoctor.specialty.trim() || 'General Physician',
+        fee: Number(newDoctor.fee) || 0,
+        bmdcNumber: newDoctor.bmdcNumber.trim() || '',
+        experience: newDoctor.experience.trim() || '',
+        degree: newDoctor.degree.trim() || '',
+        university: newDoctor.university.trim() || '',
+        division: newDoctor.division || '',
+        district: newDoctor.district || '',
+        thana: newDoctor.thana || '',
+        userId: `email_${cleanEmail}`,
+        createdAt: existing?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
+
+      // 1. Save directly to 'doctors' collection FIRST
       await setDoc(doc(db, 'doctors', id), doctorData);
 
-      // 3. Update ALL user accounts with this email to have the 'doctor' role and sync data
-      const syncData = {
-        role: 'doctor',
-        specialty: newDoctor.specialty,
-        fee: newDoctor.fee,
-        bmdcNumber: newDoctor.bmdcNumber,
-        experience: newDoctor.experience,
-        image: newDoctor.image,
-        photoURL: newDoctor.image, // Sync to profile photo too
-        displayName: newDoctor.name, // Ensure name is synced
-        division: newDoctor.division,
-        district: newDoctor.district
-      };
+      // 2. Try syncing with 'users' collection safely without blocking doctor creation
+      try {
+        const userQuery = query(collection(db, 'users'), where('email', '==', email));
+        const userSnapshot = await getDocs(userQuery);
+        if (!userSnapshot.empty) {
+          doctorData.userId = userSnapshot.docs[0].id;
+        }
 
-      if (!userSnapshot.empty) {
-        const updatePromises = userSnapshot.docs.map(userDoc => 
-          updateDoc(doc(db, 'users', userDoc.id), syncData)
-        );
-        await Promise.all(updatePromises);
-      } else {
-        // 4. Create a placeholder for when they login if no user exists yet
-        const manualId = `email_${cleanEmail}`;
-        await setDoc(doc(db, 'users', manualId), {
-          ...syncData,
-          email,
-          uid: manualId,
-          createdAt: new Date().toISOString()
-        });
+        const syncData = {
+          role: 'doctor',
+          specialty: doctorData.specialty,
+          fee: doctorData.fee,
+          bmdcNumber: doctorData.bmdcNumber,
+          experience: doctorData.experience,
+          degree: doctorData.degree,
+          university: doctorData.university,
+          image: doctorData.image,
+          photoURL: doctorData.image,
+          displayName: doctorData.name,
+          division: doctorData.division,
+          district: doctorData.district,
+          thana: doctorData.thana
+        };
+
+        if (!userSnapshot.empty) {
+          const updatePromises = userSnapshot.docs.map(userDoc => 
+            updateDoc(doc(db, 'users', userDoc.id), syncData)
+          );
+          await Promise.all(updatePromises);
+        } else {
+          const manualId = `email_${cleanEmail}`;
+          await setDoc(doc(db, 'users', manualId), {
+            ...syncData,
+            email,
+            uid: manualId,
+            createdAt: new Date().toISOString()
+          });
+        }
+      } catch (userErr) {
+        console.warn("User role sync error (non-fatal):", userErr);
       }
+      
+      // Update local state immediately so doctor appears right away
+      setManualDoctors(prev => {
+        const filtered = prev.filter(d => d.id !== id);
+        return [doctorData, ...filtered];
+      });
       
       setNewDoctor({ name: '', specialty: '', fee: 0, bmdcNumber: '', experience: '', degree: '', university: '', email: '', image: '', division: '', district: '', thana: '' });
       setShowAddModal(false);
@@ -532,6 +566,8 @@ export function AdminDashboard() {
     } catch (error) {
       console.error("Error adding doctor:", error);
       handleFirestoreError(error, OperationType.WRITE, 'doctors');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -727,6 +763,14 @@ export function AdminDashboard() {
 
   const handleAddGeneralProvider = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
+    if (!newProvider.name.trim()) {
+      alert("Provider name is required.");
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       const type = activeTab === 'pharmacies' ? 'pharmacy' : 
                    activeTab === 'labs' ? 'lab' : 
@@ -737,13 +781,13 @@ export function AdminDashboard() {
       const collectionName = activeTab;
       const cleanName = newProvider.name.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_');
       const id = `${type}_${cleanName}`;
-      
-      console.log(`Adding provider to ${collectionName} with ID ${id}`, newProvider);
+      const email = newProvider.email ? newProvider.email.toLowerCase().trim() : '';
       
       await setDoc(doc(db, collectionName, id), { 
         ...newProvider, 
         id, 
         type,
+        email,
         division: newProvider.division,
         district: newProvider.district,
         thana: newProvider.thana || '',
@@ -751,34 +795,38 @@ export function AdminDashboard() {
         updatedAt: new Date().toISOString()
       });
 
-      // Update ALL user accounts with this email to have the correct role
-      const email = newProvider.email.toLowerCase();
-      const userQuery = query(collection(db, 'users'), where('email', '==', email));
-      const userSnapshot = await getDocs(userQuery);
-      
-      if (!userSnapshot.empty) {
-        const updatePromises = userSnapshot.docs.map(userDoc => 
-          updateDoc(doc(db, 'users', userDoc.id), { 
-            role: type,
-            division: newProvider.division,
-            district: newProvider.district,
-            thana: newProvider.thana || ''
-          })
-        );
-        await Promise.all(updatePromises);
-      } else {
-        // Create a placeholder for when they login
-        const manualId = `email_${email.replace(/[^a-zA-Z0-9]/g, '_')}`;
-        await setDoc(doc(db, 'users', manualId), {
-          email,
-          role: type,
-          displayName: newProvider.name,
-          uid: manualId,
-          division: newProvider.division,
-          district: newProvider.district,
-          thana: newProvider.thana || '',
-          createdAt: new Date().toISOString()
-        });
+      // Update user accounts safely if email provided
+      if (email) {
+        try {
+          const userQuery = query(collection(db, 'users'), where('email', '==', email));
+          const userSnapshot = await getDocs(userQuery);
+          
+          if (!userSnapshot.empty) {
+            const updatePromises = userSnapshot.docs.map(userDoc => 
+              updateDoc(doc(db, 'users', userDoc.id), { 
+                role: type,
+                division: newProvider.division,
+                district: newProvider.district,
+                thana: newProvider.thana || ''
+              })
+            );
+            await Promise.all(updatePromises);
+          } else {
+            const manualId = `email_${email.replace(/[^a-zA-Z0-9]/g, '_')}`;
+            await setDoc(doc(db, 'users', manualId), {
+              email,
+              role: type,
+              displayName: newProvider.name,
+              uid: manualId,
+              division: newProvider.division,
+              district: newProvider.district,
+              thana: newProvider.thana || '',
+              createdAt: new Date().toISOString()
+            });
+          }
+        } catch (userErr) {
+          console.warn("User role sync error (non-fatal):", userErr);
+        }
       }
       
       setNewProvider({ name: '', location: '', contact: '', email: '', division: '', district: '', thana: '' });
@@ -787,20 +835,51 @@ export function AdminDashboard() {
     } catch (error) {
       console.error("Error adding provider:", error);
       handleFirestoreError(error, OperationType.WRITE, activeTab);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   // Merged lists to prevent duplicates in the dashboard UI
   const allDoctors = useMemo(() => {
     const doctorMap = new Map<string, Doctor>();
-    manualDoctors.forEach(doc => { if (doc.email) doctorMap.set(doc.email.toLowerCase().trim(), doc); });
-    userDoctors.forEach(uDoc => {
-      if (uDoc.email) {
-        const email = uDoc.email.toLowerCase().trim();
-        const existing = doctorMap.get(email);
-        doctorMap.set(email, { ...(existing || {}), ...uDoc, id: uDoc.id, isUserAccount: true } as Doctor);
+    
+    // First load manualDoctors
+    manualDoctors.forEach(doc => { 
+      const key = doc.email ? doc.email.toLowerCase().trim() : doc.id;
+      if (key) {
+        doctorMap.set(key, doc);
       }
     });
+
+    // Merge userDoctors while preserving manual doctor fields
+    userDoctors.forEach(uDoc => {
+      const key = uDoc.email ? uDoc.email.toLowerCase().trim() : uDoc.id;
+      if (key) {
+        const existing = doctorMap.get(key);
+        if (existing) {
+          doctorMap.set(key, {
+            ...uDoc,
+            ...existing, // Keep manual doctor fields as primary truth
+            name: existing.name || uDoc.name,
+            specialty: (existing.specialty && existing.specialty !== 'General Physician') ? existing.specialty : (uDoc.specialty || existing.specialty || 'General Physician'),
+            fee: Number(existing.fee) > 0 ? Number(existing.fee) : Number(uDoc.fee) || 0,
+            bmdcNumber: existing.bmdcNumber || uDoc.bmdcNumber || '',
+            experience: existing.experience || uDoc.experience || '',
+            degree: existing.degree || uDoc.degree || '',
+            university: existing.university || uDoc.university || '',
+            image: existing.image || uDoc.image,
+            division: existing.division || uDoc.division,
+            district: existing.district || uDoc.district,
+            id: existing.id || uDoc.id,
+            isUserAccount: true
+          } as Doctor);
+        } else {
+          doctorMap.set(key, uDoc);
+        }
+      }
+    });
+
     return Array.from(doctorMap.values());
   }, [manualDoctors, userDoctors]);
 
@@ -1977,7 +2056,20 @@ export function AdminDashboard() {
                 <input required type="text" placeholder="Additional Location Info" value={newProvider.location} onChange={e => setNewProvider({...newProvider, location: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-slate-200" />
                 <input required type="text" placeholder="Contact Number" value={newProvider.contact} onChange={e => setNewProvider({...newProvider, contact: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-slate-200" />
                 <input required type="email" placeholder="Email" value={newProvider.email} onChange={e => setNewProvider({...newProvider, email: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-slate-200" />
-                <button type="submit" className="w-full py-4 bg-sky-500 text-white font-bold rounded-2xl capitalize">Add {activeTab.slice(0, -1)}</button>
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  className="w-full py-4 bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white font-bold rounded-2xl flex items-center justify-center gap-2 capitalize transition-all shadow-lg shadow-sky-500/20"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <RefreshCcw className="animate-spin" size={20} />
+                      <span>Adding {activeTab.slice(0, -1)}...</span>
+                    </>
+                  ) : (
+                    <span>Add {activeTab.slice(0, -1)}</span>
+                  )}
+                </button>
               </form>
             )}
 
@@ -2037,7 +2129,20 @@ export function AdminDashboard() {
                   <input required type="text" placeholder="Experience (e.g. 10 Years)" value={newDoctor.experience} onChange={e => setNewDoctor({...newDoctor, experience: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-slate-200" />
                 </div>
                 <input required type="number" placeholder="Consultation Fee" value={newDoctor.fee} onChange={e => setNewDoctor({...newDoctor, fee: Number(e.target.value)})} className="w-full px-4 py-3 rounded-xl border border-slate-200" />
-                <button type="submit" className="w-full py-4 bg-sky-500 text-white font-bold rounded-2xl">Add Doctor</button>
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  className="w-full py-4 bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-sky-500/20"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <RefreshCcw className="animate-spin" size={20} />
+                      <span>Adding Doctor...</span>
+                    </>
+                  ) : (
+                    <span>Add Doctor</span>
+                  )}
+                </button>
               </form>
             )}
           </div>
