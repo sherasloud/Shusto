@@ -73,6 +73,17 @@ try {
         credential: admin.credential.cert(serviceAccount),
         projectId: firebaseConfig?.projectId || process.env.VITE_FIREBASE_PROJECT_ID || "demo-project"
       });
+    } else if (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
+      console.log("Initializing Firebase Admin with custom environment credentials...");
+      const formattedKey = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
+      admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId: process.env.FIREBASE_PROJECT_ID || firebaseConfig?.projectId,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: formattedKey,
+        }),
+        projectId: process.env.FIREBASE_PROJECT_ID || firebaseConfig?.projectId
+      });
     } else {
       // Fallback to default application credentials or unauthenticated demo
       admin.initializeApp({
@@ -104,6 +115,85 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
+
+// API endpoint to sync Firebase Authentication users into Firestore 'users' collection
+app.post("/api/admin/sync-auth-users", async (req, res) => {
+  try {
+    if (!admin || !admin.auth) {
+      return res.status(500).json({ error: "Firebase Admin Auth not initialized" });
+    }
+    if (!db_admin) {
+      return res.status(500).json({ error: "Firebase Admin Firestore not initialized" });
+    }
+
+    let usersList: any[] = [];
+    let pageToken: string | undefined = undefined;
+
+    // Fetch all users from Firebase Auth
+    do {
+      const listUsersResult = await admin.auth().listUsers(1000, pageToken);
+      usersList = usersList.concat(listUsersResult.users);
+      pageToken = listUsersResult.pageToken;
+    } while (pageToken);
+
+    console.log(`[SYNC_AUTH] Found ${usersList.length} users in Firebase Authentication.`);
+
+    let createdCount = 0;
+    let updatedCount = 0;
+    const usersCollection = db_admin.collection("users");
+
+    for (const authUser of usersList) {
+      const uid = authUser.uid;
+      const email = authUser.email?.toLowerCase().trim() || null;
+      const displayName = authUser.displayName || (email ? email.split("@")[0] : "User");
+      const photoURL = authUser.photoURL || null;
+
+      const userRef = usersCollection.doc(uid);
+      const docSnap = await userRef.get();
+
+      if (!docSnap.exists) {
+        // Create new user profile document
+        const isDefaultAdmin = email === 'shustobd@gmail.com';
+        const isHardcodedDoctor = email === 'thesiambin@gmail.com' || email === 'monsurhelal86@gmail.com';
+        
+        await userRef.set({
+          uid,
+          displayName,
+          email,
+          photoURL,
+          role: isDefaultAdmin ? 'admin' : (isHardcodedDoctor ? 'doctor' : 'user'),
+          createdAt: authUser.metadata.creationTime || new Date().toISOString()
+        });
+        createdCount++;
+      } else {
+        // Merge essential fields
+        const currentData = docSnap.data();
+        const updateObj: any = {};
+        if (!currentData.email && email) updateObj.email = email;
+        if (!currentData.displayName && displayName) updateObj.displayName = displayName;
+        if (!currentData.photoURL && photoURL) updateObj.photoURL = photoURL;
+        if (!currentData.createdAt && authUser.metadata.creationTime) {
+          updateObj.createdAt = authUser.metadata.creationTime;
+        }
+
+        if (Object.keys(updateObj).length > 0) {
+          await userRef.update(updateObj);
+          updatedCount++;
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      totalAuthUsers: usersList.length,
+      createdProfiles: createdCount,
+      updatedProfiles: updatedCount
+    });
+  } catch (error: any) {
+    console.error("[SYNC_AUTH_ERROR]:", error);
+    res.status(500).json({ error: error.message || "Failed to sync auth users" });
+  }
+});
 
 // Webhook endpoint for Sheba to notify Shusto (Placeholder)
 app.post("/api/sheba/webhook", async (req, res) => {

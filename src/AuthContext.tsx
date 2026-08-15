@@ -25,7 +25,6 @@ interface AuthContextType {
   error: string | null;
   login: () => Promise<void>;
   demoLogin: (role?: 'user' | 'admin' | 'doctor' | 'pharmacy' | 'manager' | 'state') => void;
-  emailLogin: (name: string, email: string, role?: 'user' | 'admin' | 'doctor' | 'pharmacy') => void;
   logout: () => Promise<void>;
   forceSync: () => Promise<void>;
 }
@@ -252,6 +251,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     try {
       console.log("Starting Google login process...");
+      const isInIframe = window.self !== window.top;
+      
       try {
         const result = await signInWithPopup(auth, googleProvider);
         console.log("Login result obtained for:", result.user.email);
@@ -288,8 +289,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
+        if (isInIframe) {
+          throw new Error(`আইফ্রেম (Preview Frame)-এ পপ-আপ নিরাপত্তা বিধিনিষেধ রয়েছে। অনুগ্রহ করে নিচে "নতুন ট্যাবে খুলুন (Open in New Tab)" বাটনে চাপ দিন এবং সেখান থেকে গুগল সাইন-ইন করুন।`);
+        }
+
         if (popupErr?.code === 'auth/popup-closed-by-user') {
-          throw new Error("গুগল লগইন পপ-আপ বন্ধ হয়ে গেছে। আবার চেষ্টা করতে বাটনে চাপ দিন।");
+          throw new Error("গুগল লগইন পপ-আপ বন্ধ হয়ে গেছে। আবার চেষ্টা করতে বাটনে চাপ দিন বা 'নতুন ট্যাবে খুলুন' বাটনে ক্লিক করুন।");
         }
 
         if (
@@ -390,31 +395,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signOut(auth);
   };
 
-  const emailLogin = (name: string, email: string, role: 'user' | 'admin' | 'doctor' | 'pharmacy' = 'user') => {
-    setError(null);
-    setLoading(true);
-    const cleanEmail = email.toLowerCase().trim() || 'user@shusto.app';
-    const isDefaultAdmin = cleanEmail === 'shustobd@gmail.com';
-    const finalRole = isDefaultAdmin ? 'admin' : role;
-    const customUser: UserProfile = {
-      uid: 'user-' + Date.now(),
-      displayName: name.trim() || 'User',
-      email: cleanEmail,
-      photoURL: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cleanEmail)}`,
-      role: finalRole,
-    };
-    setUser(customUser);
-    sessionStorage.setItem('shusto_demo_user', JSON.stringify(customUser));
-    localStorage.setItem('hasSeenWelcome', 'true');
-    setLoading(false);
-
-    setDoc(doc(db, 'users', customUser.uid), {
-      ...customUser,
-      name: customUser.displayName,
-      createdAt: new Date().toISOString()
-    }, { merge: true }).catch(err => console.warn("Custom user sync warning:", err));
-  };
-
   const forceSync = async () => {
     if (!auth.currentUser) return;
     setLoading(true);
@@ -455,7 +435,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, login, demoLogin, emailLogin, logout, forceSync }}>
+    <AuthContext.Provider value={{ user, loading, error, login, demoLogin, logout, forceSync }}>
       {children}
     </AuthContext.Provider>
   );

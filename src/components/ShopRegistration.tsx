@@ -34,12 +34,17 @@ export function ShopRegistration() {
         const prodQ = query(collection(db, 'products'), where('shopId', '==', shopData.id));
         const prodUnsub = onSnapshot(prodQ, (prodSnap) => {
           setProducts(prodSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        }, (err) => {
+          console.warn("Products snapshot warning:", err);
         });
         
         return () => prodUnsub();
       } else {
         setShop(null);
       }
+      setCheckingShop(false);
+    }, (err) => {
+      console.warn("Shop request snapshot warning:", err);
       setCheckingShop(false);
     });
 

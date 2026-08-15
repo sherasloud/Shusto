@@ -337,6 +337,8 @@ export function GenericProviderDashboard({ type, title, description }: GenericPr
                   thana: data.thana || ''
                 });
               }
+            }, (err) => {
+              console.warn("Provider profile snapshot warning:", err);
             });
             return;
           }
@@ -368,6 +370,8 @@ export function GenericProviderDashboard({ type, title, description }: GenericPr
                 thana: data.thana || ''
               });
             }
+          }, (err) => {
+            console.warn("Provider profile snapshot warning:", err);
           });
           return;
         }
@@ -384,6 +388,8 @@ export function GenericProviderDashboard({ type, title, description }: GenericPr
         setBalance(bal);
         try { localStorage.setItem(`cached_wallet_balance_${user.uid}`, String(bal)); } catch (e) {}
       }
+    }, (err) => {
+      console.warn("Wallet snapshot warning:", err);
     });
 
     // Requests listener
@@ -569,6 +575,8 @@ export function GenericProviderDashboard({ type, title, description }: GenericPr
         setBalance(bal);
         try { localStorage.setItem(`cached_wallet_balance_${user.uid}`, String(bal)); } catch (e) {}
       }
+    }, (err) => {
+      console.warn("Wallet snapshot listener error:", err);
     });
     return () => unsubscribe();
   }, [user]);

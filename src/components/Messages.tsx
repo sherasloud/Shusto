@@ -63,7 +63,7 @@ export function Messages() {
           };
         });
         updateList();
-      });
+      }, (err) => console.warn(`Messages ${coll.name} user error:`, err));
       unsubscribes.push(unsubUser);
 
       // Query as Provider (by UID)
@@ -86,7 +86,7 @@ export function Messages() {
           };
         });
         updateList();
-      });
+      }, (err) => console.warn(`Messages ${coll.name} provider error:`, err));
       unsubscribes.push(unsubProvider);
 
       // FALLBACK: Query as Provider by Email (for manual/email-linked accounts)
@@ -119,7 +119,7 @@ export function Messages() {
             }
           });
           updateList();
-        });
+        }, (err) => console.warn(`Messages ${coll.name} email error:`, err));
         unsubscribes.push(unsubEmail);
       }
     });

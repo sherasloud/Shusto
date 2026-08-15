@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { collection, query, getDocs, doc, updateDoc, setDoc, where, deleteDoc, onSnapshot, getDoc, increment, orderBy, limit, addDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { getApiUrl } from '../utils/api';
-import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit, Store, Heart, TrendingUp, Database } from 'lucide-react';
+import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit, Store, Heart, TrendingUp, Trash2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { TransactionsPanel } from './TransactionsPanel';
@@ -12,15 +12,18 @@ import { useAuth } from '../AuthContext';
 
 import { AMBULANCE_ROUTES, LAB_SERVICES_PRESETS, PHYSIO_SERVICES_PRESETS, HOSPITAL_SERVICES_PRESETS, NURSING_SERVICES_PRESETS } from '../constants';
 import { BANGLADESH_LOCATIONS } from '../constants/locations';
+import { seedCompletePlatformData } from '../utils/seedData';
 
 interface UserProfile {
   uid: string;
   displayName: string;
+  name?: string;
   email: string;
   role: string;
   photoURL?: string;
   phoneNumber?: string;
   createdAt?: string;
+  [key: string]: any;
 }
 
 interface Doctor {
@@ -298,6 +301,112 @@ export function AdminDashboard() {
     }
   };
 
+  // Automatically sync Firebase Auth users in the background on load
+  useEffect(() => {
+    fetch('/api/admin/sync-auth-users', { method: 'POST' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && (data.createdProfiles > 0 || data.updatedProfiles > 0)) {
+          console.log(`[AUTO_SYNC_AUTH] Automatically synced ${data.totalAuthUsers} auth users to Firestore. Created ${data.createdProfiles}, updated ${data.updatedProfiles}.`);
+        }
+      })
+      .catch(err => console.warn("[AUTO_SYNC_AUTH] Failed background sync:", err));
+  }, []);
+  
+  // Real-time listener for users collection
+  useEffect(() => {
+    const qUsers = query(collection(db, 'users'), limit(200));
+    const unsub = onSnapshot(qUsers, (snapshot) => {
+      let firestoreUsers = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
+
+      // Deduplicate by email
+      const emailMap = new Map<string, UserProfile>();
+      
+      firestoreUsers.forEach(u => {
+        if (!u.email) {
+          emailMap.set(u.uid, u);
+          return;
+        }
+        const emailLower = u.email.toLowerCase();
+        const existing = emailMap.get(emailLower);
+        if (!existing) {
+          emailMap.set(emailLower, u);
+        } else {
+          emailMap.set(emailLower, { ...existing, ...u });
+        }
+      });
+      let allUsers = Array.from(emailMap.values());
+
+      allUsers.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
+
+      setUsers(allUsers);
+      setInvestors(allUsers.filter(u => u.role === 'investor'));
+      setManagers(allUsers.filter(u => u.role === 'manager'));
+      setStates(allUsers.filter(u => u.role === 'state'));
+
+      const uDocs = allUsers.filter(u => u.role === 'doctor').map(u => ({
+        id: u.uid,
+        userId: u.uid,
+        name: u.displayName || u.name || 'Unnamed Doctor',
+        email: u.email || '',
+        specialty: (u as any).specialty || 'General Physician',
+        fee: (u as any).fee || 0,
+        bmdcNumber: (u as any).bmdcNumber,
+        experience: (u as any).experience,
+        degree: (u as any).degree,
+        university: (u as any).university,
+        image: (u as any).image || u.photoURL,
+        isUserAccount: true
+      })) as any[];
+      setUserDoctors(uDocs);
+    }, (err) => {
+      console.warn("Users realtime snapshot error:", err);
+      setUsers([]);
+      setInvestors([]);
+      setManagers([]);
+      setStates([]);
+      setUserDoctors([]);
+    });
+
+    return () => unsub();
+  }, []);
+
+  const [isSeedingAll, setIsSeedingAll] = useState(false);
+
+  const handleSeedAllPlatformData = async () => {
+    if (!confirm('এটি ক্লাউড ডাটাবেজে (Firestore) সকল রিয়েল ডাক্তার, রোগী, ইনভেস্টর, ম্যানেজার, অ্যাম্বুলেন্স, হাসপাতাল এবং সার্ভিসেস সংরক্ষণ করবে। চালিয়ে যাবেন?')) return;
+    setIsSeedingAll(true);
+    try {
+      const result = await seedCompletePlatformData(db);
+      showSuccess(`সম্পূর্ণ প্ল্যাটফর্ম ডাটা সফলভাবে ক্লাউড ডাটাবেজে (Firestore) সংরক্ষণ হয়েছে! (${result.count} টি রেকর্ড)`);
+    } catch (err: any) {
+      console.error("Seed complete error:", err);
+      alert("ডাটাবেস সংরক্ষণ করতে সমস্যা হয়েছে: " + (err.message || 'Error'));
+    } finally {
+      setIsSeedingAll(false);
+    }
+  };
+
+  // Real-time listener for doctors collection
+  useEffect(() => {
+    const qDoctors = query(collection(db, 'doctors'), limit(200));
+    const unsub = onSnapshot(qDoctors, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Doctor[];
+      setManualDoctors(docs);
+    }, (err) => {
+      console.warn("Doctors realtime snapshot error:", err);
+      setManualDoctors([]);
+    });
+
+    return () => unsub();
+  }, []);
+
+
+
   useEffect(() => {
     const fetchData = async () => {
       // If we already fetched this tab in this session, don't show full-screen loader
@@ -310,91 +419,18 @@ export function AdminDashboard() {
       setFetchError(null);
       try {
         if (activeTab === 'users' || activeTab === 'patients' || activeTab === 'investors' || activeTab === 'managers' || activeTab === 'states' || activeTab === 'doctors') {
-          const snapshot = await getDocs(query(collection(db, 'users'), limit(150)));
-          let allUsers = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
-          
-          // Deduplicate by email
-          const emailMap = new Map<string, UserProfile>();
-          allUsers.forEach(u => {
-            if (!u.email) {
-              emailMap.set(u.uid, u);
-              return;
-            }
-            const emailLower = u.email.toLowerCase();
-            const existing = emailMap.get(emailLower);
-            if (!existing) {
-              emailMap.set(emailLower, u);
-            } else {
-              const dateA = u.createdAt ? new Date(u.createdAt).getTime() : 0;
-              const dateB = existing.createdAt ? new Date(existing.createdAt).getTime() : 0;
-              if (dateA > dateB) {
-                emailMap.set(emailLower, u);
-              }
-            }
-          });
-          allUsers = Array.from(emailMap.values());
-
-          allUsers.sort((a, b) => {
-            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-            return dateB - dateA;
-          });
-
-          setUsers(allUsers);
-          
-          if (activeTab === 'investors') {
-            setInvestors(allUsers.filter(u => u.role === 'investor'));
-          } else if (activeTab === 'managers') {
-            setManagers(allUsers.filter(u => u.role === 'manager'));
-          } else if (activeTab === 'states') {
-            setStates(allUsers.filter(u => u.role === 'state'));
-          }
-          
-          try {
-            const walletsSnap = await getDocs(query(collection(db, 'wallets'), limit(100)));
-            if (!walletsSnap.empty) {
-              const balances: Record<string, number> = {};
-              walletsSnap.docs.forEach(wDoc => {
-                balances[wDoc.id] = wDoc.data().balance || 0;
-              });
-              setUserBalances(prev => ({ ...prev, ...balances }));
-            }
-          } catch (err) {
-            console.error("Error fetching user balances:", err);
-          }
-          
-          const uDocs = allUsers.filter(u => u.role === 'doctor').map(u => ({
-            id: u.uid,
-            name: u.displayName || 'Unnamed Doctor',
-            email: u.email || '',
-            specialty: (u as any).specialty || 'General Physician',
-            fee: (u as any).fee || 0,
-            bmdcNumber: (u as any).bmdcNumber,
-            experience: (u as any).experience,
-            degree: (u as any).degree,
-            university: (u as any).university,
-            image: (u as any).image || u.photoURL,
-            isUserAccount: true
-          })) as any[];
-          setUserDoctors(uDocs);
-        }
-        
-        if (activeTab === 'doctors') {
-          const snapshot = await getDocs(query(collection(db, 'doctors'), limit(100)));
-          const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Doctor));
-          docs.sort((a, b) => {
-            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : (a.updatedAt ? new Date(a.updatedAt).getTime() : 0);
-            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : (b.updatedAt ? new Date(b.updatedAt).getTime() : 0);
-            return dateB - dateA;
-          });
-          setManualDoctors(docs);
+          // Handled via real-time listeners above
+          fetchedTabs.current.add(activeTab);
+          setLoading(false);
+          return;
         } else if (activeTab === 'medicines') {
           const snapshot = await getDocs(query(collection(db, 'medicines'), orderBy('name', 'asc'), limit(200)));
           let docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Medicine));
           setMedicines(docs);
         } else if (['pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursings', 'nutritionists'].includes(activeTab)) {
           const snapshot = await getDocs(query(collection(db, activeTab), limit(100)));
-          const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Provider));
+          let docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Provider));
+
           docs.sort((a, b) => (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0));
 
           if (activeTab === 'pharmacies') setPharmacies(docs);
@@ -1080,13 +1116,112 @@ export function AdminDashboard() {
     return Array.from(map.values());
   }, [nutritionists]);
 
-  // Bulk add medicines with real images
-  const cleanupManualEntries = async () => {
-    alert('নিরাপত্তার স্বার্থে বাল্ক ডাটা রিমুভ অপশন এই প্রজেক্ট থেকে নিষ্ক্রিয় রাখা হয়েছে।');
+  // Delete individual doctor from Firestore
+  const handleDeleteDoctor = async (docToDelete: Doctor) => {
+    if (!confirm(`আপনি কি নিশ্চিত যে "${docToDelete.name}" ডাক্তারকে ডাটাবেজ থেকে মুছে ফেলতে চান?`)) return;
+    setLoading(true);
+    try {
+      // 1. Delete from doctors collection if exists
+      try {
+        await deleteDoc(doc(db, 'doctors', docToDelete.id));
+      } catch (e) {}
+
+      // 2. If it's a user account or has userId, change role or delete if demo
+      const targetUserId = docToDelete.userId || docToDelete.id;
+      if (targetUserId && (targetUserId.startsWith('doc_') || targetUserId.startsWith('seed_') || targetUserId.startsWith('demo_'))) {
+        try {
+          await deleteDoc(doc(db, 'users', targetUserId));
+        } catch (e) {}
+      } else if (targetUserId) {
+        try {
+          await updateDoc(doc(db, 'users', targetUserId), { role: 'user' });
+        } catch (e) {}
+      }
+
+      // Optimistically update local lists
+      setManualDoctors(prev => prev.filter(d => d.id !== docToDelete.id));
+      setUserDoctors(prev => prev.filter(d => d.id !== docToDelete.id && d.userId !== targetUserId));
+      showSuccess(`"${docToDelete.name}" ডাক্তারকে সফলভাবে মুছে ফেলা হয়েছে!`);
+    } catch (err: any) {
+      console.error("Delete doctor error:", err);
+      alert("ডাক্তার মুছতে সমস্যা হয়েছে: " + (err?.message || 'Error'));
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // Bulk cleanup of demo/fake doctors from Firestore
+  const cleanupFakeDoctors = async () => {
+    if (!confirm('আপনি কি নিশ্চিত যে সকল ডেমো, টেস্ট ও ফেক ডাক্তার ডাটাবেজ থেকে মুছে ফেলতে চান? (আপনার আসল ডাক্তার ও ইউজার অপরিবর্তিত থাকবে)')) return;
+    setLoading(true);
+    try {
+      let deletedCount = 0;
+      const fakeEmailSuffixes = ['@shusto.demo', '@shusto.com', 'example.com', 'test.com', 'demo.com'];
+
+      // 1. Check doctors collection in Firestore
+      const doctorsSnap = await getDocs(collection(db, 'doctors'));
+      for (const d of doctorsSnap.docs) {
+        const data = d.data();
+        const email = (data.email || '').toLowerCase();
+        const isSeedId = d.id.startsWith('doc_') || d.id.startsWith('seed_') || d.id.startsWith('demo_');
+        const isFakeEmail = fakeEmailSuffixes.some(suffix => email.endsWith(suffix));
+        const isFakeName = (data.name || '').includes('Demo') || (data.name || '').includes('Test');
+
+        if (isSeedId || isFakeEmail || isFakeName) {
+          await deleteDoc(d.ref);
+          deletedCount++;
+        }
+      }
+
+      // 2. Check users collection for seed/demo doctors
+      const usersSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'doctor')));
+      for (const u of usersSnap.docs) {
+        const data = u.data();
+        const email = (data.email || '').toLowerCase();
+        const isSeedId = u.id.startsWith('doc_') || u.id.startsWith('seed_') || u.id.startsWith('demo_');
+        const isFakeEmail = fakeEmailSuffixes.some(suffix => email.endsWith(suffix));
+        const isFakeName = (data.name || data.displayName || '').includes('Demo') || (data.name || data.displayName || '').includes('Test');
+
+        if (isSeedId || isFakeEmail || isFakeName) {
+          await deleteDoc(u.ref);
+          deletedCount++;
+        }
+      }
+
+      // Clean local state
+      setManualDoctors(prev => prev.filter(d => !fakeEmailSuffixes.some(s => (d.email || '').toLowerCase().endsWith(s)) && !d.id.startsWith('doc_') && !d.id.startsWith('seed_')));
+      setUserDoctors(prev => prev.filter(d => !fakeEmailSuffixes.some(s => (d.email || '').toLowerCase().endsWith(s)) && !d.id.startsWith('doc_') && !d.id.startsWith('seed_')));
+
+      showSuccess(`সফলভাবে ${deletedCount} টি ডেমো/ফেক ডাক্তার ডাটাবেজ থেকে মুছে ফেলা হয়েছে!`);
+    } catch (err: any) {
+      console.error("Cleanup error:", err);
+      alert("Error cleaning up fake doctors: " + (err?.message || 'Error'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cleanupManualEntries = cleanupFakeDoctors;
+
   const deleteItem = async (collectionName: string, id: string) => {
-    alert('নিরাপত্তার স্বার্থে ডিলিট/রিমুভ অপশন এই প্রজেক্ট থেকে নিষ্ক্রিয় রাখা হয়েছে। কোন ডাটা ডিলিট হবে না।');
+    if (!confirm('আপনি কি নিশ্চিত যে এই আইটেমটি ডাটাবেজ থেকে মুছে ফেলতে চান?')) return;
+    setLoading(true);
+    try {
+      await deleteDoc(doc(db, collectionName, id));
+      if (collectionName === 'pharmacies') setPharmacies(prev => prev.filter(i => i.id !== id));
+      if (collectionName === 'labs') setLabs(prev => prev.filter(i => i.id !== id));
+      if (collectionName === 'physios') setPhysios(prev => prev.filter(i => i.id !== id));
+      if (collectionName === 'hospitals') setHospitals(prev => prev.filter(i => i.id !== id));
+      if (collectionName === 'ambulances') setAmbulances(prev => prev.filter(i => i.id !== id));
+      if (collectionName === 'nursings') setNursings(prev => prev.filter(i => i.id !== id));
+      if (collectionName === 'nutritionists') setNutritionists(prev => prev.filter(i => i.id !== id));
+      showSuccess("আইটেমটি সফলভাবে মুছে ফেলা হয়েছে!");
+    } catch (err: any) {
+      console.error("Delete item error:", err);
+      alert("মুছতে ব্যর্থ হয়েছে: " + (err?.message || 'Error'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const updateUserRole = async (userId: string, newRole: string) => {
@@ -1186,6 +1321,29 @@ export function AdminDashboard() {
     }
   };
 
+  const syncAuthUsers = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/admin/sync-auth-users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        showSuccess(`সফলভাবে ফায়ারবেস অথেনটিকেশন ডাটা সিঙ্ক করা হয়েছে! মোট অথ ইউজার: ${data.totalAuthUsers}, নতুন প্রোফাইল তৈরি হয়েছে: ${data.createdProfiles}, আপডেট হয়েছে: ${data.updatedProfiles} টি।`);
+      } else {
+        alert("সিঙ্ক করতে সমস্যা হয়েছে: " + (data.error || 'Unknown error'));
+      }
+    } catch (err: any) {
+      console.error("Auth sync error:", err);
+      alert("সার্ভার কানেকশন এরর: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const syncAllRoles = async () => {
     setLoading(true);
     try {
@@ -1227,161 +1385,6 @@ export function AdminDashboard() {
     } catch (error) {
       console.error("Sync error:", error);
       alert("Failed to sync roles.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const seedAllAppData = async () => {
-    if (!confirm('This will seed the entire database with sample users, doctors, medicines, diagnostic tests, hospitals, and all healthcare centers. This is highly recommended to test the full functionality of the app. Continue?')) return;
-    setLoading(true);
-    try {
-      // 1. Seed Sample Users
-      const sampleUsersList = [
-        { uid: 'admin_shusto', displayName: 'Shusto Admin', name: 'Shusto Admin', email: 'shustobd@gmail.com', role: 'admin', createdAt: new Date().toISOString() },
-        { uid: 'demo-patient-123', displayName: 'Demo Patient (রোগী)', name: 'Demo Patient', email: 'patient@shusto.demo', role: 'user', createdAt: new Date().toISOString() },
-        { uid: 'patient_ariful', displayName: 'আরিফুল ইসলাম', name: 'আরিফুল ইসলাম', email: 'ariful@shusto.demo', role: 'user', phoneNumber: '01712345678', division: 'Dhaka', district: 'Dhaka', createdAt: new Date().toISOString() },
-        { uid: 'patient_fatema', displayName: 'ফাতেমা খাতুন', name: 'ফাতেমা খাতুন', email: 'fatema@shusto.demo', role: 'user', phoneNumber: '01812345679', division: 'Chittagong', district: 'Chittagong', createdAt: new Date().toISOString() },
-        { uid: 'patient_tanvir', displayName: 'তানভীর আহমেদ', name: 'তানভীর আহমেদ', email: 'tanvir@shusto.demo', role: 'user', phoneNumber: '01912345680', division: 'Rajshahi', district: 'Rajshahi', createdAt: new Date().toISOString() },
-        { uid: 'demo-doctor-123', displayName: 'Dr. Rahul Chowdhury', name: 'Dr. Rahul Chowdhury', email: 'doctor@shusto.demo', role: 'doctor', specialty: 'Cardiology', fee: 800, bmdcNumber: 'BMDC-102938', createdAt: new Date().toISOString() },
-        { uid: 'demo-pharmacy-123', displayName: 'City Pharmacy', name: 'City Pharmacy', email: 'pharmacy@shusto.demo', role: 'pharmacy', location: 'Dhanmondi, Dhaka', createdAt: new Date().toISOString() },
-        { uid: 'demo-manager-123', displayName: 'Demo Manager', name: 'Demo Manager', email: 'manager@shusto.demo', role: 'manager', createdAt: new Date().toISOString() },
-        { uid: 'demo-state-123', displayName: 'Demo State Representative', name: 'Demo State Representative', email: 'state@shusto.demo', role: 'state', createdAt: new Date().toISOString() },
-        { uid: 'investor_jahir', displayName: 'মো জহিরুল ইসলাম', name: 'মো জহিরুল ইসলাম', email: 'investor@shusto.demo', role: 'investor', createdAt: new Date().toISOString() }
-      ];
-
-      for (const u of sampleUsersList) {
-        await setDoc(doc(db, 'users', u.uid), u, { merge: true });
-      }
-
-      // 2. Seed Medicines
-      const medicinePresets = [
-        { name: 'Napa Extend', generic: 'Paracetamol', category: 'Fever & Pain', price: 15, company: 'Beximco', image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=800' },
-        { name: 'Seclo 20', generic: 'Omeprazole', category: 'Gastric', price: 7, company: 'Square', image: 'https://images.unsplash.com/photo-1471864190281-ad5f9fc0700c?q=80&w=800' },
-        { name: 'Fenadin 120', generic: 'Fexofenadine', category: 'Allergy', price: 10, company: 'Renata', image: 'https://images.unsplash.com/photo-1628771065518-0d82f1110547?q=80&w=800' },
-        { name: 'Zithrin 500', generic: 'Azithromycin', category: 'Antibiotic', price: 35, company: 'Radiant', image: 'https://images.unsplash.com/photo-1607619056574-7b8d3ee536b2?q=80&w=800' },
-        { name: 'Calbo-D', generic: 'Calcium + Vitamin D3', category: 'Supplements', price: 250, company: 'Square', image: 'https://images.unsplash.com/photo-1550572017-ed200f5e6383?q=80&w=400' },
-        { name: 'Alatrol', generic: 'Cetirizine', category: 'Allergy', price: 5, company: 'Square', image: 'https://images.unsplash.com/photo-1631549916768-4119b295f78b?q=80&w=800' },
-        { name: 'Monas 10', generic: 'Montelukast', category: 'Asthma', price: 18, company: 'Acme', image: 'https://images.unsplash.com/photo-1581093588401-fbb62a02f120?q=80&w=800' },
-        { name: 'Sergel 20', generic: 'Esomeprazole', category: 'Gastric', price: 8, company: 'Healthcare', image: 'https://images.unsplash.com/photo-1626285861696-9f0bf5a49c6d?q=80&w=800' },
-        { name: 'Ace Plus', generic: 'Paracetamol + Caffeine', category: 'Fever & Pain', price: 3, company: 'Square', image: 'https://images.unsplash.com/photo-1550572017-ed200f5e6383?q=80&w=400&sig=aceplus' },
-        { name: 'Tofen', generic: 'Ketotifen', category: 'Asthma', price: 4, company: 'Beximco', image: 'https://images.unsplash.com/photo-1581093588401-fbb62a02f120?q=80&w=800&sig=tofen' },
-        { name: 'Bextram Gold', generic: 'Multivitamin', category: 'Supplements', price: 450, company: 'Beximco', image: 'https://images.unsplash.com/photo-1615461066841-f6677c789c6e?q=80&w=800' },
-        { name: 'Orsaline N', generic: 'ORS', category: 'Nutrition', price: 6, company: 'SMC', image: 'https://images.unsplash.com/photo-1631549916768-4119b295f78b?q=80&w=800' },
-        { name: 'Thyrox 50', generic: 'Levothyroxine', category: 'Hormone', price: 3, company: 'Square', image: 'https://images.unsplash.com/photo-1587854692152-cbe660dbbb88?q=80&w=800' },
-        { name: 'Amodis 400', generic: 'Metronidazole', category: 'Gastric', price: 5, company: 'Aristopharma', image: 'https://images.unsplash.com/photo-1471864190281-ad5f9fc0700c?q=80&w=800&sig=amodis' },
-        { name: 'Ecap 400', generic: 'Vitamin E', category: 'Supplements', price: 7, company: 'Healthcare', image: 'https://images.unsplash.com/photo-1559113084-25e50529d1bd?q=80&w=800' },
-        { name: 'Maxpro 20', generic: 'Esomeprazole', category: 'Gastric', price: 7, company: 'Renata', image: 'https://images.unsplash.com/photo-1626285861696-9f0bf5a49c6d?q=80&w=800&sig=maxpro' },
-        { name: 'Rivotril 0.5', generic: 'Clonazepam', category: 'Anxiety', price: 8, company: 'Roche', image: 'https://images.unsplash.com/photo-1563342081-3968393587b1?q=80&w=800' },
-        { name: 'Exium 20', generic: 'Esomeprazole', category: 'Gastric', price: 10, company: 'Radiant', image: 'https://images.unsplash.com/photo-1471864190281-ad5f9fc0700c?q=80&w=800&sig=exium' },
-        { name: 'Bizoran 5/20', generic: 'Amlodipine + Olmesartan', category: 'Blood Pressure', price: 12, company: 'Square', image: 'https://images.unsplash.com/photo-1516574187841-cb9cc2ca948b?q=80&w=800' },
-        { name: 'Metfo 500', generic: 'Metformin', category: 'Diabetes', price: 4, company: 'Beximco', image: 'https://images.unsplash.com/photo-1615461066159-fea0960485d5?q=80&w=800' },
-        { name: 'Angilock 50', generic: 'Losartan', category: 'Blood Pressure', price: 8, company: 'Square', image: 'https://images.unsplash.com/photo-1631549916768-4119b295f78b?q=80&w=800&sig=angilock' },
-        { name: 'Pantonix 20', generic: 'Pantoprazole', category: 'Gastric', price: 6, company: 'Incepta', image: 'https://images.unsplash.com/photo-1471864190281-ad5f9fc0700c?q=80&w=800&sig=pantonix' },
-        { name: 'Filwel Gold', generic: 'Multivitamin', category: 'Supplements', price: 10, company: 'Square', image: 'https://images.unsplash.com/photo-15840174443b1-27bbd969ec8c?q=80&w=800' },
-        { name: 'Xinc', generic: 'Zinc Sulfate', category: 'Supplements', price: 3, company: 'Square', image: 'https://images.unsplash.com/photo-1550572017-ed200f5e6383?q=80&w=400&sig=xinc' },
-        { name: 'Rovista 10', generic: 'Rosuvastatin', category: 'Heart', price: 15, company: 'Incepta', image: 'https://images.unsplash.com/photo-1530026405186-ed1f139313f8?q=80&w=800' }
-      ];
-
-      for (const med of medicinePresets) {
-        const id = `med_${med.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
-        await setDoc(doc(db, 'medicines', id), { ...med, id, updatedAt: new Date().toISOString() });
-      }
-
-      // 3. Seed Global Services (Lab / Physio)
-      for (const test of LAB_SERVICES_PRESETS) {
-        const id = `lab_${test.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
-        await setDoc(doc(db, 'labTests', id), { ...test, id, type: 'lab' });
-      }
-      for (const service of PHYSIO_SERVICES_PRESETS) {
-        const id = `physio_${service.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
-        await setDoc(doc(db, 'physioServices', id), { ...service, id, type: 'physio' });
-      }
-
-      // 4. Seed All Providers
-      const providerTypes = ['pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursings', 'nutritionists'] as const;
-      for (const pType of providerTypes) {
-        const type = pType.slice(0, -1);
-        const providers = [
-          { name: `${type.charAt(0).toUpperCase() + type.slice(1)} Center Dhanmondi`, location: 'Dhanmondi, Dhaka', division: 'Dhaka', district: 'Dhaka', contact: '01711111111', email: `dhanmondi.${type}@shusto.com` },
-          { name: `${type.charAt(0).toUpperCase() + type.slice(1)} Care Gulshan`, location: 'Gulshan 2, Dhaka', division: 'Dhaka', district: 'Dhaka', contact: '01722222222', email: `gulshan.${type}@shusto.com` },
-          { name: `${type.charAt(0).toUpperCase() + type.slice(1)} Point Banani`, location: 'Banani, Dhaka', division: 'Dhaka', district: 'Dhaka', contact: '01733333333', email: `banani.${type}@shusto.com` },
-          { name: `${type.charAt(0).toUpperCase() + type.slice(1)} Hub Uttara`, location: 'Uttara, Dhaka', division: 'Dhaka', district: 'Dhaka', contact: '01744444444', email: `uttara.${type}@shusto.com` },
-          { name: `${type.charAt(0).toUpperCase() + type.slice(1)} Station Chittagong`, location: 'GEC, Chittagong', division: 'Chittagong', district: 'Chittagong', contact: '01755555555', email: `ctg.${type}@shusto.com` }
-        ];
-
-        for (const p of providers) {
-          const id = p.email.replace(/[^a-zA-Z0-9]/g, '_');
-          await setDoc(doc(db, pType, id), { ...p, id, type });
-
-          if (type === 'hospital' || type === 'nursing') {
-            const presets = type === 'hospital' ? HOSPITAL_SERVICES_PRESETS : NURSING_SERVICES_PRESETS;
-            for (const service of presets.slice(0, 4)) {
-              const postId = `post_${type}_${id}_${service.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
-              await setDoc(doc(db, 'posts', postId), {
-                id: postId,
-                title: service.name,
-                description: service.description || '',
-                price: service.price,
-                image: service.image || '',
-                providerId: id,
-                providerName: p.name,
-                providerType: type,
-                createdAt: new Date().toISOString()
-              });
-            }
-          }
-        }
-      }
-
-      // 5. Seed Doctors
-      const sampleDoctors = [
-        { name: 'Dr. Rahul Chowdhury', specialty: 'Cardiology', fee: 800, email: 'rahul@shusto.com', bmdcNumber: 'BMDC-12345', experience: '12 Years', degree: 'MBBS, FCPS (Cardiology)', university: 'Dhaka Medical College', division: 'Dhaka', district: 'Dhaka', thana: 'Dhanmondi', image: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?q=80&w=400', isOnline: true },
-        { name: 'Dr. Sabrina Yesmin', specialty: 'Gynecology', fee: 700, email: 'sabrina@shusto.com', bmdcNumber: 'BMDC-23456', experience: '8 Years', degree: 'MBBS, MS (Gynae & Obs)', university: 'Chittagong Medical College', division: 'Chittagong', district: 'Chittagong', thana: 'Double Mooring', image: 'https://images.unsplash.com/photo-1594824813573-246434de83fb?q=80&w=400', isOnline: true },
-        { name: 'Dr. Amitav Rahman', specialty: 'Pediatrics', fee: 600, email: 'amitav@shusto.com', bmdcNumber: 'BMDC-34567', experience: '10 Years', degree: 'MBBS, MD (Pediatrics)', university: 'Rajshahi Medical College', division: 'Rajshahi', district: 'Rajshahi', thana: 'Boalia', image: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=400', isOnline: false },
-        { name: 'Dr. Tanveer Ahmed', specialty: 'Neurology', fee: 1000, email: 'tanveer@shusto.com', bmdcNumber: 'BMDC-45678', experience: '15 Years', degree: 'MBBS, MD (Neurology)', university: 'Dhaka Medical College', division: 'Dhaka', district: 'Dhaka', thana: 'Gulshan', image: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?q=80&w=400', isOnline: true },
-        { name: 'Dr. Farhana Khan', specialty: 'Dermatology', fee: 500, email: 'farhana@shusto.com', bmdcNumber: 'BMDC-56789', experience: '6 Years', degree: 'MBBS, DDV', university: 'Sylhet MAG Osmani Medical College', division: 'Sylhet', district: 'Sylhet', thana: 'Sylhet Sadar', image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=400', isOnline: true }
-      ];
-
-      for (const docObj of sampleDoctors) {
-        const id = `doc_${docObj.email.replace(/[^a-zA-Z0-9]/g, '_')}`;
-        await setDoc(doc(db, 'doctors', id), {
-          ...docObj,
-          id,
-          userId: `email_${docObj.email.replace(/[^a-zA-Z0-9]/g, '_')}`,
-          isUserAccount: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        });
-
-        // Also add user profile for the doctor so sync is happy
-        await setDoc(doc(db, 'users', `email_${docObj.email.replace(/[^a-zA-Z0-9]/g, '_')}`), {
-          uid: `email_${docObj.email.replace(/[^a-zA-Z0-9]/g, '_')}`,
-          email: docObj.email,
-          displayName: docObj.name,
-          name: docObj.name,
-          role: 'doctor',
-          photoURL: docObj.image,
-          specialty: docObj.specialty,
-          fee: docObj.fee,
-          bmdcNumber: docObj.bmdcNumber,
-          experience: docObj.experience,
-          degree: docObj.degree,
-          university: docObj.university,
-          division: docObj.division,
-          district: docObj.district,
-          thana: docObj.thana,
-          createdAt: new Date().toISOString()
-        }, { merge: true });
-      }
-
-      showSuccess("Successfully seeded ALL application data into your database! Refreshing views...");
-      
-      // Trigger a re-render/reload for the current tab
-      window.location.reload();
-    } catch (error) {
-      console.error("Error seeding all data:", error);
-      alert("Failed to seed database.");
     } finally {
       setLoading(false);
     }
@@ -1819,7 +1822,7 @@ export function AdminDashboard() {
         </div>
 
         {/* Row 2: Add Buttons */}
-        <div className="flex flex-wrap gap-3 w-full">
+        <div className="flex flex-wrap items-center gap-3 w-full">
 
           <button 
             onClick={syncAllRoles}
@@ -1828,39 +1831,6 @@ export function AdminDashboard() {
           >
             <RefreshCcw size={18} className={cn(loading && "animate-spin")} />
             সকল রোল সিঙ্ক করুন
-          </button>
-
-          <button 
-            onClick={seedAllAppData}
-            disabled={loading}
-            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl transition-all text-sm shadow-lg shadow-indigo-600/20"
-          >
-            <Plus size={18} />
-            সব ডাটা একসাথে সিড করুন (Seed All Data)
-          </button>
-
-          <button 
-            onClick={() => {
-              const current = typeof window !== 'undefined' && localStorage.getItem("force_default_db") === "true";
-              if (current) {
-                localStorage.removeItem("force_default_db");
-              } else {
-                localStorage.setItem("force_default_db", "true");
-              }
-              window.location.reload();
-            }}
-            disabled={loading}
-            className={cn(
-              "flex items-center gap-2 px-6 py-3 font-bold rounded-2xl transition-all text-sm shadow-sm border",
-              (typeof window !== 'undefined' && localStorage.getItem("force_default_db") === "true")
-                ? "bg-amber-500 hover:bg-amber-600 text-white border-amber-600" 
-                : "bg-teal-600 hover:bg-teal-700 text-white border-teal-700"
-            )}
-          >
-            <Database size={18} />
-            {(typeof window !== 'undefined' && localStorage.getItem("force_default_db") === "true")
-              ? "ডিফল্ট (default) ডাটাবেজে আছেন ➜ কাস্টম আইডিতে যান" 
-              : "কাস্টম ডাটাবেজে আছেন ➜ ডিফল্ট (default) এ যান"}
           </button>
           
 
@@ -2798,11 +2768,25 @@ export function AdminDashboard() {
                   <Plus size={18} /> স্যাম্পল ইউজার যোগ করুন
                 </button>
                 <button 
+                  onClick={syncAuthUsers}
+                  disabled={loading}
+                  className="px-6 py-2.5 bg-purple-50 text-purple-600 rounded-2xl font-bold flex items-center gap-2 hover:bg-purple-100 transition-all border border-purple-100 text-sm shadow-sm"
+                >
+                  <RefreshCcw size={18} className={cn(loading && "animate-spin")} /> ফায়ারবেস ইউজার ইম্পোর্ট করুন
+                </button>
+                <button 
                   onClick={syncAllRoles}
                   disabled={loading}
                   className="px-6 py-2.5 bg-sky-50 text-sky-600 rounded-2xl font-bold flex items-center gap-2 hover:bg-sky-100 transition-all border border-sky-100 text-sm shadow-sm"
                 >
                   <RefreshCcw size={18} className={cn(loading && "animate-spin")} /> রুলস সিঙ্ক করুন
+                </button>
+                <button 
+                  onClick={handleSeedAllPlatformData}
+                  disabled={loading || isSeedingAll}
+                  className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-2xl font-bold flex items-center gap-2 transition-all text-sm shadow-sm"
+                >
+                  <RefreshCcw size={18} className={cn((loading || isSeedingAll) && "animate-spin")} /> 🚀 ডাটাবেজ ওয়ান-ক্লিক সেটআপ
                 </button>
               </div>
             </div>
@@ -3027,31 +3011,33 @@ export function AdminDashboard() {
         )}
 
         {activeTab === 'doctors' && (
-          <div className="p-4 bg-amber-50 border-b border-amber-100 flex items-center justify-between">
-            <p className="text-sm text-amber-700 font-medium">
-              Found {allDoctors.filter(d => !d.bmdcNumber || !d.fee).length} invalid doctors (missing BMDC or Fee).
-            </p>
-            <button 
-              onClick={cleanupManualEntries}
-              className="px-4 py-2 bg-amber-600 text-white text-xs font-bold rounded-xl hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20"
-            >
-              Cleanup Invalid Doctors
-            </button>
+          <div className="p-4 bg-amber-50/80 border-b border-amber-100 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm text-amber-800 font-semibold">
+                ডাক্তার তালিকা ব্যবস্থাপনা ({allDoctors.length} জন ডাক্তার)
+              </p>
+              <p className="text-xs text-amber-600">
+                অপ্রয়োজনীয়, টেস্ট বা ডেমো ডাক্তার ডাটাবেজ থেকে সহজে মুছে ফেলুন।
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={cleanupFakeDoctors}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-rose-600/20 flex items-center gap-1.5"
+                title="সকল ডেমো/টেস্ট ডাক্তার ডাটাবেজ থেকে মুছে ফেলুন"
+              >
+                <Trash2 size={14} />
+                <span>সব ডেমো/ফেক ডাক্তার মুছুন</span>
+              </button>
+            </div>
           </div>
         )}
 
         {['pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursings', 'nutritionists'].includes(activeTab) && (
           <div className="p-4 bg-sky-50 border-b border-sky-100 flex items-center justify-between">
             <p className="text-sm text-sky-700 font-medium">
-              Quickly populate your directory with sample centers.
+              ডিরেক্টরি সেন্টার তালিকা ({activeTab === 'pharmacies' ? mergedPharmacies.length : activeTab === 'labs' ? mergedLabs.length : activeTab === 'physios' ? mergedPhysios.length : activeTab === 'hospitals' ? mergedHospitals.length : activeTab === 'nursings' ? mergedNursings.length : activeTab === 'nutritionists' ? mergedNutritionists.length : mergedAmbulances.length} টি)
             </p>
-            <button 
-              onClick={seedProviders}
-              disabled={loading}
-              className="px-4 py-2 bg-sky-600 text-white text-xs font-bold rounded-xl hover:bg-sky-700 transition-all shadow-lg shadow-sky-600/20 disabled:opacity-50"
-            >
-              Seed 5 Sample {activeTab}
-            </button>
           </div>
         )}
 
@@ -3125,6 +3111,13 @@ export function AdminDashboard() {
                     >
                       <RefreshCcw size={18} />
                     </button>
+                    <button 
+                      onClick={() => handleDeleteDoctor(doc)}
+                      className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors" 
+                      title="Delete Doctor"
+                    >
+                      <Trash2 size={18} />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -3160,7 +3153,13 @@ export function AdminDashboard() {
                     >
                       <Edit size={18} />
                     </button>
-                    {/* Deletion disabled */}
+                    <button 
+                      onClick={() => deleteItem(activeTab, item.id)}
+                      className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+                      title="Delete Item"
+                    >
+                      <Trash2 size={18} />
+                    </button>
                   </td>
                 </tr>
               ))}

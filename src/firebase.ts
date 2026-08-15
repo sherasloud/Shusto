@@ -15,12 +15,8 @@ export const auth = getAuth(app);
 // Set persistence early to ensure session survives cross-origin navigation if possible
 setPersistence(auth, browserLocalPersistence).catch(console.error);
 
-const storageDbId = typeof window !== 'undefined' ? localStorage.getItem("force_default_db") : null;
-const configDbId = (firebaseConfig as any).firestoreDatabaseId;
-const activeDbId = storageDbId === "true" ? undefined : (configDbId || undefined);
-
-export const db = getFirestore(app, activeDbId);
-console.log("Using Database ID:", activeDbId || "(default)");
+export const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId);
+console.log("Using Database ID:", (firebaseConfig as any).firestoreDatabaseId);
 console.log("Firebase Services initialized");
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });

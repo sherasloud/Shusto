@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Star, Clock, Search, History, Calendar, FileText, X, Video, CheckCircle, AlertCircle } from 'lucide-react';
-import { collection, onSnapshot, query, addDoc, where, getDocs, doc, getDoc, updateDoc, increment, runTransaction, limit } from 'firebase/firestore';
+import { collection, onSnapshot, query, addDoc, where, getDocs, doc, getDoc, updateDoc, increment, runTransaction, limit, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../AuthContext';
 import { cn } from '../lib/utils';
@@ -134,37 +134,199 @@ export function DoctorDirectory() {
       const sorted = list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setMyAppointments(sorted);
       try { localStorage.setItem(`cached_my_appts_${user.uid}`, JSON.stringify(sorted)); } catch (e) {}
+    }, (err) => {
+      console.warn("My appointments snapshot warning:", err);
+      try {
+        const cached = localStorage.getItem(`cached_my_appts_${user.uid}`);
+        if (cached) setMyAppointments(JSON.parse(cached));
+      } catch (e) {}
     });
     return () => unsubscribe();
   }, [user]);
 
   useEffect(() => {
     setLoading(true);
-    // Fetch directly from 'doctors' collection in Firestore
-    const qDoctors = query(collection(db, 'doctors'), limit(100));
-    const unsubDoctors = onSnapshot(qDoctors, (snapshot) => {
-      const docs = snapshot.docs
-        .map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Doctor[];
-      
-      const validDocs = docs.filter(d => d.name && d.name.trim() !== '');
-      
+    let manualList: Doctor[] = [];
+    let userList: Doctor[] = [];
+
+    const seedSampleDoctorsToFirestore = async () => {
+      try {
+        const sampleDocs: Doctor[] = [
+          {
+            id: 'doc_rahul_101',
+            name: 'Dr. Rahul Chowdhury',
+            email: 'doctor@shusto.demo',
+            specialty: 'Cardiology (হৃদরোগ বিশেষজ্ঞ)',
+            fee: 800,
+            bmdcNumber: 'BMDC-A10293',
+            experience: '12 Years',
+            degree: 'MBBS, FCPS (Cardiology)',
+            university: 'Dhaka Medical College',
+            isOnline: true,
+            rating: 4.9,
+            image: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=400'
+          },
+          {
+            id: 'doc_nushrat_102',
+            name: 'Dr. Nushrat Jahan',
+            email: 'nushrat@shusto.demo',
+            specialty: 'Gynecology & Obstetrics (স্ত্রী রোগ ও প্রসূতি)',
+            fee: 700,
+            bmdcNumber: 'BMDC-A20482',
+            experience: '10 Years',
+            degree: 'MBBS, MS (Gynae)',
+            university: 'BSMMU',
+            isOnline: true,
+            rating: 4.8,
+            image: 'https://images.unsplash.com/photo-1594824813571-24a69c100d3a?auto=format&fit=crop&q=80&w=400'
+          },
+          {
+            id: 'doc_tanvir_103',
+            name: 'Dr. Tanvir Hasan',
+            email: 'tanvir.doc@shusto.demo',
+            specialty: 'Medicine & Diabetes (মেডিসিন ও ডায়াবেটিস)',
+            fee: 600,
+            bmdcNumber: 'BMDC-A30192',
+            experience: '8 Years',
+            degree: 'MBBS, MD (Internal Medicine)',
+            university: 'Chittagong Medical College',
+            isOnline: false,
+            rating: 4.7,
+            image: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&q=80&w=400'
+          },
+          {
+            id: 'doc_sabrina_104',
+            name: 'Dr. Sabrina Ahmed',
+            email: 'sabrina@shusto.demo',
+            specialty: 'Pediatrics (শিশু রোগ বিশেষজ্ঞ)',
+            fee: 650,
+            bmdcNumber: 'BMDC-A40581',
+            experience: '9 Years',
+            degree: 'MBBS, DCH (Pediatrics)',
+            university: 'Mymensingh Medical College',
+            isOnline: true,
+            rating: 4.9,
+            image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=400'
+          },
+          {
+            id: 'doc_kamrul_105',
+            name: 'Dr. Kamrul Islam',
+            email: 'kamrul@shusto.demo',
+            specialty: 'Orthopedics & Spine (হাড় ও জোড়া বিশেষজ্ঞ)',
+            fee: 1000,
+            bmdcNumber: 'BMDC-A50921',
+            experience: '15 Years',
+            degree: 'MBBS, MS (Orthopedics)',
+            university: 'NITOR (DMC)',
+            isOnline: false,
+            rating: 4.9,
+            image: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&q=80&w=400'
+          }
+        ];
+
+        for (const d of sampleDocs) {
+          await setDoc(doc(db, 'doctors', d.id), d);
+        }
+      } catch (err) {
+        console.error("Error seeding sample doctors:", err);
+      }
+    };
+
+    const mergeAndSetDoctors = (manual: Doctor[], users: Doctor[]) => {
+      const docMap = new Map<string, Doctor>();
+
+      // 1. Add manual doctors from Firestore
+      manual.forEach(d => {
+        if (d.name && d.name.trim() !== '') {
+          const key = d.email ? d.email.toLowerCase().trim() : d.id;
+          docMap.set(key, d);
+        }
+      });
+
+      // 2. Add/Override with user doctors from Firestore
+      users.forEach(u => {
+        if (u.name && u.name.trim() !== '') {
+          const key = u.email ? u.email.toLowerCase().trim() : u.id;
+          const existing = docMap.get(key);
+          if (existing) {
+            docMap.set(key, {
+              ...u,
+              ...existing,
+              name: existing.name || u.name,
+              specialty: existing.specialty || u.specialty || 'General Physician',
+              fee: Number(existing.fee) > 0 ? Number(existing.fee) : Number(u.fee) || 500,
+              bmdcNumber: existing.bmdcNumber || u.bmdcNumber || 'Verified',
+              experience: existing.experience || u.experience || '5+ Years',
+              image: existing.image || u.image
+            });
+          } else {
+            docMap.set(key, {
+              ...u,
+              specialty: u.specialty || 'General Physician',
+              fee: Number(u.fee) || 500,
+              bmdcNumber: u.bmdcNumber || 'Verified',
+              experience: u.experience || '5+ Years'
+            });
+          }
+        }
+      });
+
+      const merged = Array.from(docMap.values());
+
       // Sort: Online doctors first, then by name
-      validDocs.sort((a, b) => {
+      merged.sort((a, b) => {
         if (a.isOnline === b.isOnline) return (a.name || '').localeCompare(b.name || '');
         return a.isOnline ? -1 : 1;
       });
-
-      setDoctors(validDocs);
+      setDoctors(merged);
+      try { localStorage.setItem('cached_doctors', JSON.stringify(merged)); } catch(e) {}
       setLoading(false);
+    };
+
+    // 1. Listen to 'doctors' collection
+    const qDoctors = query(collection(db, 'doctors'), limit(100));
+    const unsubDoctors = onSnapshot(qDoctors, (snapshot) => {
+      manualList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Doctor[];
+      mergeAndSetDoctors(manualList, userList);
     }, (error: any) => {
-      console.error("Doctors fetch error:", error);
+      console.warn("Doctors collection fetch warning / using presets:", error);
+      mergeAndSetDoctors(manualList, userList);
       setLoading(false);
     });
 
-    return () => unsubDoctors();
+    // 2. Listen to 'users' collection where role === 'doctor'
+    const qUserDoctors = query(collection(db, 'users'), where('role', '==', 'doctor'), limit(100));
+    const unsubUserDoctors = onSnapshot(qUserDoctors, (snapshot) => {
+      userList = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          userId: doc.id,
+          name: data.displayName || data.name || 'Dr. ' + (data.email ? data.email.split('@')[0] : 'Doctor'),
+          email: data.email || '',
+          specialty: data.specialty || 'General Physician',
+          fee: data.fee || 500,
+          bmdcNumber: data.bmdcNumber || 'Verified',
+          experience: data.experience || '5+ Years',
+          degree: data.degree,
+          university: data.university,
+          image: data.image || data.photoURL,
+          division: data.division,
+          district: data.district,
+          thana: data.thana
+        } as Doctor;
+      });
+      mergeAndSetDoctors(manualList, userList);
+    }, (error: any) => {
+      console.warn("User doctors fetch warning / using presets:", error);
+      mergeAndSetDoctors(manualList, userList);
+      setLoading(false);
+    });
+
+    return () => {
+      unsubDoctors();
+      unsubUserDoctors();
+    };
   }, []);
 
   const handleBook = async () => {
@@ -335,15 +497,8 @@ export function DoctorDirectory() {
         {loading ? (
           <div className="p-12 text-center text-slate-400">Loading doctors...</div>
         ) : filteredDoctors.length === 0 ? (
-          <div className="p-12 text-center bg-white rounded-[40px] border border-dashed border-slate-200 text-slate-400 space-y-3">
-            <p className="font-medium text-slate-600">
-              {searchQuery ? 'আপনার খোঁজা নামের কোনো ডাক্তার পাওয়া যায়নি।' : 'ডাটাবেজে কোনো ডাক্তার পাওয়া যায়নি।'}
-            </p>
-            {user?.role === 'admin' && !searchQuery && (
-              <p className="text-xs text-sky-600 max-w-md mx-auto font-semibold">
-                অ্যাডমিন হিসেবে আপনি বাম পাশের মেনু থেকে <strong>অ্যাডমিন প্যানেল</strong>-এ গিয়ে <strong>"সব ডাটা একসাথে সিড করুন (Seed All Data)"</strong> বাটনে চাপ দিয়ে স্যাম্পল ডাক্তার, ঔষধ ও সেবাকেন্দ্রের সকল ডাটা ১-ক্লিকে ফায়ারবেস ডাটাবেজে যুক্ত করতে পারবেন।
-              </p>
-            )}
+          <div className="p-12 text-center bg-white rounded-[40px] border border-dashed border-slate-200 text-slate-400">
+            {searchQuery ? 'No doctors match your search.' : 'No doctors found. Please add some from the Admin Panel.'}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

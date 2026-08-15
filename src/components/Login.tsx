@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import { useAuth } from '../AuthContext';
-import { AlertTriangle, UserCheck } from 'lucide-react';
+import { ExternalLink, AlertTriangle, ShieldCheck, UserCheck, ChevronDown, ChevronUp } from 'lucide-react';
 
 export function Login() {
   const { login, demoLogin, error: contextError } = useAuth();
   const [localError, setLocalError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [showDemoOptions, setShowDemoOptions] = useState(false);
 
   const error = localError || contextError;
 
   const handleLogin = async () => {
     if (isLoggingIn) return;
-
     try {
       setIsLoggingIn(true);
       setLocalError(null);
@@ -19,11 +19,15 @@ export function Login() {
     } catch (err: any) {
       console.error("Login click error:", err);
       if (err?.code !== 'auth/cancelled-popup-request') {
-        setLocalError(err?.message || "গুগল লগইন করতে সমস্যা হয়েছে। দয়া করে ফায়ারবেস কনসোলে Authorized Domains চেক করুন।");
+        setLocalError(err?.message || "গুগল লগইন করতে সমস্যা হয়েছে। দয়া করে নতুন ট্যাবে অ্যাপটি খুলে চেষ্টা করুন বা ডেমো মোড ব্যবহার করুন।");
       }
     } finally {
       setIsLoggingIn(false);
     }
+  };
+
+  const handleOpenNewTab = () => {
+    window.open(window.location.href, '_blank');
   };
 
   return (
@@ -38,21 +42,31 @@ export function Login() {
           />
         </div>
         <h1 className="text-3xl font-bold text-slate-900 mb-2">Shusto</h1>
-        <p className="text-slate-500 mb-6">আপনার হেলথকেয়ার ডিজিটাল সঙ্গী। গুগল একাউন্টের মাধ্যমে সুরক্ষিত লগইন করুন।</p>
+        <p className="text-slate-500 mb-6">আপনার হেলথকেয়ার ডিজিটাল সঙ্গী। গুগল একাউন্ট বা ডেমো মোডে লগইন করুন।</p>
         
         {error && (
           <div className="mb-6 p-4 bg-rose-50 text-rose-700 text-sm font-medium rounded-2xl border border-rose-100 text-left">
             <div className="flex items-center gap-2 mb-2 text-rose-800 font-bold">
               <AlertTriangle size={18} className="shrink-0" />
-              <span>লগইন নির্দেশিকা:</span>
+              <span>লগইন সমস্যা সমাধান নির্দেশিকা:</span>
             </div>
             <p className="mb-3 text-xs leading-relaxed text-rose-900">{error}</p>
 
             <div className="text-xs space-y-2 border-t border-rose-200/80 pt-3 text-slate-700">
-              <p className="font-semibold text-rose-800">গুগল লগইন ১০০% কাজ করার উপায়:</p>
+              <p className="font-semibold text-rose-800">গুগল লগইন সমস্যার সমাধান (৩টি পদক্ষেপ):</p>
               <ol className="list-decimal list-inside space-y-1 text-slate-700 text-[11px] leading-relaxed">
-                <li><strong className="text-slate-800">Authorized Domains:</strong> ফায়ারবেস কনসোলে <code className="bg-rose-100 px-1 rounded text-rose-900">Authentication &gt; Settings &gt; Authorized domains</code> এ বর্তমান ডোমেইন (<code className="text-rose-900">{window.location.hostname}</code>) যুক্ত রয়েছে তা নিশ্চিত করুন।</li>
+                <li><strong className="text-sky-700">নতুন ট্যাবে অ্যাপ খুলুন:</strong> AI Studio আইফ্রেম পপ-আপ ব্লক করতে পারে। নিচে <span className="font-bold">"নতুন ট্যাবে খুলুন"</span> বাটনে চাপ দিন।</li>
+                <li><strong className="text-slate-800">Authorized Domains:</strong> আপনার ফায়ারবেস কনসোলে <code className="bg-rose-100 px-1 rounded text-rose-900">Authentication &gt; Settings &gt; Authorized domains</code> এ বর্তমান ডোমেইন (<code className="text-rose-900">{window.location.hostname}</code>) এড করুন।</li>
+                <li><strong className="text-emerald-800">ডেমো সাইন-ইন:</strong> তাৎক্ষণিক টেস্ট করতে নিচে <span className="font-bold">"এক-ক্লিকে অ্যাপ টেস্ট করুন"</span> বাটনে চাপ দিন।</li>
               </ol>
+              
+              <button 
+                onClick={handleOpenNewTab}
+                className="mt-3 w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2 shadow-sm transition-all text-xs"
+              >
+                <ExternalLink size={14} />
+                নতুন ট্যাবে অ্যাপ খুলুন (Open in New Tab)
+              </button>
             </div>
           </div>
         )}
@@ -80,21 +94,75 @@ export function Login() {
             {isLoggingIn ? 'গুগলের সাথে সংযুক্ত হচ্ছে...' : 'Continue with Google'}
           </button>
 
+          {window.self !== window.top && (
+            <button
+              onClick={handleOpenNewTab}
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-sky-200 text-sky-800 bg-sky-50/60 hover:bg-sky-100 font-semibold text-xs transition-all"
+            >
+              <ExternalLink size={14} />
+              নতুন ট্যাবে খুলুন (Open in New Tab)
+            </button>
+          )}
+
           <div className="pt-2 border-t border-slate-100 mt-3">
             <button
               onClick={() => demoLogin('user')}
-              className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-2xl border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 font-medium text-xs transition-all"
+              className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl border border-emerald-200 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 font-semibold text-xs transition-all active:scale-[0.98]"
             >
-              <UserCheck size={14} />
-              ডেমো মোডে প্রবেশ করুন (Quick Test)
+              <UserCheck size={16} />
+              এক-ক্লিকে অ্যাপ টেস্ট করুন (Patient Guest Mode)
             </button>
+
+            <button
+              onClick={() => setShowDemoOptions(!showDemoOptions)}
+              className="mt-2 text-[11px] text-slate-500 hover:text-slate-700 font-medium inline-flex items-center gap-1"
+            >
+              <span>অন্যান্য রোল টেস্ট করুন (ডাক্তার / এডমিন / ফার্মেসি)</span>
+              {showDemoOptions ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
+
+            {showDemoOptions && (
+              <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                <button
+                  onClick={() => demoLogin('doctor')}
+                  className="p-2.5 bg-sky-50 text-sky-800 rounded-xl font-medium border border-sky-100 hover:bg-sky-100 text-left"
+                >
+                  🩺 Doctor Mode
+                </button>
+                <button
+                  onClick={() => demoLogin('admin')}
+                  className="p-2.5 bg-purple-50 text-purple-800 rounded-xl font-medium border border-purple-100 hover:bg-purple-100 text-left"
+                >
+                  ⚡ Admin Mode
+                </button>
+                <button
+                  onClick={() => demoLogin('pharmacy')}
+                  className="p-2.5 bg-teal-50 text-teal-800 rounded-xl font-medium border border-teal-100 hover:bg-teal-100 text-left"
+                >
+                  💊 Pharmacy Mode
+                </button>
+                <button
+                  onClick={() => demoLogin('manager')}
+                  className="p-2.5 bg-amber-50 text-amber-800 rounded-xl font-medium border border-amber-100 hover:bg-amber-100 text-left"
+                >
+                  👔 Manager Mode
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="mt-8 text-center text-xs text-slate-400">
-          <p>© Shusto Telehealth Platform. Secured by Firebase Auth.</p>
+        <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-400">
+          <ShieldCheck size={14} className="text-emerald-500" />
+          <span>১০০% বিশ্বস্ত ও নিরাপদ গুগল সাইন-ইন</span>
         </div>
+
+        <p className="mt-4 text-[11px] text-slate-400">
+          By continuing, you agree to our Terms of Service and Privacy Policy.
+        </p>
       </div>
     </div>
   );
 }
+
+
