@@ -335,8 +335,15 @@ export function DoctorDirectory() {
         {loading ? (
           <div className="p-12 text-center text-slate-400">Loading doctors...</div>
         ) : filteredDoctors.length === 0 ? (
-          <div className="p-12 text-center bg-white rounded-[40px] border border-dashed border-slate-200 text-slate-400">
-            {searchQuery ? 'No doctors match your search.' : 'No doctors found. Please add some from the Admin Panel.'}
+          <div className="p-12 text-center bg-white rounded-[40px] border border-dashed border-slate-200 text-slate-400 space-y-3">
+            <p className="font-medium text-slate-600">
+              {searchQuery ? 'আপনার খোঁজা নামের কোনো ডাক্তার পাওয়া যায়নি।' : 'ডাটাবেজে কোনো ডাক্তার পাওয়া যায়নি।'}
+            </p>
+            {user?.role === 'admin' && !searchQuery && (
+              <p className="text-xs text-sky-600 max-w-md mx-auto font-semibold">
+                অ্যাডমিন হিসেবে আপনি বাম পাশের মেনু থেকে <strong>অ্যাডমিন প্যানেল</strong>-এ গিয়ে <strong>"সব ডাটা একসাথে সিড করুন (Seed All Data)"</strong> বাটনে চাপ দিয়ে স্যাম্পল ডাক্তার, ঔষধ ও সেবাকেন্দ্রের সকল ডাটা ১-ক্লিকে ফায়ারবেস ডাটাবেজে যুক্ত করতে পারবেন।
+              </p>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

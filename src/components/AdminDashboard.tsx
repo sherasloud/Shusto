@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { collection, query, getDocs, doc, updateDoc, setDoc, where, deleteDoc, onSnapshot, getDoc, increment, orderBy, limit, addDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { getApiUrl } from '../utils/api';
-import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit, Store, Heart, TrendingUp } from 'lucide-react';
+import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit, Store, Heart, TrendingUp, Database } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { TransactionsPanel } from './TransactionsPanel';
@@ -1232,6 +1232,161 @@ export function AdminDashboard() {
     }
   };
 
+  const seedAllAppData = async () => {
+    if (!confirm('This will seed the entire database with sample users, doctors, medicines, diagnostic tests, hospitals, and all healthcare centers. This is highly recommended to test the full functionality of the app. Continue?')) return;
+    setLoading(true);
+    try {
+      // 1. Seed Sample Users
+      const sampleUsersList = [
+        { uid: 'admin_shusto', displayName: 'Shusto Admin', name: 'Shusto Admin', email: 'shustobd@gmail.com', role: 'admin', createdAt: new Date().toISOString() },
+        { uid: 'demo-patient-123', displayName: 'Demo Patient (রোগী)', name: 'Demo Patient', email: 'patient@shusto.demo', role: 'user', createdAt: new Date().toISOString() },
+        { uid: 'patient_ariful', displayName: 'আরিফুল ইসলাম', name: 'আরিফুল ইসলাম', email: 'ariful@shusto.demo', role: 'user', phoneNumber: '01712345678', division: 'Dhaka', district: 'Dhaka', createdAt: new Date().toISOString() },
+        { uid: 'patient_fatema', displayName: 'ফাতেমা খাতুন', name: 'ফাতেমা খাতুন', email: 'fatema@shusto.demo', role: 'user', phoneNumber: '01812345679', division: 'Chittagong', district: 'Chittagong', createdAt: new Date().toISOString() },
+        { uid: 'patient_tanvir', displayName: 'তানভীর আহমেদ', name: 'তানভীর আহমেদ', email: 'tanvir@shusto.demo', role: 'user', phoneNumber: '01912345680', division: 'Rajshahi', district: 'Rajshahi', createdAt: new Date().toISOString() },
+        { uid: 'demo-doctor-123', displayName: 'Dr. Rahul Chowdhury', name: 'Dr. Rahul Chowdhury', email: 'doctor@shusto.demo', role: 'doctor', specialty: 'Cardiology', fee: 800, bmdcNumber: 'BMDC-102938', createdAt: new Date().toISOString() },
+        { uid: 'demo-pharmacy-123', displayName: 'City Pharmacy', name: 'City Pharmacy', email: 'pharmacy@shusto.demo', role: 'pharmacy', location: 'Dhanmondi, Dhaka', createdAt: new Date().toISOString() },
+        { uid: 'demo-manager-123', displayName: 'Demo Manager', name: 'Demo Manager', email: 'manager@shusto.demo', role: 'manager', createdAt: new Date().toISOString() },
+        { uid: 'demo-state-123', displayName: 'Demo State Representative', name: 'Demo State Representative', email: 'state@shusto.demo', role: 'state', createdAt: new Date().toISOString() },
+        { uid: 'investor_jahir', displayName: 'মো জহিরুল ইসলাম', name: 'মো জহিরুল ইসলাম', email: 'investor@shusto.demo', role: 'investor', createdAt: new Date().toISOString() }
+      ];
+
+      for (const u of sampleUsersList) {
+        await setDoc(doc(db, 'users', u.uid), u, { merge: true });
+      }
+
+      // 2. Seed Medicines
+      const medicinePresets = [
+        { name: 'Napa Extend', generic: 'Paracetamol', category: 'Fever & Pain', price: 15, company: 'Beximco', image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?q=80&w=800' },
+        { name: 'Seclo 20', generic: 'Omeprazole', category: 'Gastric', price: 7, company: 'Square', image: 'https://images.unsplash.com/photo-1471864190281-ad5f9fc0700c?q=80&w=800' },
+        { name: 'Fenadin 120', generic: 'Fexofenadine', category: 'Allergy', price: 10, company: 'Renata', image: 'https://images.unsplash.com/photo-1628771065518-0d82f1110547?q=80&w=800' },
+        { name: 'Zithrin 500', generic: 'Azithromycin', category: 'Antibiotic', price: 35, company: 'Radiant', image: 'https://images.unsplash.com/photo-1607619056574-7b8d3ee536b2?q=80&w=800' },
+        { name: 'Calbo-D', generic: 'Calcium + Vitamin D3', category: 'Supplements', price: 250, company: 'Square', image: 'https://images.unsplash.com/photo-1550572017-ed200f5e6383?q=80&w=400' },
+        { name: 'Alatrol', generic: 'Cetirizine', category: 'Allergy', price: 5, company: 'Square', image: 'https://images.unsplash.com/photo-1631549916768-4119b295f78b?q=80&w=800' },
+        { name: 'Monas 10', generic: 'Montelukast', category: 'Asthma', price: 18, company: 'Acme', image: 'https://images.unsplash.com/photo-1581093588401-fbb62a02f120?q=80&w=800' },
+        { name: 'Sergel 20', generic: 'Esomeprazole', category: 'Gastric', price: 8, company: 'Healthcare', image: 'https://images.unsplash.com/photo-1626285861696-9f0bf5a49c6d?q=80&w=800' },
+        { name: 'Ace Plus', generic: 'Paracetamol + Caffeine', category: 'Fever & Pain', price: 3, company: 'Square', image: 'https://images.unsplash.com/photo-1550572017-ed200f5e6383?q=80&w=400&sig=aceplus' },
+        { name: 'Tofen', generic: 'Ketotifen', category: 'Asthma', price: 4, company: 'Beximco', image: 'https://images.unsplash.com/photo-1581093588401-fbb62a02f120?q=80&w=800&sig=tofen' },
+        { name: 'Bextram Gold', generic: 'Multivitamin', category: 'Supplements', price: 450, company: 'Beximco', image: 'https://images.unsplash.com/photo-1615461066841-f6677c789c6e?q=80&w=800' },
+        { name: 'Orsaline N', generic: 'ORS', category: 'Nutrition', price: 6, company: 'SMC', image: 'https://images.unsplash.com/photo-1631549916768-4119b295f78b?q=80&w=800' },
+        { name: 'Thyrox 50', generic: 'Levothyroxine', category: 'Hormone', price: 3, company: 'Square', image: 'https://images.unsplash.com/photo-1587854692152-cbe660dbbb88?q=80&w=800' },
+        { name: 'Amodis 400', generic: 'Metronidazole', category: 'Gastric', price: 5, company: 'Aristopharma', image: 'https://images.unsplash.com/photo-1471864190281-ad5f9fc0700c?q=80&w=800&sig=amodis' },
+        { name: 'Ecap 400', generic: 'Vitamin E', category: 'Supplements', price: 7, company: 'Healthcare', image: 'https://images.unsplash.com/photo-1559113084-25e50529d1bd?q=80&w=800' },
+        { name: 'Maxpro 20', generic: 'Esomeprazole', category: 'Gastric', price: 7, company: 'Renata', image: 'https://images.unsplash.com/photo-1626285861696-9f0bf5a49c6d?q=80&w=800&sig=maxpro' },
+        { name: 'Rivotril 0.5', generic: 'Clonazepam', category: 'Anxiety', price: 8, company: 'Roche', image: 'https://images.unsplash.com/photo-1563342081-3968393587b1?q=80&w=800' },
+        { name: 'Exium 20', generic: 'Esomeprazole', category: 'Gastric', price: 10, company: 'Radiant', image: 'https://images.unsplash.com/photo-1471864190281-ad5f9fc0700c?q=80&w=800&sig=exium' },
+        { name: 'Bizoran 5/20', generic: 'Amlodipine + Olmesartan', category: 'Blood Pressure', price: 12, company: 'Square', image: 'https://images.unsplash.com/photo-1516574187841-cb9cc2ca948b?q=80&w=800' },
+        { name: 'Metfo 500', generic: 'Metformin', category: 'Diabetes', price: 4, company: 'Beximco', image: 'https://images.unsplash.com/photo-1615461066159-fea0960485d5?q=80&w=800' },
+        { name: 'Angilock 50', generic: 'Losartan', category: 'Blood Pressure', price: 8, company: 'Square', image: 'https://images.unsplash.com/photo-1631549916768-4119b295f78b?q=80&w=800&sig=angilock' },
+        { name: 'Pantonix 20', generic: 'Pantoprazole', category: 'Gastric', price: 6, company: 'Incepta', image: 'https://images.unsplash.com/photo-1471864190281-ad5f9fc0700c?q=80&w=800&sig=pantonix' },
+        { name: 'Filwel Gold', generic: 'Multivitamin', category: 'Supplements', price: 10, company: 'Square', image: 'https://images.unsplash.com/photo-15840174443b1-27bbd969ec8c?q=80&w=800' },
+        { name: 'Xinc', generic: 'Zinc Sulfate', category: 'Supplements', price: 3, company: 'Square', image: 'https://images.unsplash.com/photo-1550572017-ed200f5e6383?q=80&w=400&sig=xinc' },
+        { name: 'Rovista 10', generic: 'Rosuvastatin', category: 'Heart', price: 15, company: 'Incepta', image: 'https://images.unsplash.com/photo-1530026405186-ed1f139313f8?q=80&w=800' }
+      ];
+
+      for (const med of medicinePresets) {
+        const id = `med_${med.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+        await setDoc(doc(db, 'medicines', id), { ...med, id, updatedAt: new Date().toISOString() });
+      }
+
+      // 3. Seed Global Services (Lab / Physio)
+      for (const test of LAB_SERVICES_PRESETS) {
+        const id = `lab_${test.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+        await setDoc(doc(db, 'labTests', id), { ...test, id, type: 'lab' });
+      }
+      for (const service of PHYSIO_SERVICES_PRESETS) {
+        const id = `physio_${service.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+        await setDoc(doc(db, 'physioServices', id), { ...service, id, type: 'physio' });
+      }
+
+      // 4. Seed All Providers
+      const providerTypes = ['pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursings', 'nutritionists'] as const;
+      for (const pType of providerTypes) {
+        const type = pType.slice(0, -1);
+        const providers = [
+          { name: `${type.charAt(0).toUpperCase() + type.slice(1)} Center Dhanmondi`, location: 'Dhanmondi, Dhaka', division: 'Dhaka', district: 'Dhaka', contact: '01711111111', email: `dhanmondi.${type}@shusto.com` },
+          { name: `${type.charAt(0).toUpperCase() + type.slice(1)} Care Gulshan`, location: 'Gulshan 2, Dhaka', division: 'Dhaka', district: 'Dhaka', contact: '01722222222', email: `gulshan.${type}@shusto.com` },
+          { name: `${type.charAt(0).toUpperCase() + type.slice(1)} Point Banani`, location: 'Banani, Dhaka', division: 'Dhaka', district: 'Dhaka', contact: '01733333333', email: `banani.${type}@shusto.com` },
+          { name: `${type.charAt(0).toUpperCase() + type.slice(1)} Hub Uttara`, location: 'Uttara, Dhaka', division: 'Dhaka', district: 'Dhaka', contact: '01744444444', email: `uttara.${type}@shusto.com` },
+          { name: `${type.charAt(0).toUpperCase() + type.slice(1)} Station Chittagong`, location: 'GEC, Chittagong', division: 'Chittagong', district: 'Chittagong', contact: '01755555555', email: `ctg.${type}@shusto.com` }
+        ];
+
+        for (const p of providers) {
+          const id = p.email.replace(/[^a-zA-Z0-9]/g, '_');
+          await setDoc(doc(db, pType, id), { ...p, id, type });
+
+          if (type === 'hospital' || type === 'nursing') {
+            const presets = type === 'hospital' ? HOSPITAL_SERVICES_PRESETS : NURSING_SERVICES_PRESETS;
+            for (const service of presets.slice(0, 4)) {
+              const postId = `post_${type}_${id}_${service.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+              await setDoc(doc(db, 'posts', postId), {
+                id: postId,
+                title: service.name,
+                description: service.description || '',
+                price: service.price,
+                image: service.image || '',
+                providerId: id,
+                providerName: p.name,
+                providerType: type,
+                createdAt: new Date().toISOString()
+              });
+            }
+          }
+        }
+      }
+
+      // 5. Seed Doctors
+      const sampleDoctors = [
+        { name: 'Dr. Rahul Chowdhury', specialty: 'Cardiology', fee: 800, email: 'rahul@shusto.com', bmdcNumber: 'BMDC-12345', experience: '12 Years', degree: 'MBBS, FCPS (Cardiology)', university: 'Dhaka Medical College', division: 'Dhaka', district: 'Dhaka', thana: 'Dhanmondi', image: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?q=80&w=400', isOnline: true },
+        { name: 'Dr. Sabrina Yesmin', specialty: 'Gynecology', fee: 700, email: 'sabrina@shusto.com', bmdcNumber: 'BMDC-23456', experience: '8 Years', degree: 'MBBS, MS (Gynae & Obs)', university: 'Chittagong Medical College', division: 'Chittagong', district: 'Chittagong', thana: 'Double Mooring', image: 'https://images.unsplash.com/photo-1594824813573-246434de83fb?q=80&w=400', isOnline: true },
+        { name: 'Dr. Amitav Rahman', specialty: 'Pediatrics', fee: 600, email: 'amitav@shusto.com', bmdcNumber: 'BMDC-34567', experience: '10 Years', degree: 'MBBS, MD (Pediatrics)', university: 'Rajshahi Medical College', division: 'Rajshahi', district: 'Rajshahi', thana: 'Boalia', image: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=400', isOnline: false },
+        { name: 'Dr. Tanveer Ahmed', specialty: 'Neurology', fee: 1000, email: 'tanveer@shusto.com', bmdcNumber: 'BMDC-45678', experience: '15 Years', degree: 'MBBS, MD (Neurology)', university: 'Dhaka Medical College', division: 'Dhaka', district: 'Dhaka', thana: 'Gulshan', image: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?q=80&w=400', isOnline: true },
+        { name: 'Dr. Farhana Khan', specialty: 'Dermatology', fee: 500, email: 'farhana@shusto.com', bmdcNumber: 'BMDC-56789', experience: '6 Years', degree: 'MBBS, DDV', university: 'Sylhet MAG Osmani Medical College', division: 'Sylhet', district: 'Sylhet', thana: 'Sylhet Sadar', image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=400', isOnline: true }
+      ];
+
+      for (const docObj of sampleDoctors) {
+        const id = `doc_${docObj.email.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        await setDoc(doc(db, 'doctors', id), {
+          ...docObj,
+          id,
+          userId: `email_${docObj.email.replace(/[^a-zA-Z0-9]/g, '_')}`,
+          isUserAccount: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+
+        // Also add user profile for the doctor so sync is happy
+        await setDoc(doc(db, 'users', `email_${docObj.email.replace(/[^a-zA-Z0-9]/g, '_')}`), {
+          uid: `email_${docObj.email.replace(/[^a-zA-Z0-9]/g, '_')}`,
+          email: docObj.email,
+          displayName: docObj.name,
+          name: docObj.name,
+          role: 'doctor',
+          photoURL: docObj.image,
+          specialty: docObj.specialty,
+          fee: docObj.fee,
+          bmdcNumber: docObj.bmdcNumber,
+          experience: docObj.experience,
+          degree: docObj.degree,
+          university: docObj.university,
+          division: docObj.division,
+          district: docObj.district,
+          thana: docObj.thana,
+          createdAt: new Date().toISOString()
+        }, { merge: true });
+      }
+
+      showSuccess("Successfully seeded ALL application data into your database! Refreshing views...");
+      
+      // Trigger a re-render/reload for the current tab
+      window.location.reload();
+    } catch (error) {
+      console.error("Error seeding all data:", error);
+      alert("Failed to seed database.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const seedSampleUsers = async () => {
     setLoading(true);
     try {
@@ -1673,6 +1828,39 @@ export function AdminDashboard() {
           >
             <RefreshCcw size={18} className={cn(loading && "animate-spin")} />
             সকল রোল সিঙ্ক করুন
+          </button>
+
+          <button 
+            onClick={seedAllAppData}
+            disabled={loading}
+            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl transition-all text-sm shadow-lg shadow-indigo-600/20"
+          >
+            <Plus size={18} />
+            সব ডাটা একসাথে সিড করুন (Seed All Data)
+          </button>
+
+          <button 
+            onClick={() => {
+              const current = typeof window !== 'undefined' && localStorage.getItem("force_default_db") === "true";
+              if (current) {
+                localStorage.removeItem("force_default_db");
+              } else {
+                localStorage.setItem("force_default_db", "true");
+              }
+              window.location.reload();
+            }}
+            disabled={loading}
+            className={cn(
+              "flex items-center gap-2 px-6 py-3 font-bold rounded-2xl transition-all text-sm shadow-sm border",
+              (typeof window !== 'undefined' && localStorage.getItem("force_default_db") === "true")
+                ? "bg-amber-500 hover:bg-amber-600 text-white border-amber-600" 
+                : "bg-teal-600 hover:bg-teal-700 text-white border-teal-700"
+            )}
+          >
+            <Database size={18} />
+            {(typeof window !== 'undefined' && localStorage.getItem("force_default_db") === "true")
+              ? "ডিফল্ট (default) ডাটাবেজে আছেন ➜ কাস্টম আইডিতে যান" 
+              : "কাস্টম ডাটাবেজে আছেন ➜ ডিফল্ট (default) এ যান"}
           </button>
           
 

@@ -252,8 +252,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     try {
       console.log("Starting Google login process...");
-      const isInIframe = window.self !== window.top;
-      
       try {
         const result = await signInWithPopup(auth, googleProvider);
         console.log("Login result obtained for:", result.user.email);
@@ -290,12 +288,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        if (isInIframe) {
-          throw new Error(`আইফ্রেম (Preview Frame)-এ পপ-আপ নিরাপত্তা বিধিনিষেধ রয়েছে। অনুগ্রহ করে নিচে "নতুন ট্যাবে খুলুন (Open in New Tab)" বাটনে চাপ দিন এবং সেখান থেকে গুগল সাইন-ইন করুন।`);
-        }
-
         if (popupErr?.code === 'auth/popup-closed-by-user') {
-          throw new Error("গুগল লগইন পপ-আপ বন্ধ হয়ে গেছে। আবার চেষ্টা করতে বাটনে চাপ দিন বা 'নতুন ট্যাবে খুলুন' বাটনে ক্লিক করুন।");
+          throw new Error("গুগল লগইন পপ-আপ বন্ধ হয়ে গেছে। আবার চেষ্টা করতে বাটনে চাপ দিন।");
         }
 
         if (

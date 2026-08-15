@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../AuthContext';
-import { ExternalLink, AlertTriangle, UserCheck } from 'lucide-react';
+import { AlertTriangle, UserCheck } from 'lucide-react';
 
 export function Login() {
   const { login, demoLogin, error: contextError } = useAuth();
@@ -11,6 +11,7 @@ export function Login() {
 
   const handleLogin = async () => {
     if (isLoggingIn) return;
+
     try {
       setIsLoggingIn(true);
       setLocalError(null);
@@ -18,15 +19,11 @@ export function Login() {
     } catch (err: any) {
       console.error("Login click error:", err);
       if (err?.code !== 'auth/cancelled-popup-request') {
-        setLocalError(err?.message || "গুগল লগইন করতে সমস্যা হয়েছে। দয়া করে নতুন ট্যাবে অ্যাপটি খুলে চেষ্টা করুন।");
+        setLocalError(err?.message || "গুগল লগইন করতে সমস্যা হয়েছে। দয়া করে ফায়ারবেস কনসোলে Authorized Domains চেক করুন।");
       }
     } finally {
       setIsLoggingIn(false);
     }
-  };
-
-  const handleOpenNewTab = () => {
-    window.open(window.location.href, '_blank');
   };
 
   return (
@@ -54,17 +51,8 @@ export function Login() {
             <div className="text-xs space-y-2 border-t border-rose-200/80 pt-3 text-slate-700">
               <p className="font-semibold text-rose-800">গুগল লগইন ১০০% কাজ করার উপায়:</p>
               <ol className="list-decimal list-inside space-y-1 text-slate-700 text-[11px] leading-relaxed">
-                <li><strong className="text-sky-700">নতুন ট্যাবে অ্যাপ খুলুন:</strong> AI Studio আইফ্রেম পপ-আপ ব্লক করতে পারে। নিচে <span className="font-bold">"নতুন ট্যাবে খুলুন"</span> বাটনে চাপ দিন।</li>
                 <li><strong className="text-slate-800">Authorized Domains:</strong> ফায়ারবেস কনসোলে <code className="bg-rose-100 px-1 rounded text-rose-900">Authentication &gt; Settings &gt; Authorized domains</code> এ বর্তমান ডোমেইন (<code className="text-rose-900">{window.location.hostname}</code>) যুক্ত রয়েছে তা নিশ্চিত করুন।</li>
               </ol>
-              
-              <button 
-                onClick={handleOpenNewTab}
-                className="mt-3 w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2 shadow-sm transition-all text-xs"
-              >
-                <ExternalLink size={14} />
-                নতুন ট্যাবে অ্যাপ খুলুন (Open in New Tab)
-              </button>
             </div>
           </div>
         )}
@@ -91,16 +79,6 @@ export function Login() {
             )}
             {isLoggingIn ? 'গুগলের সাথে সংযুক্ত হচ্ছে...' : 'Continue with Google'}
           </button>
-
-          {window.self !== window.top && (
-            <button
-              onClick={handleOpenNewTab}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-sky-200 text-sky-800 bg-sky-50/60 hover:bg-sky-100 font-semibold text-xs transition-all"
-            >
-              <ExternalLink size={14} />
-              নতুন ট্যাবে খুলুন (Open in New Tab)
-            </button>
-          )}
 
           <div className="pt-2 border-t border-slate-100 mt-3">
             <button

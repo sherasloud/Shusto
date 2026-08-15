@@ -486,8 +486,13 @@ export function MedicineStore() {
           <p className="text-slate-500 font-medium">লোড হচ্ছে...</p>
         </div>
       ) : medicines.length === 0 && !loading ? (
-        <div className="p-12 text-center bg-white rounded-[40px] border border-dashed border-slate-200 text-slate-400">
-          কোনো ঔষধ পাওয়া যায়নি।
+        <div className="p-12 text-center bg-white rounded-[40px] border border-dashed border-slate-200 text-slate-400 space-y-3">
+          <p className="font-medium text-slate-600">কোনো ঔষধ পাওয়া যায়নি।</p>
+          {user?.role === 'admin' && (
+            <p className="text-xs text-sky-600 max-w-md mx-auto font-semibold">
+              অ্যাডমিন হিসেবে আপনি বাম পাশের মেনু থেকে <strong>অ্যাডমিন প্যানেল</strong>-এ গিয়ে <strong>"সব ডাটা একসাথে সিড করুন (Seed All Data)"</strong> বাটনে চাপ দিয়ে স্যাম্পল ডাক্তার, ঔষধ ও সেবাকেন্দ্রের সকল ডাটা ১-ক্লিকে ফায়ারবেস ডাটাবেজে যুক্ত করতে পারবেন।
+            </p>
+          )}
         </div>
       ) : (
         <div className="space-y-8">
