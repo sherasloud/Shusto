@@ -253,32 +253,13 @@ export function MedicineStore() {
 
   useEffect(() => {
     setLoading(true);
-    const q = query(collection(db, 'medicines'), limit(250));
+    const q = query(collection(db, 'medicines'), limit(200));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fsDocs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Medicine));
-      
-      // Merge Firestore docs with MEDICINE_PRESETS without duplicates
-      const medMap = new Map<string, Medicine>();
-      
-      // 1. Add MEDICINE_PRESETS
-      MEDICINE_PRESETS.forEach(p => {
-        medMap.set(p.id, p);
-      });
-
-      // 2. Add/Override with Firestore docs
-      fsDocs.forEach(d => {
-        if (d.name && d.name.trim() !== '') {
-          medMap.set(d.id, d);
-        }
-      });
-
-      const merged = Array.from(medMap.values());
-      setMedicines(merged);
+      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Medicine));
+      setMedicines(docs);
       setLoading(false);
     }, (error) => {
       console.error("Firestore medicines error:", error);
-      // Fallback to MEDICINE_PRESETS if firestore fails
-      setMedicines(MEDICINE_PRESETS);
       setLoading(false);
     });
 

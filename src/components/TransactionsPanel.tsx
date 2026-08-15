@@ -49,9 +49,6 @@ export function TransactionsPanel({ isAdmin = false, currentUserId }: { isAdmin?
       const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
       setTransactions(list);
       setLoading(false);
-    }, (err) => {
-      console.warn("Transactions snapshot warning:", err);
-      setLoading(false);
     });
 
     return () => unsubscribe();

@@ -175,10 +175,8 @@ export function DoctorDashboard() {
              const docData = uidSnap.docs[0].data();
              setIsOnline(docData.isOnline || false);
           }
-        }).catch(e => console.warn("Fallback doc search warning:", e));
+        });
       }
-    }, (err) => {
-      console.warn("Doctor online status listener warning:", err);
     });
 
     return () => unsub();
@@ -277,8 +275,6 @@ export function DoctorDashboard() {
         setBalance(bal);
         try { localStorage.setItem(`cached_wallet_balance_${user.uid}`, String(bal)); } catch (e) {}
       }
-    }, (err) => {
-      console.warn("Wallet snapshot listener error:", err);
     });
     return () => unsubscribe();
   }, [user]);

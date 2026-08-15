@@ -29,7 +29,6 @@ import { Messages } from './components/Messages';
 import { BottomNav } from './components/BottomNav';
 import { Welcome } from './components/Welcome';
 import { ShopRegistration } from './components/ShopRegistration';
-import { ErrorBoundary } from './components/ErrorBoundary';
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { AlertCircle, Phone, PhoneOff } from 'lucide-react';
@@ -83,8 +82,6 @@ function AppContent() {
         setIncomingCall(null);
         setCallAccepted(false);
       }
-    }, (err) => {
-      console.warn("[App] Incoming call snapshot error/quota exhausted:", err.message);
     });
 
     return () => unsubscribe();
@@ -281,12 +278,10 @@ export default function App() {
   }, []);
 
   return (
-    <ErrorBoundary>
-      <APIProvider apiKey={API_KEY} version="weekly">
-        <AuthProvider>
-          <AppContent />
-        </AuthProvider>
-      </APIProvider>
-    </ErrorBoundary>
+    <APIProvider apiKey={API_KEY} version="weekly">
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </APIProvider>
   );
 }

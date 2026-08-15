@@ -122,8 +122,6 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
       } else {
         setWalletBalance(0);
       }
-    }, (err) => {
-      console.warn("Wallet snapshot listener error:", err);
     });
     return () => unsubWallet();
   }, [user]);
@@ -436,8 +434,6 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
         
         // Deduplicate by email to avoid duplicates (placeholder vs active account)
         const map = new Map<string, ServiceProvider>();
-
-        // 1. Add Firestore documents
         docs.forEach(d => {
           if (d.email) {
             const email = d.email.toLowerCase().trim();
@@ -446,7 +442,30 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
             if (!existing) {
               map.set(email, d);
             } else {
-              map.set(email, { ...existing, ...d });
+              // Decide which record is better
+              const existingName = (existing as any).hospitalName || (existing as any).name || existing.name || '';
+              const currentName = (d as any).hospitalName || (d as any).name || d.name || '';
+              
+              const isExistingNameReal = existingName && !existingName.includes('@') && existingName !== 'User';
+              const isCurrentNameReal = currentName && !currentName.includes('@') && currentName !== 'User';
+              
+              const proKeywords = ['hospital', 'clinic', 'medical', 'center', 'diagnostic', 'lab', 'pharmacy', 'health', 'হাসপাতাল', 'ক্লিনিক', 'care', 'special', 'ambulance', 'doctor', 'physio', 'rehab', 'medicine'];
+              const isExistingPro = proKeywords.some(k => existingName.toLowerCase().includes(k));
+              const isCurrentPro = proKeywords.some(k => currentName.toLowerCase().includes(k));
+              
+              if (isCurrentPro && !isExistingPro) {
+                map.set(email, d);
+              } else if (isExistingPro && !isCurrentPro) {
+                // Keep existing
+              } else if (!isExistingNameReal && isCurrentNameReal) {
+                map.set(email, d);
+              } else if (d.id.startsWith('u_')) {
+                if (!isCurrentPro && isExistingPro) {
+                  map.set(email, { ...d, ...existing, id: d.id, name: existingName, hospitalName: existingName });
+                } else {
+                  map.set(email, d);
+                }
+              }
             }
           } else {
             map.set(d.id, d);
@@ -472,7 +491,7 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
       if (cached) {
         try { 
           const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) setAllProviderPosts(parsed);
+          if (Array.isArray(parsed)) setAllProviderPosts(parsed);
         } catch(e) {}
       }
 
@@ -482,35 +501,12 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
         limit(100)
       );
       getDocs(qPosts).then((snapshot) => {
-        let posts = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Post));
-        if (posts.length === 0) {
-          const presets = type === 'hospital' ? HOSPITAL_SERVICES_PRESETS :
-                          type === 'nursing' ? NURSING_SERVICES_PRESETS : [];
-          posts = presets.map((p, idx) => ({
-            id: `post_preset_${type}_${idx}`,
-            title: p.name,
-            description: p.description || '',
-            price: String(p.price || '0'),
-            image: p.image || '',
-            providerName: type === 'hospital' ? 'Square Hospital Ltd.' : 'Caregiver Home Care'
-          } as Post));
-        }
+        const posts = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Post));
         setAllProviderPosts(posts);
         localStorage.setItem(cacheKey, JSON.stringify(posts));
         setLoading(false);
       }).catch((error) => {
         console.error("Posts fetch error:", error);
-        const presets = type === 'hospital' ? HOSPITAL_SERVICES_PRESETS :
-                        type === 'nursing' ? NURSING_SERVICES_PRESETS : [];
-        const posts = presets.map((p, idx) => ({
-          id: `post_preset_${type}_${idx}`,
-          title: p.name,
-          description: p.description || '',
-          price: String(p.price || '0'),
-          image: p.image || '',
-          providerName: type === 'hospital' ? 'Square Hospital Ltd.' : 'Caregiver Home Care'
-        } as Post));
-        setAllProviderPosts(posts);
         setLoading(false);
       });
     }
@@ -522,7 +518,7 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
       if (cached) {
         try { 
           const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) setGlobalServices(parsed);
+          if (Array.isArray(parsed)) setGlobalServices(parsed);
         } catch(e) {}
       }
 
@@ -535,17 +531,16 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
       getDocs(qGlobal).then((snapshot) => {
         let services = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         
-        // If Firestore is empty, use presets as fallback
+        // If Firestore is empty, use presets as fallback (only for Lab and Physio)
         if (services.length === 0) {
-          const presets = type === 'lab' ? LAB_SERVICES_PRESETS : 
-                          type === 'physio' ? PHYSIO_SERVICES_PRESETS :
-                          type === 'hospital' ? HOSPITAL_SERVICES_PRESETS :
-                          type === 'nursing' ? NURSING_SERVICES_PRESETS : [];
-          services = presets.map((p, idx) => ({ 
-            id: `preset_${idx}`, 
-            ...p,
-            isPreset: true
-          }));
+          if (type === 'lab' || type === 'physio') {
+            const presets = type === 'lab' ? LAB_SERVICES_PRESETS : PHYSIO_SERVICES_PRESETS;
+            services = presets.map((p, idx) => ({ 
+              id: `preset_${idx}`, 
+              ...p,
+              isPreset: true
+            }));
+          }
         }
         
         setGlobalServices(services);
@@ -553,11 +548,13 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
         setLoading(false);
       }).catch((error) => {
         console.error("Global services fetch error (falling back to presets):", error);
-        const presets = type === 'lab' ? LAB_SERVICES_PRESETS : 
-                        type === 'physio' ? PHYSIO_SERVICES_PRESETS :
-                        type === 'hospital' ? HOSPITAL_SERVICES_PRESETS :
-                        type === 'nursing' ? NURSING_SERVICES_PRESETS : [];
-        setGlobalServices(presets.map((p, idx) => ({ id: `preset_err_${idx}`, ...p, isPreset: true })));
+        // Fallback on error only for Lab and Physio
+        if (type === 'lab' || type === 'physio') {
+          const presets = type === 'lab' ? LAB_SERVICES_PRESETS : PHYSIO_SERVICES_PRESETS;
+          setGlobalServices(presets.map((p, idx) => ({ id: `preset_err_${idx}`, ...p, isPreset: true })));
+        } else {
+          setGlobalServices([]);
+        }
         setLoading(false);
       });
     }
@@ -588,9 +585,6 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
         ...doc.data()
       })) as Post[];
       setProviderPosts(docs);
-      setLoadingPosts(false);
-    }, (err) => {
-      console.warn("Provider posts snapshot error:", err);
       setLoadingPosts(false);
     });
 
