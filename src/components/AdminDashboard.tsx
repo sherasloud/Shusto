@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { collection, query, getDocs, doc, updateDoc, setDoc, where, deleteDoc, onSnapshot, getDoc, increment, orderBy, limit, addDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { getApiUrl } from '../utils/api';
-import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit, Store, Heart, TrendingUp } from 'lucide-react';
+import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit, Store, Heart, TrendingUp, Pin } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { TransactionsPanel } from './TransactionsPanel';
@@ -26,6 +26,7 @@ interface UserProfile {
 interface Doctor {
   id: string;
   name: string;
+  isPinned?: boolean;
   specialty: string;
   fee: number;
   image?: string;
@@ -1473,6 +1474,30 @@ export function AdminDashboard() {
     }
   };
 
+  const handleTogglePinDoctor = async (docObj: any) => {
+    try {
+      if (!docObj.id) return;
+      const docRef = doc(db, 'doctors', docObj.id);
+      
+      // Limit to 7 pinned doctors
+      if (!docObj.isPinned) {
+         const currentPinned = allDoctors.filter(d => (d as any).isPinned).length;
+         if (currentPinned >= 7) {
+            alert("Maximum 7 doctors can be pinned.");
+            return;
+         }
+      }
+
+      await updateDoc(docRef, {
+        isPinned: !docObj.isPinned
+      });
+      showSuccess(`Doctor ${docObj.isPinned ? 'unpinned' : 'pinned'} successfully`);
+    } catch (error) {
+      console.error(error);
+      alert("Failed to toggle pin status");
+    }
+  };
+
   const handleDeleteService = async (id: string, type: 'lab' | 'physio') => {
     if (!confirm("আপনি কি নিশ্চিতভাবে এই সার্ভিসটি মুছে ফেলতে চান?")) return;
     const collectionName = type === 'lab' ? 'labTests' : 'physioServices';
@@ -2915,6 +2940,13 @@ export function AdminDashboard() {
                   <td className="px-6 py-4 text-sm text-slate-500">{doc.specialty}</td>
                   <td className="px-6 py-4 font-bold text-sky-600">৳{doc.fee}</td>
                   <td className="px-6 py-4 flex items-center gap-2">
+                    <button 
+                      onClick={() => handleTogglePinDoctor(doc)}
+                      className={`p-2 rounded-xl transition-colors ${(doc as any).isPinned ? 'text-amber-500 bg-amber-50 hover:bg-amber-100' : 'text-slate-400 hover:bg-slate-50'}`} 
+                      title="Toggle Pin Status"
+                    >
+                      <Pin size={18} className={(doc as any).isPinned ? "fill-amber-500" : ""} />
+                    </button>
                     <button 
                       onClick={() => setShowEditModal(doc)}
                       className="p-2 text-sky-500 hover:bg-sky-50 rounded-xl transition-colors" 

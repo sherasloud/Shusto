@@ -36,6 +36,7 @@ interface Doctor {
   userId?: string;
   email?: string;
   isOnline?: boolean;
+  isPinned?: boolean;
 }
 
 export function DoctorDirectory() {
@@ -153,13 +154,16 @@ export function DoctorDirectory() {
       
       const validDocs = docs.filter(d => d.name && d.name.trim() !== '');
       
-      // Sort: Online doctors first, then by name
+      // Sort: Pinned first, then Online first, then by name
       validDocs.sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
         if (a.isOnline === b.isOnline) return (a.name || '').localeCompare(b.name || '');
         return a.isOnline ? -1 : 1;
       });
 
       setDoctors(validDocs);
+      try { localStorage.setItem('cached_doctors', JSON.stringify(validDocs)); } catch(e) {}
       setLoading(false);
     }, (error: any) => {
       console.error("Doctors fetch error:", error);
