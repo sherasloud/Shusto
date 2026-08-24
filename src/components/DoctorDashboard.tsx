@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, deleteDoc, getDoc, setDoc, increment, limit, getDocs, orderBy, runTransaction } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../AuthContext';
+import { distributeCommissions } from '../utils/commissions';
 import { Calendar, Clock, User, Video, CheckCircle, XCircle, FileText, Plus, Trash2, CreditCard, X, Check } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { VideoCall } from './VideoCall';
@@ -258,60 +259,80 @@ export function DoctorDashboard() {
           if (!docSnap.exists()) throw new Error("Document does not exist!");
           const data = docSnap.data();
           if (data.status === 'completed') return;
+          
+          if (!data.patientJoinedCall && price > 0) {
+             throw new Error('PATIENT_NOT_JOINED');
+          }
 
           const price = data.fee || 0;
           if (price > 0) {
-            const commissionRate = 0.10;
-            const commission = price * commissionRate;
-            const doctorShare = price - commission;
+            // Find admin before applying
+            const adminShare = price * 0.30;
+            const doctorShare = price * 0.70;
+
+            const adminQuery = query(collection(db, 'users'), where('email', '==', 'shustobd@gmail.com'), limit(1));
+            const adminSnap = await getDocs(adminQuery);
+            const adminUid = !adminSnap.empty ? adminSnap.docs[0].id : 'admin_placeholder';
 
             const drWalletRef = doc(db, 'wallets', user.uid);
-            const drWalletSnap = await transaction.get(drWalletRef);
-            const currentBalance = drWalletSnap.exists() ? drWalletSnap.data().balance || 0 : 0;
+            
+            // Distribute admin share to affiliates (must be done FIRST to avoid read-after-write errors)
+            const patientUid = data.userId;
+            const adminNetProfit = await distributeCommissions(
+              transaction,
+              patientUid,
+              adminShare,
+              adminUid,
+              `Platform fee for Appointment with ${user.displayName}`
+            );
 
+            // Now perform all writes
             transaction.update(docRef, { 
               status: 'completed',
               completedAt: new Date().toISOString(),
-              commission,
-              doctorShare
+              commission: adminShare,
+              doctorShare: doctorShare
             });
 
+            // Add 70% to doctor
             transaction.set(drWalletRef, {
               uid: user.uid,
-              balance: currentBalance + doctorShare,
+              balance: increment(doctorShare),
               updatedAt: new Date().toISOString()
             }, { merge: true });
 
-            const txPaymentRef = doc(collection(db, 'transactions'));
-            transaction.set(txPaymentRef, {
+            // Give remaining of the 30% to Admin (Shusto)
+            const adminWalletRef = doc(db, 'wallets', adminUid);
+            transaction.set(adminWalletRef, {
+              uid: adminUid,
+              balance: increment(adminNetProfit),
+              updatedAt: new Date().toISOString()
+            }, { merge: true });
+
+            // Record Doctor Transaction
+            const drTxRef = doc(collection(db, 'transactions'));
+            transaction.set(drTxRef, {
               userId: user.uid,
-              amount: price,
-              type: 'payment',
+              amount: doctorShare,
+              type: 'appointment_earning',
               status: 'success',
-              details: `Payment for Appointment (ID: ${id})`,
-              appointmentId: id,
+              targetId: id,
+              targetName: data.userName || 'Patient',
               createdAt: new Date().toISOString()
             });
 
-            const txFeeRef = doc(collection(db, 'transactions'));
-            transaction.set(txFeeRef, {
-              userId: user.uid,
-              amount: commission,
-              type: 'service_fee',
+            // Record Admin Transaction
+            const adminTxRef = doc(collection(db, 'transactions'));
+            transaction.set(adminTxRef, {
+              userId: adminUid,
+              amount: adminNetProfit,
+              type: 'platform_fee',
               status: 'success',
-              details: `Shusto Service Fee (10%) for Appointment ${id}`,
-              appointmentId: id,
+              targetId: id,
+              targetName: user.displayName,
               createdAt: new Date().toISOString()
             });
-
-            const commRef = doc(collection(db, 'commissions'));
-            transaction.set(commRef, {
-              orderId: id,
-              amount: commission,
-              providerId: user.uid,
-              providerType: 'doctor',
-              createdAt: new Date().toISOString()
-            });
+            
           } else {
             transaction.update(docRef, { status: 'completed' });
           }
@@ -322,7 +343,11 @@ export function DoctorDashboard() {
       }
     } catch (e) {
       console.error(e);
-      addToast("ত্রুটি হয়েছে।");
+      if (e instanceof Error && e.message === 'PATIENT_NOT_JOINED') {
+        alert("রোগী এখনও ভিডিও কলে যোগ দেননি! রোগী কলে যুক্ত না হওয়া পর্যন্ত অ্যাপয়েন্টমেন্ট সম্পন্ন করা যাবে না।");
+      } else {
+        addToast("ত্রুটি হয়েছে।");
+      }
     }
   };
 

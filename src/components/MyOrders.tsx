@@ -46,6 +46,16 @@ export function MyOrders() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [activeChannel, setActiveChannel] = useState<string | null>(null);
 
+  const joinCall = async (appt: any) => {
+    try {
+      const docRef = doc(db, 'appointments', appt.id);
+      await updateDoc(docRef, { patientJoinedCall: true });
+    } catch (e) {
+      console.error("Error updating patientJoinedCall:", e);
+    }
+    setActiveChannel(`call_${appt.doctorId}_${user?.uid}`);
+  };
+
   const releasePayment = async (order: any, type: 'request' | 'appointment') => {
 
     if (!user) return;
@@ -368,7 +378,7 @@ export function MyOrders() {
                      </button>
                      {appt.status === 'confirmed' && (
                        <button 
-                         onClick={() => setActiveChannel(`call_${appt.doctorId}_${user?.uid}`)}
+                         onClick={() => joinCall(appt)}
                          className="flex items-center gap-2 px-4 py-3 bg-indigo-500 text-white font-bold rounded-2xl hover:bg-indigo-600 transition-all shadow-sm"
                        >
                          <Phone size={18} />

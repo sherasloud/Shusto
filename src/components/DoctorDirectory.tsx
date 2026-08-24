@@ -232,59 +232,6 @@ export function DoctorDirectory() {
             updatedAt: new Date().toISOString()
           });
 
-          // Split: Doctor 70%, Admin 30%
-          const doctorShare = fee * 0.70;
-          const adminShare = fee * 0.30;
-
-          // 3. Add 70% to Doctor's Wallet
-          const doctorWalletRef = doc(db, 'wallets', doctorUserId);
-          transaction.set(doctorWalletRef, {
-            uid: doctorUserId,
-            balance: increment(doctorShare),
-            updatedAt: new Date().toISOString()
-          }, { merge: true });
-
-          // Record Doctor Transaction
-          const drTxRef = doc(collection(db, 'transactions'));
-          transaction.set(drTxRef, {
-            userId: doctorUserId,
-            amount: doctorShare,
-            type: 'appointment_earning',
-            status: 'success',
-            targetId: appRef.id,
-            targetName: user.displayName || 'Patient',
-            createdAt: new Date().toISOString()
-          });
-
-          // 4. Distribute Admin's 30% to affiliates (if any)
-          const adminNetProfit = await distributeCommissions(
-            transaction,
-            user.uid,
-            adminShare, // distribute out of the 30%
-            adminUid,
-            `Platform fee for Appointment with ${bookingDoctor.name}`
-          );
-
-          // Give remaining of the 30% to Admin (Shusto)
-          const adminWalletRef = doc(db, 'wallets', adminUid);
-          transaction.set(adminWalletRef, {
-            uid: adminUid,
-            balance: increment(adminNetProfit),
-            updatedAt: new Date().toISOString()
-          }, { merge: true });
-
-          // Record Admin Transaction
-          const adminTxRef = doc(collection(db, 'transactions'));
-          transaction.set(adminTxRef, {
-            userId: adminUid,
-            amount: adminNetProfit,
-            type: 'platform_fee',
-            status: 'success',
-            targetId: appRef.id,
-            targetName: bookingDoctor.name,
-            createdAt: new Date().toISOString()
-          });
-
           // Record Patient Payment
           const txRef = doc(collection(db, 'transactions'));
           transaction.set(txRef, {
