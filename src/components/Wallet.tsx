@@ -28,9 +28,11 @@ import { cn } from "../lib/utils";
 interface Transaction {
   id: string;
   amount: number;
-  type: "payment" | "add_money" | "withdrawal" | "service_fee";
+  type: string;
   status: "pending" | "success" | "failed";
   details?: string;
+  targetName?: string;
+  targetId?: string;
   createdAt: string;
 }
 
@@ -526,64 +528,95 @@ export function Wallet() {
               No transactions yet.
             </div>
           ) : (
-            transactions.map((tx) => (
-              <div
-                key={tx.id}
-                className="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <div
-                    className={cn(
-                      "w-12 h-12 rounded-2xl flex items-center justify-center",
-                      tx.type === "add_money" || tx.type === "payment"
-                        ? "bg-sky-100 text-sky-600"
-                        : tx.type === "withdrawal"
-                        ? "bg-sky-50 text-sky-500"
-                        : "bg-rose-100 text-rose-600",
-                    )}
-                  >
-                    {tx.type === "add_money" || tx.type === "payment" ? (
-                      <ArrowDownLeft size={24} />
-                    ) : (
-                      <ArrowUpRight size={24} />
-                    )}
+            transactions.map((tx) => {
+              // Income (+) for user: topup/deposit, doctor earning, platform/service fee, commission, refund
+              // Expense (-) for user: payment (spending on doctor/services), withdrawal
+              const isIncome = 
+                tx.type === "add_money" || 
+                tx.type === "appointment_earning" ||
+                (tx.type as string) === "doctor_earning" ||
+                (tx.type as string) === "earning" ||
+                tx.type === "service_fee" || 
+                (tx.type as string) === "platform_fee" ||
+                (tx.type as string) === "affiliate_commission" ||
+                (tx.type as string) === "refund" ||
+                (tx.type as string) === "deposit" ||
+                tx.details?.toLowerCase().includes("topup") ||
+                tx.details?.toLowerCase().includes("earning") ||
+                tx.details?.toLowerCase().includes("profit") ||
+                tx.details?.toLowerCase().includes("commission");
+
+              const isExpense = 
+                tx.type === "payment" || 
+                tx.type === "withdrawal" ||
+                (tx.type as string) === "doctor_payout" ||
+                (tx.type as string) === "payout";
+
+              const finalIsIncome = isIncome && !isExpense;
+
+              return (
+                <div
+                  key={tx.id}
+                  className="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center gap-4">
+                    <div
+                      className={cn(
+                        "w-12 h-12 rounded-2xl flex items-center justify-center",
+                        finalIsIncome
+                          ? "bg-sky-100 text-sky-600"
+                          : "bg-rose-100 text-rose-600",
+                      )}
+                    >
+                      {finalIsIncome ? (
+                        <ArrowDownLeft size={24} />
+                      ) : (
+                        <ArrowUpRight size={24} />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-900 capitalize">
+                        {tx.type === "service_fee" || (tx.type as string) === "platform_fee"
+                          ? "Platform Fee"
+                          : tx.type === "appointment_earning" || (tx.type as string) === "doctor_earning"
+                          ? "Doctor Consultation Earning"
+                          : tx.type === "payment"
+                          ? "Appointment Payment"
+                          : tx.type.replace("_", " ")}
+                      </p>
+                      <p className="text-sm text-slate-400">
+                        {tx.details || (tx.targetName ? `To/From: ${tx.targetName}` : (tx.type === "add_money" ? "Wallet Topup" : "Transaction"))}
+                      </p>
+                      <p className="text-[10px] text-slate-300">
+                        {new Date(tx.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold text-slate-900 capitalize">
-                      {tx.type === "service_fee" ? "Shusto Service Fee" : tx.type.replace("_", " ")}
+                  <div className="text-right">
+                    <p
+                      className={cn(
+                        "font-bold text-lg",
+                        finalIsIncome
+                          ? "text-sky-600 font-black"
+                          : "text-rose-600 font-black",
+                      )}
+                    >
+                      {finalIsIncome ? "+" : "-"}৳{tx.amount}
                     </p>
-                    <p className="text-sm text-slate-400">
-                      {tx.details || (tx.type === "add_money" ? "Wallet Topup" : "Transaction")}
-                    </p>
-                    <p className="text-[10px] text-slate-300">
-                      {new Date(tx.createdAt).toLocaleDateString()}
-                    </p>
+                    <span
+                      className={cn(
+                        "text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full",
+                        tx.status === "success"
+                          ? "bg-sky-100 text-sky-600"
+                          : "bg-amber-100 text-amber-600",
+                      )}
+                    >
+                      {tx.status}
+                    </span>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p
-                    className={cn(
-                      "font-bold text-lg",
-                      tx.type === "add_money" || tx.type === "payment"
-                        ? "text-sky-600"
-                        : "text-rose-600",
-                    )}
-                  >
-                    {tx.type === "add_money" || tx.type === "payment" ? "+" : "-"}৳{tx.amount}
-                  </p>
-                  <span
-                    className={cn(
-                      "text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full",
-                      tx.status === "success"
-                        ? "bg-sky-100 text-sky-600"
-                        : "bg-amber-100 text-amber-600",
-                    )}
-                  >
-                    {tx.status}
-                  </span>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

@@ -285,15 +285,15 @@ export function ProfitsPanel({ adminBalance, adminUid }: ProfitsPanelProps) {
                         {tx.details || 'Service Commission Profit'}
                       </td>
                       <td className="py-4 px-4">
-                        <span className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase tracking-wide bg-emerald-100 text-emerald-800">
+                        <span className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase tracking-wide bg-sky-100 text-sky-800">
                           প্ল্যাটফর্ম প্রফিট
                         </span>
                       </td>
-                      <td className="py-4 px-4 font-bold text-sm text-emerald-600">
+                      <td className="py-4 px-4 font-bold text-sm text-sky-600">
                         + ৳{displayAmount.toLocaleString()}
                       </td>
                       <td className="py-4 px-4 text-right">
-                        <span className="inline-flex items-center gap-1 text-emerald-600 font-bold text-[11px] bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
+                        <span className="inline-flex items-center gap-1 text-sky-600 font-bold text-[11px] bg-sky-50 px-2.5 py-1 rounded-full border border-sky-100">
                           <CheckCircle2 size={12} /> যোগ হয়েছে
                         </span>
                       </td>

@@ -133,62 +133,102 @@ export function TransactionsPanel({ isAdmin = false, currentUserId }: { isAdmin?
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filtered.map(tx => (
-                <tr key={tx.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "w-10 h-10 rounded-xl flex items-center justify-center",
-                        tx.type === 'add_money' ? "bg-sky-100 text-sky-600" : 
-                        tx.type === 'withdrawal' ? "bg-rose-100 text-rose-600" : 
-                        tx.type === 'affiliate_commission' ? "bg-indigo-100 text-indigo-600" : "bg-blue-100 text-blue-600"
-                      )}>
-                        {tx.type === 'add_money' ? <ArrowDownLeft size={20} /> : 
-                         tx.type === 'affiliate_commission' ? <DollarSign size={20} /> : <ArrowUpRight size={20} />}
+              {filtered.map(tx => {
+                // Income (+) for recipient: topup/deposit, doctor earning, platform/service fee, commission
+                // Expense (-) for payer: payment (spent by patient/user), withdrawal
+                const isIncome = 
+                  tx.type === 'add_money' || 
+                  tx.type === 'appointment_earning' ||
+                  (tx.type as string) === 'doctor_earning' ||
+                  (tx.type as string) === 'earning' ||
+                  (tx.type as string) === 'service_fee' || 
+                  (tx.type as string) === 'platform_fee' || 
+                  tx.type === 'affiliate_commission' ||
+                  (tx.type as string) === 'refund' ||
+                  (tx.type as string) === 'deposit' ||
+                  tx.details?.toLowerCase().includes('topup') ||
+                  tx.details?.toLowerCase().includes('earning') ||
+                  tx.details?.toLowerCase().includes('fee') ||
+                  tx.details?.toLowerCase().includes('platform') ||
+                  tx.details?.toLowerCase().includes('profit') ||
+                  tx.details?.toLowerCase().includes('commission');
+
+                const isExpense = 
+                  tx.type === 'payment' || 
+                  tx.type === 'withdrawal' ||
+                  (tx.type as string) === 'doctor_payout' ||
+                  (tx.type as string) === 'payout';
+
+                const finalIsIncome = isIncome && !isExpense;
+
+                return (
+                  <tr key={tx.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center",
+                          finalIsIncome ? "bg-sky-100 text-sky-600" : "bg-rose-100 text-rose-600"
+                        )}>
+                          {finalIsIncome ? <ArrowDownLeft size={20} /> : <ArrowUpRight size={20} />}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900 capitalize text-sm">
+                            {(tx.type as string) === 'service_fee' || (tx.type as string) === 'platform_fee' 
+                              ? 'Platform Fee' 
+                              : tx.type === 'appointment_earning' || (tx.type as string) === 'doctor_earning'
+                              ? 'Doctor Earning'
+                              : tx.type === 'payment'
+                              ? 'Appointment Payment'
+                              : tx.type.replace('_', ' ')}
+                          </p>
+                          {(tx.method || tx.details || tx.targetName) && (
+                            <p className="text-[10px] text-slate-400 font-bold uppercase">
+                              {tx.method || tx.details || (tx.targetName ? `Target: ${tx.targetName}` : '')} {tx.phoneNumber && `- ${tx.phoneNumber}`}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-bold text-slate-900 capitalize text-sm">{tx.type.replace('_', ' ')}</p>
-                        {(tx.method || tx.details) && <p className="text-[10px] text-slate-400 font-bold uppercase">{tx.method || tx.details} {tx.phoneNumber && `- ${tx.phoneNumber}`}</p>}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="font-bold text-slate-900">৳{tx.amount}</p>
-                    {tx.providerShare !== undefined && (
-                      <p className="text-[10px] text-slate-400 whitespace-nowrap">
-                        P: ৳{tx.providerShare.toFixed(2)} | S: ৳{tx.shustoShare?.toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className={cn("font-bold text-sm", finalIsIncome ? "text-sky-600" : "text-rose-600")}>
+                        {finalIsIncome ? '+' : '-'}৳{tx.amount}
                       </p>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className={cn(
-                      "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                      tx.status === 'success' ? "bg-sky-100 text-sky-600" : 
-                      tx.status === 'failed' ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"
-                    )}>
-                      {tx.status === 'success' ? <CheckCircle2 size={12} /> : 
-                       tx.status === 'failed' ? <XCircle size={12} /> : <Clock size={12} />}
-                      {tx.status}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm text-slate-500">{new Date(tx.createdAt).toLocaleDateString()}</p>
-                    <p className="text-[10px] text-slate-400">{new Date(tx.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                  </td>
-                  {isAdmin && (
-                    <td className="px-6 py-4 text-right">
-                      {tx.type === 'withdrawal' && tx.status === 'pending' && (
-                        <button 
-                          onClick={() => handleApproveWithdrawal(tx)}
-                          className="px-4 py-2 bg-sky-500 text-white text-xs font-bold rounded-lg hover:bg-sky-600 shadow-sm"
-                        >
-                          Approve
-                        </button>
+                      {tx.providerShare !== undefined && (
+                        <p className="text-[10px] text-slate-400 whitespace-nowrap">
+                          P: ৳{tx.providerShare.toFixed(2)} | S: ৳{tx.shustoShare?.toFixed(2)}
+                        </p>
                       )}
                     </td>
-                  )}
-                </tr>
-              ))}
+                    <td className="px-6 py-4">
+                      <div className={cn(
+                        "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                        tx.status === 'success' ? "bg-sky-100 text-sky-600" : 
+                        tx.status === 'failed' ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"
+                      )}>
+                        {tx.status === 'success' ? <CheckCircle2 size={12} /> : 
+                         tx.status === 'failed' ? <XCircle size={12} /> : <Clock size={12} />}
+                        {tx.status}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm text-slate-500">{new Date(tx.createdAt).toLocaleDateString()}</p>
+                      <p className="text-[10px] text-slate-400">{new Date(tx.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    </td>
+                    {isAdmin && (
+                      <td className="px-6 py-4 text-right">
+                        {tx.type === 'withdrawal' && tx.status === 'pending' && (
+                          <button 
+                            onClick={() => handleApproveWithdrawal(tx)}
+                            className="px-4 py-2 bg-sky-500 text-white text-xs font-bold rounded-lg hover:bg-sky-600 shadow-sm"
+                          >
+                            Approve
+                          </button>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
