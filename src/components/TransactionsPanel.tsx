@@ -190,7 +190,7 @@ export function TransactionsPanel({ isAdmin = false, currentUserId }: { isAdmin?
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <p className={cn("font-bold text-sm", finalIsIncome ? "text-sky-600" : "text-rose-600")}>
+                      <p className={cn("text-base font-bold tracking-tight", finalIsIncome ? "text-sky-600" : "text-rose-600")}>
                         {finalIsIncome ? '+' : '-'}৳{tx.amount}
                       </p>
                       {tx.providerShare !== undefined && (

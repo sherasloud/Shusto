@@ -595,10 +595,10 @@ export function Wallet() {
                   <div className="text-right">
                     <p
                       className={cn(
-                        "font-bold text-lg",
+                        "text-lg font-bold tracking-tight",
                         finalIsIncome
-                          ? "text-sky-600 font-black"
-                          : "text-rose-600 font-black",
+                          ? "text-sky-600"
+                          : "text-rose-600",
                       )}
                     >
                       {finalIsIncome ? "+" : "-"}৳{tx.amount}
