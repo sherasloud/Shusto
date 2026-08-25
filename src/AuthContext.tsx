@@ -24,7 +24,8 @@ interface AuthContextType {
   loading: boolean;
   error: string | null;
   login: () => Promise<void>;
-    logout: () => Promise<void>;
+  loginAsDemo: (role: 'user' | 'admin' | 'doctor') => Promise<void>;
+  logout: () => Promise<void>;
   forceSync: () => Promise<void>;
 }
 
@@ -347,8 +348,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     sessionStorage.removeItem('shusto_demo_user');
+    localStorage.removeItem('shusto_user_cache');
     setUser(null);
     await signOut(auth);
+  };
+
+  const loginAsDemo = async (role: 'user' | 'admin' | 'doctor') => {
+    setError(null);
+    setLoading(true);
+    const demoProfiles: Record<string, UserProfile> = {
+      admin: {
+        uid: 'admin_shustobd',
+        displayName: 'Shusto Admin',
+        email: 'shustobd@gmail.com',
+        photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+        role: 'admin'
+      },
+      doctor: {
+        uid: 'doctor_thesiambin',
+        displayName: 'Dr. Siam Bin',
+        email: 'thesiambin@gmail.com',
+        photoURL: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150',
+        role: 'doctor'
+      },
+      user: {
+        uid: 'user_patient_demo',
+        displayName: 'Patient Demo',
+        email: 'patient@shusto.com',
+        photoURL: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+        role: 'user'
+      }
+    };
+
+    const selected = demoProfiles[role];
+    sessionStorage.setItem('shusto_demo_user', JSON.stringify(selected));
+    localStorage.setItem('shusto_user_cache', JSON.stringify(selected));
+    localStorage.setItem('hasSeenWelcome', 'true');
+    setUser(selected);
+    setLoading(false);
   };
 
   const forceSync = async () => {
@@ -391,7 +428,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, login, logout, forceSync }}>
+    <AuthContext.Provider value={{ user, loading, error, login, loginAsDemo, logout, forceSync }}>
       {children}
     </AuthContext.Provider>
   );

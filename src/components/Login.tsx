@@ -3,7 +3,7 @@ import { useAuth } from '../AuthContext';
 import { ExternalLink, AlertTriangle, ShieldCheck } from 'lucide-react';
 
 export function Login() {
-  const { login, error: contextError } = useAuth();
+  const { login, loginAsDemo, error: contextError } = useAuth();
   const [localError, setLocalError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -101,11 +101,41 @@ export function Login() {
               নতুন ট্যাবে খুলুন (Open in New Tab)
             </button>
           )}
+
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200"></div>
+            </div>
+            <div className="relative flex justify-center text-[11px] uppercase">
+              <span className="bg-white px-2 text-slate-400 font-semibold tracking-wider">বা ১-ক্লিক ডেমো লগইন</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 pt-1">
+            <button
+              onClick={() => loginAsDemo('admin')}
+              className="py-2.5 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition-all"
+            >
+              👑 Admin (shustobd)
+            </button>
+            <button
+              onClick={() => loginAsDemo('doctor')}
+              className="py-2.5 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-xl text-xs font-bold transition-all"
+            >
+              🩺 Doctor (Siam)
+            </button>
+            <button
+              onClick={() => loginAsDemo('user')}
+              className="py-2.5 px-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-xl text-xs font-bold transition-all"
+            >
+              🧑 Patient
+            </button>
+          </div>
         </div>
 
         <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-400">
           <ShieldCheck size={14} className="text-emerald-500" />
-          <span>১০০% বিশ্বস্ত ও নিরাপদ গুগল সাইন-ইন</span>
+          <span>১০০% বিশ্বস্ত ও নিরাপদ সাইন-ইন</span>
         </div>
         <p className="mt-4 text-[11px] text-slate-400">
           By continuing, you agree to our Terms of Service and Privacy Policy.
