@@ -36,7 +36,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   startIncomingCallAlert, 
   stopIncomingCallAlert, 
-  requestCallNotificationPermission 
+  requestCallNotificationPermission,
+  showAppNotification
 } from './utils/callNotification';
 
 function AppContent() {
@@ -116,6 +117,99 @@ function AppContent() {
       unsubscribe();
       stopIncomingCallAlert();
     };
+  }, [user]);
+
+  // 1. Patient Notification: "Doctor Accepted your Appointment!"
+  const initialPatientApptsLoaded = React.useRef(false);
+  const knownConfirmedApptIds = React.useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!user || user.role !== 'user') return;
+
+    const q = query(
+      collection(db, 'appointments'),
+      where('userId', '==', user.uid)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (!initialPatientApptsLoaded.current) {
+        // Record existing confirmed appointments on initial load
+        snapshot.docs.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.status === 'confirmed') {
+            knownConfirmedApptIds.current.add(docSnap.id);
+          }
+        });
+        initialPatientApptsLoaded.current = true;
+        return;
+      }
+
+      // Check doc changes for new confirmation
+      snapshot.docChanges().forEach((change) => {
+        const data = change.doc.data();
+        const apptId = change.doc.id;
+
+        if (data.status === 'confirmed' && !knownConfirmedApptIds.current.has(apptId)) {
+          knownConfirmedApptIds.current.add(apptId);
+
+          const docName = data.doctorName ? `Dr. ${data.doctorName}` : 'ডাক্তার';
+          showAppNotification({
+            title: '🎉 Doctor Accepted your Appointment!',
+            body: `${docName} আপনার অ্যাপয়েন্টমেন্ট গ্রহণ করেছেন! ভিডিও কলের জন্য প্রস্তুত থাকুন।`,
+            tag: `appt-confirmed-${apptId}`
+          });
+        }
+      });
+    }, (err) => {
+      console.warn("Patient appointments notification listener error:", err);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // 2. Doctor Notification: "New Appointment Request!"
+  const initialDoctorApptsLoaded = React.useRef(false);
+  const knownPendingApptIds = React.useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!user || user.role !== 'doctor') return;
+
+    const q = query(
+      collection(db, 'appointments'),
+      where('targetId', '==', user.uid)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (!initialDoctorApptsLoaded.current) {
+        snapshot.docs.forEach((docSnap) => {
+          knownPendingApptIds.current.add(docSnap.id);
+        });
+        initialDoctorApptsLoaded.current = true;
+        return;
+      }
+
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const data = change.doc.data();
+          const apptId = change.doc.id;
+
+          if (!knownPendingApptIds.current.has(apptId) && data.status === 'pending') {
+            knownPendingApptIds.current.add(apptId);
+
+            const patientName = data.userName || 'একজন রোগী';
+            showAppNotification({
+              title: '📋 New Appointment Request!',
+              body: `${patientName} নতুন অ্যাপয়েন্টমেন্ট বুকিং অনুরোধ পাঠিয়েছেন। কনফার্ম করতে ক্লিক করুন।`,
+              tag: `appt-new-${apptId}`
+            });
+          }
+        }
+      });
+    }, (err) => {
+      console.warn("Doctor appointments notification listener error:", err);
+    });
+
+    return () => unsubscribe();
   }, [user]);
 
   // Listen to active call session status to gracefully exit if doctor ends the call

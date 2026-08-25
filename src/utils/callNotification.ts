@@ -139,7 +139,7 @@ export async function requestCallNotificationPermission(): Promise<boolean> {
 }
 
 /**
- * Show system notification for background/outside app
+ * Show system notification for background/outside app (Video Calls)
  */
 export function showBackgroundCallNotification(doctorName?: string) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
@@ -164,3 +164,78 @@ export function showBackgroundCallNotification(doctorName?: string) {
     console.warn("Could not display background notification:", e);
   }
 }
+
+export function playNotificationChime() {
+  try {
+    const ctx = getAudioContext();
+    const now = ctx.currentTime;
+
+    const notes = [587.33, 880]; // D5, A5
+    notes.forEach((freq, i) => {
+      const startTime = now + i * 0.14;
+      const endTime = startTime + 0.35;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, startTime);
+
+      gain.gain.setValueAtTime(0.001, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.18, startTime + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, endTime);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(startTime);
+      osc.stop(endTime);
+    });
+  } catch (e) {
+    console.warn("Chime error:", e);
+  }
+}
+
+/**
+ * Show a general system notification for appointments, orders, etc.
+ */
+export function showAppNotification({
+  title,
+  body,
+  tag = 'shusto-general-notification',
+  playChime = true
+}: {
+  title: string;
+  body: string;
+  tag?: string;
+  playChime?: boolean;
+}) {
+  if (playChime) {
+    playNotificationChime();
+  }
+
+  if ('vibrate' in navigator) {
+    try {
+      navigator.vibrate([200, 100, 200]);
+    } catch (e) {}
+  }
+
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+  try {
+    const notification = new Notification(title, {
+      body,
+      icon: '/favicon.ico',
+      tag,
+      silent: false,
+    });
+
+    notification.onclick = () => {
+      window.focus();
+      notification.close();
+    };
+  } catch (e) {
+    console.warn("Could not display notification:", e);
+  }
+}
+
