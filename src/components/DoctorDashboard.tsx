@@ -27,7 +27,6 @@ interface DoctorSlot {
   doctorEmail?: string;
   doctorName?: string;
   date: string;
-  timeSlot?: string;
   timeSlot: string;
   startTime?: string;
   endTime?: string;
@@ -260,11 +259,11 @@ export function DoctorDashboard() {
           const data = docSnap.data();
           if (data.status === 'completed') return;
           
+          const price = data.fee || 0;
           if (!data.patientJoinedCall && price > 0) {
              throw new Error('PATIENT_NOT_JOINED');
           }
 
-          const price = data.fee || 0;
           if (price > 0) {
             // Find admin before applying
             const adminShare = price * 0.30;
@@ -417,6 +416,7 @@ export function DoctorDashboard() {
         doctorName: user?.displayName,
         patientId: appointment.userId,
         patientName: appointment.userName,
+        appointmentId: appointment.id,
         status: 'waiting',
         createdAt: new Date().toISOString()
       });
@@ -427,6 +427,23 @@ export function DoctorDashboard() {
       alert("Failed to start call. Please try again.");
     }
   };
+
+  // Monitor active call for doctor (if patient declines)
+  useEffect(() => {
+    if (!activeCall) return;
+
+    const unsub = onSnapshot(doc(db, 'callSessions', activeCall.id), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.status === 'declined') {
+          alert("রোগী কলটি গ্রহণ করেননি বা বাতিল করেছেন।");
+          setActiveCall(null);
+        }
+      }
+    });
+
+    return () => unsub();
+  }, [activeCall]);
 
   const endCall = async () => {
     if (activeCall) {

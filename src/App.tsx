@@ -31,8 +31,13 @@ import { Welcome } from './components/Welcome';
 import { ShopRegistration } from './components/ShopRegistration';
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
-import { AlertCircle, Phone, PhoneOff } from 'lucide-react';
+import { AlertCircle, Phone, PhoneOff, Video, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { 
+  startIncomingCallAlert, 
+  stopIncomingCallAlert, 
+  requestCallNotificationPermission 
+} from './utils/callNotification';
 
 function AppContent() {
   const { user, loading, error } = useAuth();
@@ -45,8 +50,20 @@ function AppContent() {
   });
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [incomingCall, setIncomingCall] = useState<{ id: string; channel: string; doctorId: string; doctorName?: string } | null>(null);
-  const [callAccepted, setCallAccepted] = useState(false);
+  const [incomingCall, setIncomingCall] = useState<{ 
+    id: string; 
+    channel: string; 
+    doctorId: string; 
+    doctorName?: string;
+    appointmentId?: string;
+  } | null>(null);
+  const [activeCallSession, setActiveCallSession] = useState<{
+    id: string;
+    channel: string;
+    doctorId: string;
+    doctorName?: string;
+    appointmentId?: string;
+  } | null>(null);
   const [hasSeenWelcome, setHasSeenWelcome] = useState(() => localStorage.getItem('hasSeenWelcome') === 'true');
 
   useEffect(() => {
@@ -57,10 +74,17 @@ function AppContent() {
     return () => window.removeEventListener('switchTab', handleSwitchTab);
   }, []);
 
+  // Request browser push notification permission on login/mount
+  useEffect(() => {
+    if (user) {
+      requestCallNotificationPermission().catch(() => {});
+    }
+  }, [user]);
+
+  // Listen for incoming calls for patients
   useEffect(() => {
     if (!user || user.role !== 'user') return;
 
-    // Listen for incoming calls for patients
     const q = query(
       collection(db, 'callSessions'),
       where('patientId', '==', user.uid),
@@ -68,24 +92,91 @@ function AppContent() {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      console.log("[App] Incoming call snapshot received. Empty?", snapshot.empty);
       if (!snapshot.empty) {
-        const callData = snapshot.docs[0].data();
-        console.log("[App] Call data received:", callData);
-        setIncomingCall({ 
-          id: snapshot.docs[0].id,
+        const callDoc = snapshot.docs[0];
+        const callData = callDoc.data();
+        const callObj = { 
+          id: callDoc.id,
           channel: callData.channelName, 
           doctorId: callData.doctorId,
-          doctorName: callData.doctorName 
-        });
+          doctorName: callData.doctorName,
+          appointmentId: callData.appointmentId
+        };
+        setIncomingCall(callObj);
+        startIncomingCallAlert(callData.doctorName);
       } else {
         setIncomingCall(null);
-        setCallAccepted(false);
+        stopIncomingCallAlert();
       }
+    }, (err) => {
+      console.error("[App] Incoming call snapshot error:", err);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      stopIncomingCallAlert();
+    };
   }, [user]);
+
+  // Listen to active call session status to gracefully exit if doctor ends the call
+  useEffect(() => {
+    if (!activeCallSession) return;
+
+    const unsubDoc = onSnapshot(doc(db, 'callSessions', activeCallSession.id), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.status === 'ended' || data.status === 'declined') {
+          setActiveCallSession(null);
+        }
+      } else {
+        setActiveCallSession(null);
+      }
+    }, (err) => {
+      console.error("[App] Active call session listener error:", err);
+    });
+
+    return () => unsubDoc();
+  }, [activeCallSession]);
+
+  const handleAcceptCall = async () => {
+    if (!incomingCall) return;
+    const callToJoin = { ...incomingCall };
+    stopIncomingCallAlert();
+    setIncomingCall(null);
+    setActiveCallSession(callToJoin);
+
+    try {
+      await updateDoc(doc(db, 'callSessions', callToJoin.id), { 
+        status: 'active',
+        patientJoinedCall: true,
+        joinedAt: new Date().toISOString()
+      });
+
+      if (callToJoin.appointmentId) {
+        await updateDoc(doc(db, 'appointments', callToJoin.appointmentId), { 
+          patientJoinedCall: true 
+        });
+      }
+    } catch (e) {
+      console.error("Error updating call session to active:", e);
+    }
+  };
+
+  const handleDeclineCall = async () => {
+    if (!incomingCall) return;
+    const callId = incomingCall.id;
+    stopIncomingCallAlert();
+    setIncomingCall(null);
+
+    try {
+      await updateDoc(doc(db, 'callSessions', callId), { 
+        status: 'declined',
+        declinedAt: new Date().toISOString()
+      });
+    } catch (e) {
+      console.error("Error declining call session:", e);
+    }
+  };
 
   if (loading) {
     return (
@@ -131,17 +222,19 @@ function AppContent() {
     return <Login />;
   }
 
-  if (incomingCall && callAccepted) {
+  // Active Video Call Room for Patient
+  if (activeCallSession) {
     return (
       <VideoCall 
-        channelName={incomingCall.channel} 
+        channelName={activeCallSession.channel} 
         role="host" 
+        patientId={user.uid}
+        patientName={user.displayName || 'Patient'}
         onEnd={async () => {
-          setIncomingCall(null);
-          setCallAccepted(false);
-          // Update session status to ended
+          const callId = activeCallSession.id;
+          setActiveCallSession(null);
           try {
-            await updateDoc(doc(db, 'callSessions', incomingCall.id), { status: 'ended' });
+            await updateDoc(doc(db, 'callSessions', callId), { status: 'ended' });
           } catch (e) {
             console.error("Error ending call session:", e);
           }
@@ -200,53 +293,80 @@ function AppContent() {
         setIsOpen={setIsSidebarOpen}
       />
       
-      {/* Incoming Call Modal */}
+      {/* WhatsApp / Messenger Style Incoming Call Modal Overlay */}
       <AnimatePresence>
-        {incomingCall && !callAccepted && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[200] w-full max-w-sm bg-slate-900 text-white rounded-[32px] p-8 shadow-2xl border border-slate-700/50 backdrop-blur-xl"
-          >
-            <div className="flex flex-col items-center text-center">
-              <div className="w-24 h-24 bg-sky-500 rounded-full flex items-center justify-center animate-bounce mb-6">
-                <Phone size={48} className="text-white" />
+        {incomingCall && (
+          <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+            {/* Backdrop with ripple glow */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-2xl"
+            />
+
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.85, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.85, y: 30 }}
+              className="relative w-full max-w-sm bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 text-white rounded-[40px] p-8 shadow-[0_0_60px_rgba(14,165,233,0.3)] border border-sky-500/30 overflow-hidden"
+            >
+              {/* Background ambient pulse circles */}
+              <div className="absolute -top-24 -left-24 w-48 h-48 bg-sky-500/20 rounded-full blur-3xl pointer-events-none animate-pulse" />
+              <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none animate-pulse" />
+
+              <div className="flex flex-col items-center text-center relative z-10">
+                {/* Pulsing Avatar with Waves */}
+                <div className="relative mb-6">
+                  <div className="absolute inset-0 rounded-full bg-sky-500/30 animate-ping duration-1000 scale-125" />
+                  <div className="absolute -inset-3 rounded-full bg-sky-500/20 animate-pulse" />
+                  <div className="w-24 h-24 bg-gradient-to-tr from-sky-600 to-cyan-400 rounded-full flex items-center justify-center shadow-xl relative z-10 border-4 border-slate-900">
+                    <Video size={42} className="text-white animate-pulse" />
+                  </div>
+                  <div className="absolute bottom-0 right-0 w-6 h-6 bg-emerald-500 border-2 border-slate-900 rounded-full z-20" />
+                </div>
+
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-sky-500/10 border border-sky-500/30 rounded-full mb-3">
+                  <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping" />
+                  <p className="text-sky-400 text-[11px] font-bold uppercase tracking-widest">ইনকামিং ভিডিও কল...</p>
+                </div>
+
+                <h3 className="text-2xl font-black tracking-tight text-white mb-1">
+                  Dr. {incomingCall.doctorName || 'Consultant'}
+                </h3>
+                <p className="text-slate-400 text-sm font-medium mb-8">
+                  ডাক্তার আপনার সাথে ভিডিও কনসালটেশনে কথা বলতে চাচ্ছেন
+                </p>
+
+                {/* Call Action Buttons */}
+                <div className="flex items-center justify-between gap-6 w-full px-2">
+                  {/* Decline Button */}
+                  <div className="flex flex-col items-center gap-2">
+                    <button 
+                      onClick={handleDeclineCall}
+                      className="w-16 h-16 bg-rose-600/90 hover:bg-rose-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-rose-600/30 hover:scale-105 active:scale-95 transition-all"
+                      title="কেটে দিন"
+                    >
+                      <PhoneOff size={28} />
+                    </button>
+                    <span className="text-xs font-semibold text-rose-300">কেটে দিন</span>
+                  </div>
+
+                  {/* Accept Button */}
+                  <div className="flex flex-col items-center gap-2">
+                    <button 
+                      onClick={handleAcceptCall}
+                      className="w-16 h-16 bg-emerald-500 hover:bg-emerald-400 text-white rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/40 hover:scale-110 active:scale-95 transition-all animate-bounce"
+                      title="কল ধরুন"
+                    >
+                      <Phone size={28} className="animate-pulse" />
+                    </button>
+                    <span className="text-xs font-bold text-emerald-400">কল রিসিভ করুন</span>
+                  </div>
+                </div>
               </div>
-              <p className="text-sky-400 text-xs font-bold uppercase tracking-widest mb-2">ইনকামিং কল</p>
-              <h3 className="text-2xl font-bold mb-6">Dr. {incomingCall.doctorName || 'Consultant'}</h3>
-              <p className="text-slate-400 mb-8">ডাক্তার আপনার সাথে কথা বলতে চান। কলটি ধরুন এবং ভিডিও কলে সংযুক্ত হোন।</p>
-            </div>
-            
-            <div className="flex gap-4">
-              <button 
-                onClick={async () => {
-                  try {
-                    await updateDoc(doc(db, 'callSessions', incomingCall.id), { status: 'declined' });
-                  } catch (e) {
-                    console.error(e);
-                  }
-                  setIncomingCall(null);
-                }}
-                className="flex-1 py-4 bg-slate-800 text-white font-bold rounded-2xl hover:bg-slate-700 transition-all"
-              >
-                বাতিল
-              </button>
-              <button 
-                onClick={async () => {
-                  try {
-                    await updateDoc(doc(db, 'callSessions', incomingCall.id), { status: 'active' });
-                    setCallAccepted(true);
-                  } catch (e) {
-                    console.error(e);
-                  }
-                }}
-                className="flex-1 py-4 bg-sky-500 text-white font-bold rounded-2xl hover:bg-sky-600 transition-all shadow-lg shadow-sky-500/20"
-              >
-                কল ধরুন
-              </button>
-            </div>
-          </motion.div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 

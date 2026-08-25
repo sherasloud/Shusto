@@ -36,59 +36,9 @@ export function Dashboard() {
   const [upcomingAppointment, setUpcomingAppointment] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [incomingCall, setIncomingCall] = useState<{ id: string; channel: string } | null>(null);
-  const [activeCall, setActiveCall] = useState<{ id: string; channel: string; patientId: string } | null>(null);
   const [activeRequests, setActiveRequests] = useState<any[]>([]);
   const [activeChat, setActiveChat] = useState<{ id: string; name: string } | null>(null);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
-
-  useEffect(() => {
-    if (!user) return;
-
-    // Listen for incoming calls (for patients)
-    const qCalls = query(
-      collection(db, 'callSessions'),
-      where('patientId', '==', user.uid),
-      where('status', '==', 'waiting')
-    );
-
-    const unsubscribeCalls = onSnapshot(qCalls, (snapshot) => {
-      if (!snapshot.empty) {
-        const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        docs.sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-        const callData: any = docs[0];
-        setIncomingCall({ 
-          id: callData.id, 
-          channel: callData.channelName
-        });
-      } else {
-        setIncomingCall(null);
-      }
-    }, (err) => console.error("Call sessions error:", err));
-
-    return () => unsubscribeCalls();
-  }, [user]);
-
-  const joinCall = () => {
-    if (incomingCall) {
-      setActiveCall({ 
-        id: incomingCall.id, 
-        channel: incomingCall.channel, 
-        patientId: user!.uid 
-      });
-    }
-  };
-
-  const endCall = async () => {
-    if (activeCall) {
-      try {
-        await updateDoc(doc(db, 'callSessions', activeCall.id), { status: 'ended' });
-      } catch (e) {
-        console.error(e);
-      }
-      setActiveCall(null);
-    }
-  };
 
   const handleSync = async () => {
     setSyncing(true);
@@ -152,16 +102,6 @@ export function Dashboard() {
         <div className="w-12 h-12 border-4 border-sky-500/20 border-t-sky-500 rounded-full animate-spin" />
         <p className="text-slate-500 font-medium">ড্যাশবোর্ড লোড হচ্ছে...</p>
       </div>
-    );
-  }
-
-  if (activeCall) {
-    return (
-      <VideoCall 
-        channelName={activeCall.channel} 
-        role="audience" 
-        onEnd={endCall} 
-      />
     );
   }
 
@@ -388,21 +328,16 @@ export function Dashboard() {
                 </p>
 
                 <div className="flex gap-3">
-                  {incomingCall && (
-                    <button 
-                      onClick={joinCall}
-                      className="flex items-center gap-2 px-8 py-4 bg-white text-sky-600 rounded-2xl font-bold hover:bg-sky-50 shadow-lg transition-all animate-bounce"
-                    >
-                      <Video size={20} />
-                      ভিডিও কলে যোগ দিন
-                    </button>
-                  )}
-                  {!incomingCall && upcomingAppointment?.status === 'confirmed' && (
+                  {upcomingAppointment?.status === 'confirmed' ? (
                     <div className="flex flex-col gap-4">
-                      <div className="flex items-center gap-2 px-6 py-3 bg-white/20 rounded-2xl font-bold text-sm">
+                      <div className="flex items-center gap-2 px-6 py-3 bg-white/20 rounded-2xl font-bold text-sm text-white">
                         <Video size={18} />
-                        ডাক্তারের জন্য অপেক্ষা করা হচ্ছে...
+                        ডাক্তারের ভিডিও কলের জন্য অপেক্ষা করা হচ্ছে...
                       </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 px-6 py-3 bg-white/10 rounded-2xl font-medium text-sm text-white/90">
+                      অনুমোদনের অপেক্ষায়
                     </div>
                   )}
                 </div>
