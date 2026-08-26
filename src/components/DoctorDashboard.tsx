@@ -610,11 +610,9 @@ export function DoctorDashboard() {
                   </div>
                   <div className="flex items-center gap-2">
                     {app.status === 'pending' && (
-                      <>
-                        <button onClick={() => updateStatus(app.id, 'confirmed')} className="p-2 text-sky-600 hover:bg-sky-50 rounded-xl transition-colors">
-                          <CheckCircle size={20} />
-                        </button>
-                      </>
+                      <span className="text-xs text-amber-600 font-bold px-3 py-1 bg-amber-50 rounded-xl">
+                        অনুমোদন বাকি
+                      </span>
                     )}
                     {app.status === 'confirmed' && (
                       <div className="flex items-center gap-2">

@@ -53,6 +53,7 @@ export function DoctorDirectory() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState('All Specialty');
+  const [selectedPriceFilter, setSelectedPriceFilter] = useState('All Prices');
   const [bookingDoctor, setBookingDoctor] = useState<Doctor | null>(null);
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'booking' | 'success'>('idle');
   const [myAppointments, setMyAppointments] = useState<Appointment[]>(() => {
@@ -284,12 +285,26 @@ export function DoctorDirectory() {
   };
 
   const specialties = ['All Specialty', ...new Set(doctors.map(d => d.specialty || 'General'))];
+  const priceFilters = ['All Prices', 'Under ৳500', '৳500 - ৳1000', 'Above ৳1000'];
+
+  const getDocFeeNum = (d: Doctor) => {
+    if (!d.fee) return 0;
+    const match = String(d.fee).match(/\d+/);
+    return match ? Number(match[0]) : 0;
+  };
 
   const filteredDoctors = doctors.filter(doc => {
     const matchesSearch = (doc.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                          (doc.specialty || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSpecialty = selectedSpecialty === 'All Specialty' || (doc.specialty || 'General') === selectedSpecialty;
-    return matchesSearch && matchesSpecialty;
+    
+    const feeNum = getDocFeeNum(doc);
+    let matchesPrice = true;
+    if (selectedPriceFilter === 'Under ৳500') matchesPrice = feeNum < 500;
+    else if (selectedPriceFilter === '৳500 - ৳1000') matchesPrice = feeNum >= 500 && feeNum <= 1000;
+    else if (selectedPriceFilter === 'Above ৳1000') matchesPrice = feeNum > 1000;
+
+    return matchesSearch && matchesSpecialty && matchesPrice;
   });
 
   return (
@@ -317,7 +332,7 @@ export function DoctorDirectory() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
-          <div className="relative w-full sm:w-64">
+          <div className="relative w-full sm:w-56">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input 
               type="text" 
@@ -334,6 +349,15 @@ export function DoctorDirectory() {
           >
             {specialties.map(s => (
               <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          <select
+            value={selectedPriceFilter}
+            onChange={(e) => setSelectedPriceFilter(e.target.value)}
+            className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 w-full sm:w-auto text-xs font-bold text-slate-700 cursor-pointer"
+          >
+            {priceFilters.map(p => (
+              <option key={p} value={p}>{p}</option>
             ))}
           </select>
         </div>
