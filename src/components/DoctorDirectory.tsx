@@ -189,6 +189,11 @@ export function DoctorDirectory() {
       alert("Please login to book an appointment.");
       return;
     }
+
+    if (user.role !== 'user') {
+      alert('শুধুমাত্র রোগীরা (Patients) ডাক্তার বুকিং করতে পারবেন। অ্যাডমিন, ডাক্তার বা অন্য কোনো প্রোভাইডার অ্যাকাউন্ট থেকে বুকিং করা যাবে না।');
+      return;
+    }
     
     setBookingStatus('booking');
     try {
