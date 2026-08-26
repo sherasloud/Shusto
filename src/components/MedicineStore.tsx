@@ -255,11 +255,32 @@ export function MedicineStore() {
     setLoading(true);
     const q = query(collection(db, 'medicines'), limit(200));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Medicine));
+      let docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Medicine));
+      if (docs.length === 0) {
+        const cached = localStorage.getItem('cached_medicines') || localStorage.getItem('admin_cached_meds');
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) docs = parsed;
+          } catch (e) {}
+        }
+        if (docs.length === 0) docs = MEDICINE_PRESETS;
+      } else {
+        try { localStorage.setItem('cached_medicines', JSON.stringify(docs)); } catch (e) {}
+      }
       setMedicines(docs);
       setLoading(false);
     }, (error) => {
       console.error("Firestore medicines error:", error);
+      let docs = MEDICINE_PRESETS;
+      const cached = localStorage.getItem('cached_medicines') || localStorage.getItem('admin_cached_meds');
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) docs = parsed;
+        } catch (e) {}
+      }
+      setMedicines(docs);
       setLoading(false);
     });
 

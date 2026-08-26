@@ -9,7 +9,6 @@ import { PlacesAutocomplete } from './PlacesAutocomplete';
 import { cn } from '../lib/utils';
 import { AMBULANCE_ROUTES, LAB_SERVICES_PRESETS, PHYSIO_SERVICES_PRESETS, NURSING_SERVICES_PRESETS, HOSPITAL_SERVICES_PRESETS, AMBULANCE_PRICE_DETECTION_DATABASE } from '../constants';
 import { BANGLADESH_LOCATIONS, DISTRICT_THANAS } from '../constants/locations';
-import { FALLBACK_PROVIDERS } from '../constants/fallbackProviders';
 
 
 interface ServiceProvider {
@@ -472,12 +471,31 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
           }
         });
         
-        const fetchedProviders = Array.from(map.values());
+        let fetchedProviders = Array.from(map.values());
+        if (fetchedProviders.length === 0) {
+          const cached = localStorage.getItem(`cached_providers_${type}`);
+          if (cached) {
+            try {
+              const parsed = JSON.parse(cached);
+              if (Array.isArray(parsed) && parsed.length > 0) fetchedProviders = parsed;
+            } catch (e) {}
+          }
+        } else {
+          try { localStorage.setItem(`cached_providers_${type}`, JSON.stringify(fetchedProviders)); } catch (e) {}
+        }
         setProviders(fetchedProviders);
         setLoading(false);
       } catch (error: any) {
         console.error("Provider fetch error:", error);
-        setProviders([]);
+        let fallback: ServiceProvider[] = [];
+        const cached = localStorage.getItem(`cached_providers_${type}`);
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) fallback = parsed;
+          } catch (e) {}
+        }
+        setProviders(fallback);
         setLoading(false);
       }
     };

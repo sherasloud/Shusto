@@ -14,13 +14,14 @@ export async function connectMongoDB() {
   try {
     mongoose.set("strictQuery", false);
     const conn = await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 8000,
+      serverSelectionTimeoutMS: 15000,
+      socketTimeoutMS: 45000,
     });
     isConnected = true;
     console.log(`✅ MongoDB Atlas connected successfully: ${conn.connection.host}/${conn.connection.name}`);
     return conn.connection;
   } catch (error: any) {
-    console.error("❌ MongoDB connection error:", error.message);
+    console.error("⚠️ MongoDB connection warning:", error.message);
     return null;
   }
 }

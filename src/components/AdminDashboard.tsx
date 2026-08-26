@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { collection, query, getDocs, doc, updateDoc, setDoc, where, deleteDoc, onSnapshot, getDoc, increment, orderBy, limit, addDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { getApiUrl } from '../utils/api';
-import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit, Store, Heart, TrendingUp, Pin } from 'lucide-react';
+import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit, Store, Heart, TrendingUp, Pin, AlertTriangle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { TransactionsPanel } from './TransactionsPanel';
@@ -12,6 +12,7 @@ import { useAuth } from '../AuthContext';
 
 import { AMBULANCE_ROUTES, LAB_SERVICES_PRESETS, PHYSIO_SERVICES_PRESETS, HOSPITAL_SERVICES_PRESETS, NURSING_SERVICES_PRESETS } from '../constants';
 import { BANGLADESH_LOCATIONS } from '../constants/locations';
+import { MEDICINE_PRESETS } from '../constants/medicinesData';
 
 interface UserProfile {
   uid: string;
@@ -377,12 +378,13 @@ export function AdminDashboard() {
             image: (u as any).image || u.photoURL,
             isUserAccount: true
           })) as any[];
+
           setUserDoctors(uDocs);
         }
         
         if (activeTab === 'doctors') {
           const snapshot = await getDocs(query(collection(db, 'doctors'), limit(100)));
-          const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Doctor));
+          let docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Doctor));
           docs.sort((a, b) => {
             const dateA = a.createdAt ? new Date(a.createdAt).getTime() : (a.updatedAt ? new Date(a.updatedAt).getTime() : 0);
             const dateB = b.createdAt ? new Date(b.createdAt).getTime() : (b.updatedAt ? new Date(b.updatedAt).getTime() : 0);
@@ -395,7 +397,7 @@ export function AdminDashboard() {
           setMedicines(docs);
         } else if (['pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursings', 'nutritionists'].includes(activeTab)) {
           const snapshot = await getDocs(query(collection(db, activeTab), limit(100)));
-          const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Provider));
+          let docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Provider));
           docs.sort((a, b) => (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0));
 
           if (activeTab === 'pharmacies') setPharmacies(docs);
@@ -418,7 +420,6 @@ export function AdminDashboard() {
         const errMsg = err.message || '';
         setFetchError(errMsg);
         
-        // Restore from cache for any tab on error
         const cacheKey = activeTab === 'doctors' ? 'admin_cached_doctors' :
                         activeTab === 'medicines' ? 'admin_cached_meds' :
                         activeTab === 'shop_requests' ? 'admin_cached_shops' :
@@ -443,6 +444,7 @@ export function AdminDashboard() {
             } catch(e) {}
           }
         }
+
         setLoading(false);
       }
     };
@@ -456,12 +458,18 @@ export function AdminDashboard() {
     
     const unsubWallet = onSnapshot(doc(db, 'wallets', user.uid), (walletDoc) => {
       if (walletDoc.exists()) {
-        const bal = walletDoc.data().balance || 0;
+        const bal = walletDoc.data().balance ?? 0;
         setAdminBalance(bal);
         try { localStorage.setItem('shusto_admin_balance_cache', String(bal)); } catch (e) {}
       } else {
         setAdminBalance(0);
-        try { localStorage.setItem('shusto_admin_balance_cache', String(0)); } catch (e) {}
+        try { localStorage.setItem('shusto_admin_balance_cache', '0'); } catch (e) {}
+      }
+    }, (err) => {
+      console.warn("Admin wallet snapshot error:", err);
+      const cached = localStorage.getItem('shusto_admin_balance_cache');
+      if (cached && !isNaN(Number(cached))) {
+        setAdminBalance(Number(cached));
       }
     });
 
@@ -1755,6 +1763,29 @@ export function AdminDashboard() {
             </button>
           )}
         </div>
+
+        {/* Real-time Error / Empty Diagnostics Banner */}
+        {fetchError && (
+          <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl flex items-center justify-between gap-4 text-rose-800">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="text-rose-600 flex-shrink-0" size={20} />
+              <div>
+                <p className="font-bold text-sm">ডেটাবেস থেকে ডেটা লোড হতে সমস্যা হয়েছে</p>
+                <p className="text-xs text-rose-600 font-mono mt-0.5">{fetchError}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                fetchedTabs.current.delete(activeTab);
+                setActiveTab(prev => prev);
+                window.location.reload();
+              }}
+              className="px-4 py-2 bg-rose-600 text-white rounded-xl font-bold text-xs hover:bg-rose-700 transition-all"
+            >
+              পুনরায় চেষ্টা করুন
+            </button>
+          </div>
+        )}
       </div>
 
       {showRoleModal && (
@@ -2690,11 +2721,9 @@ export function AdminDashboard() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-800">
-                            {userBalances[user.uid] !== undefined ? `৳${userBalances[user.uid].toLocaleString()}` : `৳0`}
-                          </span>
-                        </div>
+                        <span className="font-bold text-slate-800">
+                          {userBalances[user.uid] !== undefined ? `৳${userBalances[user.uid].toLocaleString()}` : `৳0`}
+                        </span>
                       </td>
                       <td className="px-6 py-4 flex flex-wrap items-center gap-2">
                         {user.role === 'admin' ? (
@@ -2743,8 +2772,28 @@ export function AdminDashboard() {
                   ))}
                   {filteredUsers.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-medium italic">
-                        No users found matching "{searchTerm}"
+                      <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-medium space-y-3">
+                        <p className="text-base text-slate-600 font-bold">
+                          {searchTerm ? `"${searchTerm}" দিয়ে কোনো ইউজার পাওয়া যায়নি` : 'ডাটাবেজে এখনো কোনো ইউজার ডেটা নেই বা লোড হতে অপেক্ষা করছে'}
+                        </p>
+                        {!searchTerm && (
+                          <div className="flex items-center justify-center gap-3 pt-2">
+                            <button
+                              onClick={seedSampleUsers}
+                              disabled={loading}
+                              className="px-5 py-2.5 bg-emerald-600 text-white font-bold rounded-2xl text-xs hover:bg-emerald-700 transition-all shadow-md"
+                            >
+                              + স্যাম্পল ইউজার ডাটাবেজে যুক্ত করুন
+                            </button>
+                            <button
+                              onClick={syncAllRoles}
+                              disabled={loading}
+                              className="px-5 py-2.5 bg-sky-50 text-sky-600 font-bold rounded-2xl text-xs hover:bg-sky-100 transition-all border border-sky-200"
+                            >
+                              রোল ও প্রোফাইল রিফ্রেশ করুন
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   )}

@@ -34,8 +34,8 @@ import {
 
 dotenv.config();
 
-// Connect to MongoDB Atlas
-connectMongoDB().catch(err => console.error("Initial MongoDB connect error:", err));
+// Connect to MongoDB Atlas (Optional)
+connectMongoDB().catch(() => {});
 
 const getFilename = () => {
   return typeof __filename !== "undefined" ? __filename : "";

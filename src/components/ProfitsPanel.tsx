@@ -104,7 +104,7 @@ export function ProfitsPanel({ adminBalance, adminUid }: ProfitsPanelProps) {
       todayProfit: today,
       weekProfit: week,
       monthProfit: month,
-      totalProfit: Math.max(total, adminBalance),
+      totalProfit: total > 0 ? total : adminBalance,
       incomeList: incomes
     };
   }, [transactions, adminUid, adminBalance]);

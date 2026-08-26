@@ -5,7 +5,6 @@ import { db } from '../firebase';
 import { useAuth } from '../AuthContext';
 import { cn } from '../lib/utils';
 import { distributeCommissions } from '../utils/commissions';
-import { FALLBACK_PROVIDERS } from '../constants/fallbackProviders';
 
 interface Appointment {
   id: string;
@@ -167,6 +166,18 @@ export function DoctorDirectory() {
       setLoading(false);
     }, (error: any) => {
       console.error("Doctors fetch error:", error);
+      const cached = localStorage.getItem('cached_doctors') || localStorage.getItem('admin_cached_doctors');
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setDoctors(parsed);
+            setLoading(false);
+            return;
+          }
+        } catch (e) {}
+      }
+      setDoctors([]);
       setLoading(false);
     });
 

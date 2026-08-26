@@ -39,6 +39,7 @@ import {
   requestCallNotificationPermission,
   showAppNotification
 } from './utils/callNotification';
+import { DatabaseQuotaAlert } from './components/DatabaseQuotaAlert';
 
 function AppContent() {
   const { user, loading, error } = useAuth();
@@ -380,6 +381,7 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
+      <DatabaseQuotaAlert />
       <Sidebar 
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 

@@ -4,9 +4,9 @@ import { cn } from '../lib/utils';
 
 export function PrivacyPolicy({ onBack }: { onBack: () => void }) {
   const socialLinks = [
-    { name: 'Youtube', icon: Youtube, url: 'https://youtube.com/@ShustoBd', color: 'text-red-600' },
-    { name: 'Instagram', icon: Instagram, url: 'https://instagram.com/ShustoBd', color: 'text-pink-600' },
-    { name: 'Facebook', icon: Facebook, url: 'https://facebook.com/ShustoBd', color: 'text-blue-600' },
+    { name: 'Youtube', icon: Youtube, url: 'https://youtube.com/@ShustoBD', color: 'text-red-600' },
+    { name: 'Instagram', icon: Instagram, url: 'https://instagram.com/ShustoBD', color: 'text-pink-600' },
+    { name: 'Facebook', icon: Facebook, url: 'https://facebook.com/ShustoBD', color: 'text-blue-600' },
   ];
 
   return (
