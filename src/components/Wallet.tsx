@@ -22,6 +22,11 @@ import {
   ArrowDownLeft,
   CreditCard,
   Phone,
+  AlertCircle,
+  CheckCircle2,
+  XCircle,
+  Copy,
+  Check,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 
@@ -66,6 +71,16 @@ export function Wallet() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [processing, setProcessing] = useState(false);
   const [creditSuccessMsg, setCreditSuccessMsg] = useState<string | null>(null);
+  const [withdrawErrorDetails, setWithdrawErrorDetails] = useState<{
+    message: string;
+    statusCode?: number;
+    targetUrl?: string;
+    rawShebaResponse?: any;
+    secretUsed?: string;
+    timestamp?: string;
+  } | null>(null);
+  const [withdrawSuccessDetails, setWithdrawSuccessDetails] = useState<string | null>(null);
+  const [copiedError, setCopiedError] = useState(false);
 
   const isDevOrPreview = typeof window !== "undefined" && (
     window.location.hostname === "localhost" ||
@@ -319,74 +334,55 @@ export function Wallet() {
   };
 
   const handleWithdraw = async (isRetry: boolean = false) => {
+    setWithdrawErrorDetails(null);
+    setWithdrawSuccessDetails(null);
+
+    if (!user) {
+      setWithdrawErrorDetails({
+        message: "আপনার অ্যাকাউন্ট সেশন পাওয়া যায়নি। দয়া করে পুনরায় লগইন করুন।"
+      });
+      return;
+    }
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-      alert("সঠিক পরিমাণ লিখুন।");
+      setWithdrawErrorDetails({
+        message: "উত্তোলনের জন্য সঠিক পরিমাণ লিখুন (যেমন: ১০০, ৫০০)।"
+      });
       return;
     }
     if (Number(amount) > (balance || 0)) {
-      alert("আপনার পর্যাপ্ত ব্যালেন্স নেই।");
+      setWithdrawErrorDetails({
+        message: `আপনার পর্যাপ্ত ব্যালেন্স নেই। বর্তমান ব্যালেন্স: ৳${balance || 0}`
+      });
       return;
     }
-    if (!phoneNumber || phoneNumber.length < 11) {
-      alert("সঠিক মোবাইল নম্বর লিখুন।");
+    const cleanNumber = phoneNumber.trim().replace(/[^0-9]/g, "");
+    if (!cleanNumber || cleanNumber.length < 11) {
+      setWithdrawErrorDetails({
+        message: "সঠিক ১১ ডিজিটের শেবা মোবাইল নম্বর লিখুন (যেমন: 01930314459)।"
+      });
       return;
     }
 
     setProcessing(true);
     try {
-      // 1. First, perform a Firestore transaction to deduct balance and record transaction
-      // This ensures "User Balance Update -> serviceProviders balance update -> transactions table record"
-      const walletRef = doc(db, "wallets", user!.uid);
-      const txRef = doc(collection(db, "transactions"));
-      const notifRef = doc(collection(db, "notifications"));
+      // Generate a unique idempotency key for this withdrawal attempt
+      const idempotencyKey = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `wd_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
-      await runTransaction(db, async (transaction) => {
-        const walletDoc = await transaction.get(walletRef);
-        if (!walletDoc.exists()) throw new Error("Wallet not found");
-        
-        const currentBalance = walletDoc.data().balance || 0;
-        if (currentBalance < Number(amount)) throw new Error("Insufficient balance");
-
-        // Update Wallet Balance
-        transaction.update(walletRef, {
-          balance: currentBalance - Number(amount),
-          updatedAt: new Date().toISOString()
-        });
-
-        // Record Withdrawal Transaction
-        transaction.set(txRef, {
-          userId: user!.uid,
-          amount: Number(amount),
-          type: "withdrawal",
-          status: "pending", // Mark as pending until API succeeds
-          details: `Withdrawal to Sheba ID: ${phoneNumber}`,
-          createdAt: new Date().toISOString()
-        });
-
-        // Add Notification
-        transaction.set(notifRef, {
-          userId: user!.uid,
-          title: "Withdrawal Requested",
-          message: `Your withdrawal of ৳${amount} is being processed.`,
-          type: "wallet",
-          read: false,
-          createdAt: new Date().toISOString()
-        });
-      });
-
-      // 2. Call the server API proxy which calls Sheba external API
-      const response = await fetch(getApiUrl("/api/sheba/withdraw"), {
+      // Call the server API endpoint which signs HMAC and atomically executes withdrawal
+      const response = await fetch(getApiUrl("/api/shusto/withdraw"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: user?.uid,
+          shustoUserId: user.uid,
+          userId: user.uid,
+          shebaNumber: cleanNumber,
+          phone: cleanNumber,
           amount: Number(amount),
-          phone: phoneNumber,
-          bankName: "Sheba Wallet"
+          idempotencyKey: idempotencyKey
         }),
       });
 
-      let responseData;
+      let responseData: any = {};
       const responseText = await response.text();
       try {
         responseData = JSON.parse(responseText);
@@ -394,27 +390,39 @@ export function Wallet() {
         responseData = { error: responseText };
       }
 
-      if (!response.ok) {
-        throw new Error(responseData.error || `Server returned ${response.status}`);
+      if (!response.ok || responseData.success === false) {
+        const errMsg = responseData.error || responseData.message || `সার্ভার এরর কোড: ${response.status}`;
+        setWithdrawErrorDetails({
+          message: errMsg,
+          statusCode: response.status || responseData.statusCode,
+          targetUrl: responseData.targetUrl || "https://shebabangladesh.vercel.app/api/shusto/withdraw",
+          rawShebaResponse: responseData.rawShebaResponse || responseData,
+          secretUsed: responseData.secretUsed,
+          timestamp: new Date().toLocaleTimeString('bn-BD')
+        });
+        return;
       }
 
       if (responseData.success) {
-        // Update transaction status to success
-        await setDoc(txRef, { status: "success" }, { merge: true });
-        
-        alert(responseData.message || "আপনার টাকা সফলভাবে পাঠানো হয়েছে।");
+        setWithdrawSuccessDetails(responseData.message || `৳${amount} টাকা সফলভাবে শেবা অ্যাকাউন্টে (${cleanNumber}) ক্রেডিট হয়েছে!`);
         setShowWithdraw(false);
         setAmount("");
         setPhoneNumber("");
       } else {
-        // Detailed error for debugging
         const errorDetail = responseData.error || responseData.message || "অজানা সমস্যা";
-        throw new Error(errorDetail);
+        setWithdrawErrorDetails({
+          message: errorDetail,
+          statusCode: response.status,
+          targetUrl: responseData.targetUrl,
+          rawShebaResponse: responseData
+        });
       }
     } catch (error: any) {
       console.error("Withdrawal Error:", error);
-      // Show exactly what went wrong
-      alert("উত্তোলন ব্যর্থ হয়েছে!\nকারণ: " + error.message);
+      setWithdrawErrorDetails({
+        message: `রিকোয়েস্ট পাঠাতে সমস্যা হয়েছে: ${error.message}`,
+        timestamp: new Date().toLocaleTimeString('bn-BD')
+      });
     } finally {
       setProcessing(false);
     }
@@ -429,6 +437,96 @@ export function Wallet() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
+      {/* On-Screen Withdrawal Error Diagnostic Banner */}
+      {withdrawErrorDetails && (
+        <div className="bg-red-50 border-2 border-red-200 rounded-[32px] p-6 text-red-900 shadow-xl shadow-red-500/5 animate-in slide-in-from-top-4 duration-300 relative">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center text-red-600 shrink-0">
+                <XCircle size={28} />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h3 className="text-lg font-black text-red-950">
+                    উত্তোলন ব্যর্থ হয়েছে (Withdrawal Error)
+                  </h3>
+                  {withdrawErrorDetails.statusCode && (
+                    <span className="px-3 py-1 bg-red-200 text-red-900 text-xs font-black rounded-full">
+                      HTTP {withdrawErrorDetails.statusCode}
+                    </span>
+                  )}
+                  {withdrawErrorDetails.timestamp && (
+                    <span className="text-xs text-red-500 font-medium">
+                      {withdrawErrorDetails.timestamp}
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-sm font-bold text-red-800 leading-relaxed">
+                  {withdrawErrorDetails.message}
+                </p>
+
+                {withdrawErrorDetails.targetUrl && (
+                  <div className="text-xs text-red-600/90 font-mono bg-red-100/60 p-2.5 rounded-xl break-all">
+                    <span className="font-bold">Target URL:</span> {withdrawErrorDetails.targetUrl}
+                  </div>
+                )}
+
+                {withdrawErrorDetails.rawShebaResponse && (
+                  <div className="mt-2 text-xs bg-slate-900 text-red-200 p-3 rounded-xl font-mono overflow-x-auto max-h-36">
+                    <p className="text-slate-400 font-bold mb-1">// Sheba Server Response:</p>
+                    <pre>{typeof withdrawErrorDetails.rawShebaResponse === 'object' ? JSON.stringify(withdrawErrorDetails.rawShebaResponse, null, 2) : String(withdrawErrorDetails.rawShebaResponse)}</pre>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  const errorText = `[Shusto Withdrawal Error]\nStatus: ${withdrawErrorDetails.statusCode || 'N/A'}\nMessage: ${withdrawErrorDetails.message}\nURL: ${withdrawErrorDetails.targetUrl || ''}\nResponse: ${JSON.stringify(withdrawErrorDetails.rawShebaResponse || {})}`;
+                  navigator.clipboard.writeText(errorText);
+                  setCopiedError(true);
+                  setTimeout(() => setCopiedError(false), 2000);
+                }}
+                className="px-3 py-2 bg-white hover:bg-red-100 text-red-700 text-xs font-bold rounded-xl border border-red-200 flex items-center gap-1.5 transition-all shadow-sm"
+              >
+                {copiedError ? <Check size={14} /> : <Copy size={14} />}
+                <span>{copiedError ? "কপি হয়েছে!" : "এরর কপি করুন"}</span>
+              </button>
+              <button
+                onClick={() => setWithdrawErrorDetails(null)}
+                className="p-2 text-red-400 hover:text-red-700 rounded-xl hover:bg-red-100 transition-all"
+                title="বন্ধ করুন"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* On-Screen Success Banner */}
+      {withdrawSuccessDetails && (
+        <div className="bg-emerald-50 border-2 border-emerald-200 rounded-[32px] p-6 text-emerald-900 shadow-xl shadow-emerald-500/5 animate-in slide-in-from-top-4 duration-300 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+              <CheckCircle2 size={28} />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-emerald-950">উত্তোলন সফল হয়েছে!</h3>
+              <p className="text-sm font-semibold text-emerald-800">{withdrawSuccessDetails}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setWithdrawSuccessDetails(null)}
+            className="p-2 text-emerald-500 hover:text-emerald-800 rounded-xl hover:bg-emerald-100 transition-all"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Balance Card - Main Focus */}
         <div className="lg:col-span-2 bg-gradient-to-br from-sky-500 to-blue-600 rounded-[48px] p-10 text-white shadow-2xl shadow-sky-500/30 relative overflow-hidden group">
@@ -758,6 +856,19 @@ export function Wallet() {
                   />
                 </div>
               </div>
+
+              {/* In-Modal Error Warning */}
+              {withdrawErrorDetails && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-800 space-y-1.5 animate-in fade-in duration-200">
+                  <div className="flex items-center gap-2 font-bold text-sm text-red-950">
+                    <AlertCircle size={18} className="text-red-600 shrink-0" />
+                    <span>উত্তোলনে সমস্যা হয়েছে {withdrawErrorDetails.statusCode ? `(${withdrawErrorDetails.statusCode})` : ''}</span>
+                  </div>
+                  <p className="text-xs font-semibold leading-relaxed pl-6">
+                    {withdrawErrorDetails.message}
+                  </p>
+                </div>
+              )}
 
               <div className="flex gap-4 mt-8 pt-2">
                 <button

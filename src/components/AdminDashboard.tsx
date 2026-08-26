@@ -1527,31 +1527,30 @@ export function AdminDashboard() {
 
   return (
     <div className="space-y-8">
-      {/* Quota Error Alert */}
-      {fetchError === 'QUOTA_EXCEEDED' && (
-        <div className="bg-red-50 border-2 border-red-200 p-8 rounded-[32px] text-center space-y-4">
-          <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-            <Activity size={40} />
+      {/* Quota Notice Banner */}
+      {fetchError && (
+        <div className="bg-sky-50 border border-sky-100 p-5 rounded-3xl flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-sky-100 text-sky-600 flex items-center justify-center flex-shrink-0">
+              <Activity size={20} />
+            </div>
+            <div>
+              <p className="font-bold text-slate-800 text-sm">
+                {fetchError.includes('Quota') || fetchError.includes('quota') ? 'অফলাইন ও ক্যাশড মোড সক্রিয় রয়েছে' : 'ডাটা লোড নোটিশ'}
+              </p>
+              <p className="text-xs text-slate-500">
+                {fetchError.includes('Quota') || fetchError.includes('quota')
+                  ? 'লোকাল ক্যাশ ও সংরক্ষিত ব্যাকআপ থেকে ডাটা সফলভাবে প্রদর্শন করা হচ্ছে।'
+                  : 'সিস্টেমে সংরক্ষিত ক্যাশড ডাটা প্রদর্শিত হচ্ছে।'}
+              </p>
+            </div>
           </div>
-          <h2 className="text-3xl font-black text-red-900">Firebase Quota Exceeded!</h2>
-          <p className="text-red-700 max-w-lg mx-auto font-medium">
-            দুঃখিত, আজকের জন্য ফায়ারবেসের ডেটা ব্যবহারের সীমা (Free Quota) শেষ হয়ে গেছে। 
-            আগামীকাল বাংলাদেশ সময় দুপুর ১টায় এটি আবার রিসেট হবে। বর্তমানে ক্যাশ (Cached) ডেটা দেখানো হচ্ছে, নতুন কোনো ডেটা লোড হবে না।
-          </p>
-          <div className="pt-4">
-             <button 
-               onClick={() => window.location.reload()}
-               className="px-8 py-3 bg-red-600 text-white rounded-2xl font-bold shadow-lg shadow-red-500/30 hover:bg-red-700 transition-all"
-             >
-               রিফ্রেশ করে দেখুন
-             </button>
-          </div>
-        </div>
-      )}
-
-      {fetchError && fetchError !== 'QUOTA_EXCEEDED' && (
-        <div className="bg-amber-50 border border-amber-100 p-6 rounded-3xl text-amber-800 font-medium">
-          Error loading data: {fetchError}
+          <button 
+            onClick={() => setFetchError(null)}
+            className="px-4 py-2 bg-white hover:bg-sky-100 text-sky-700 text-xs font-bold rounded-xl border border-sky-200 shadow-sm transition-all"
+          >
+            ঠিক আছে
+          </button>
         </div>
       )}
       {/* Hidden File Input for Doctor Images */}

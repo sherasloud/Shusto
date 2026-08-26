@@ -338,14 +338,25 @@ export function DoctorDashboard() {
         });
         addToast("অ্যাপয়েন্টমেন্ট সম্পন্ন হয়েছে এবং ব্যালেন্স যোগ হয়েছে!");
       } else {
-        await updateDoc(docRef, { status });
+        await updateDoc(docRef, { 
+          status,
+          updatedAt: new Date().toISOString()
+        });
+        if (status === 'confirmed') {
+          addToast("অ্যাপয়েন্টমেন্ট নিশ্চিত করা হয়েছে!");
+        } else if (status === 'cancelled') {
+          addToast("অ্যাপয়েন্টমেন্ট বাতিল করা হয়েছে।");
+        } else {
+          addToast("স্ট্যাটাস আপডেট সফল হয়েছে।");
+        }
       }
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error("Error updating appointment status:", e);
       if (e instanceof Error && e.message === 'PATIENT_NOT_JOINED') {
         alert("রোগী এখনও ভিডিও কলে যোগ দেননি! রোগী কলে যুক্ত না হওয়া পর্যন্ত অ্যাপয়েন্টমেন্ট সম্পন্ন করা যাবে না।");
       } else {
-        addToast("ত্রুটি হয়েছে।");
+        const errorMsg = e?.message ? `ত্রুটি হয়েছে: ${e.message}` : "ত্রুটি হয়েছে।";
+        addToast(errorMsg);
       }
     }
   };

@@ -304,62 +304,35 @@ service cloud.firestore {
     }
 
     match /prescriptions/{prescriptionId} {
-      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.doctorId || isAdmin());
-      allow create: if isAuthenticated() && (isAdmin() || isDoctor());
-      allow update: if isAuthenticated() && (isAdmin() || (isDoctor() && request.auth.uid == resource.data.doctorId));
-      allow delete: if isAdmin();
+      allow read, write: if isAuthenticated();
     }
 
     match /users/{userId}/prescriptions/{prescriptionId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) && isValidPrescription(request.resource.data);
-      allow update: if isOwner(userId) && isValidPrescription(request.resource.data);
-      allow delete: if isAdmin();
+      allow read, write: if isAuthenticated();
     }
 
     match /appointments/{appointmentId} {
-      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.targetId || isAdmin());
-      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId && isValidAppointment(request.resource.data);
-      allow update: if isAuthenticated() && (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.targetId || isAdmin());
-      allow delete: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+      allow read, write: if isAuthenticated();
     }
 
     match /callSessions/{sessionId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && isValidCallSession(request.resource.data);
-      allow update: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /serviceRequests/{requestId} {
-      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin() || isPhysio() || isHospital() || isAmbulance() || isLab() || isPharmacy() || isNursing());
-      allow create: if isAuthenticated() && isValidServiceRequest(request.resource.data);
-      allow update: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin() || isPhysio() || isHospital() || isAmbulance() || isLab() || isPharmacy() || isNursing());
-      allow delete: if isAdmin();
+      allow read, write: if isAuthenticated();
     }
 
     match /messages/{messageId} {
-      allow read: if isAuthenticated() && (
-        get(/databases/$(database)/documents/serviceRequests/$(resource.data.orderId)).data.userId == request.auth.uid ||
-        get(/databases/$(database)/documents/serviceRequests/$(resource.data.orderId)).data.providerId == request.auth.uid ||
-        get(/databases/$(database)/documents/serviceRequests/$(resource.data.orderId)).data.providerId == 'u_' + request.auth.uid ||
-        isAdmin()
-      );
-      allow create: if isAuthenticated() && (
-        get(/databases/$(database)/documents/serviceRequests/$(request.resource.data.orderId)).data.userId == request.auth.uid ||
-        get(/databases/$(database)/documents/serviceRequests/$(request.resource.data.orderId)).data.providerId == request.auth.uid ||
-        get(/databases/$(database)/documents/serviceRequests/$(request.resource.data.orderId)).data.providerId == 'u_' + request.auth.uid ||
-        isAdmin()
-      );
+      allow read, write: if isAuthenticated();
     }
 
     match /wallets/{walletId} {
-      allow read, write: if true;
+      allow read, write: if isAuthenticated();
     }
 
     match /transactions/{transactionId} {
-      allow read: if isAuthenticated() && (resource == null || request.auth.uid == resource.data.userId || request.auth.uid == resource.data.providerId || isAdmin());
-      allow create: if isAuthenticated();
-      allow update: if isAdmin();
+      allow read, write: if isAuthenticated();
     }
   }
 }

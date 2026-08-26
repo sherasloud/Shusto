@@ -17,11 +17,13 @@ interface Transaction {
   id: string;
   userId: string;
   amount: number;
-  type: 'payment' | 'add_money' | 'withdrawal' | 'affiliate_commission';
+  type: string;
   status: 'pending' | 'success' | 'failed';
   method?: string;
   phoneNumber?: string;
   details?: string;
+  targetName?: string;
+  targetId?: string;
   createdAt: string;
   providerId?: string;
   providerShare?: number;

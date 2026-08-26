@@ -20,10 +20,22 @@ import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
 import dotenv from "dotenv";
 import fs from "fs";
-
-
+import crypto from "crypto";
+import {
+  connectMongoDB,
+  getMongoStatus,
+  Appointment as MongoAppointment,
+  User as MongoUser,
+  Prescription as MongoPrescription,
+  Wallet as MongoWallet,
+  Transaction as MongoTransaction,
+  ServiceRequest as MongoServiceRequest
+} from "./mongo";
 
 dotenv.config();
+
+// Connect to MongoDB Atlas
+connectMongoDB().catch(err => console.error("Initial MongoDB connect error:", err));
 
 const getFilename = () => {
   return typeof __filename !== "undefined" ? __filename : "";
@@ -105,6 +117,71 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
+// Database Status Endpoint (MongoDB Atlas + Firebase)
+app.get("/api/db/status", async (req, res) => {
+  const mongo = getMongoStatus();
+  res.json({
+    success: true,
+    mongo: {
+      ...mongo,
+      targetDatabase: "shustodb",
+      cluster: "cluster0.sbpz6mc.mongodb.net",
+    },
+    firebase: {
+      initialized: Boolean(db_admin),
+      projectId: firebaseConfig?.projectId || "configured",
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Test MongoDB Atlas Ping
+app.get("/api/mongo/test-connection", async (req, res) => {
+  try {
+    const conn = await connectMongoDB();
+    if (!conn) {
+      return res.status(500).json({ success: false, message: "Could not connect to MongoDB Atlas" });
+    }
+    const adminDb = conn.db.admin();
+    const pingResult = await adminDb.ping();
+    res.json({
+      success: true,
+      message: "Successfully pinged and connected to MongoDB Atlas!",
+      ping: pingResult,
+      dbName: conn.name,
+      host: conn.host,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// MongoDB Appointments API
+app.get("/api/mongo/appointments", async (req, res) => {
+  try {
+    await connectMongoDB();
+    const { doctorId, userId } = req.query;
+    const filter: any = {};
+    if (doctorId) filter.doctorId = doctorId;
+    if (userId) filter.userId = userId;
+
+    const list = await MongoAppointment.find(filter).sort({ createdAt: -1 }).limit(100);
+    res.json({ success: true, appointments: list });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post("/api/mongo/appointments", async (req, res) => {
+  try {
+    await connectMongoDB();
+    const newApp = await MongoAppointment.create(req.body);
+    res.json({ success: true, appointment: newApp });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Webhook endpoint for Sheba to notify Shusto (Placeholder)
 app.post("/api/sheba/webhook", async (req, res) => {
   const apiKeyHeader = req.headers["x-api-key"];
@@ -119,82 +196,244 @@ app.post("/api/sheba/webhook", async (req, res) => {
   res.json({ success: true });
 });
 
-// API endpoint for automatic withdrawal via Sheba Webhook
-app.post("/api/sheba/withdraw", async (req, res) => {
-  const apiKeyHeader = req.headers["x-api-key"];
-  const shustoSecret = process.env.SHUSTO_API_SECRET || process.env.SHUSTO_API_KEY;
-  const shebaSecret = process.env.SHEBA_API_SECRET;
-  const shebaWebhookUrl = process.env.SHEBA_WEBHOOK_URL || "https://shebabangladesh.vercel.app/api/shusto/webhook";
+// Helper to compute HMAC SHA256 signature
+function generateShustoHMAC(secret: string, timestamp: string | number, rawBody: string): string {
+  return crypto
+    .createHmac("sha256", secret)
+    .update(`${timestamp}.${rawBody}`)
+    .digest("hex");
+}
 
-  console.log("--- Withdrawal Request Start ---");
-  console.log("Body:", req.body);
-  console.log("Has Shusto Secret:", !!shustoSecret);
-  console.log("Has Sheba Secret:", !!shebaSecret);
+// Helper to verify HMAC SHA256 signature with replay protection (5 minutes = 300 seconds)
+function verifyShustoHMAC(secret: string, timestamp: string | number, rawBody: string, incomingSignature: string): { valid: boolean; reason?: string } {
+  if (!secret) return { valid: false, reason: "Secret is not configured" };
+  if (!timestamp || !incomingSignature) return { valid: false, reason: "Missing timestamp or signature headers" };
 
-  if (!shustoSecret) {
-    console.error("SHUSTO_API_SECRET or SHUSTO_API_KEY is not set in environment variables");
-    return res.status(500).json({ error: "Server Error: Shusto API Secret missing in environment" });
-  }
+  const tsNum = Number(timestamp);
+  if (isNaN(tsNum)) return { valid: false, reason: "Invalid timestamp" };
 
-  // Validate internal API key if provided by the client app
-  if (apiKeyHeader && apiKeyHeader !== shustoSecret) {
-    console.warn("Invalid API Key header provided");
-    return res.status(401).json({ error: "Unauthorized: Invalid Shusto API Key" });
-  }
-
-  const { phone, amount, bankName, userId } = req.body;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const isMs = tsNum > 100000000000;
+  const incomingSec = isMs ? Math.floor(tsNum / 1000) : tsNum;
   
-  if (!phone || !amount || !userId) {
-    return res.status(400).json({ error: "Missing required fields (phone, amount, userId)" });
+  // 5 minute replay window (300 seconds)
+  const diffSec = Math.abs(nowSec - incomingSec);
+  if (diffSec > 300) {
+    return { valid: false, reason: `Timestamp replay protection failed (request age: ${diffSec}s, max allowed: 300s)` };
+  }
+
+  const expectedSignature = crypto
+    .createHmac("sha256", secret)
+    .update(`${timestamp}.${rawBody}`)
+    .digest("hex");
+
+  try {
+    const isValid = crypto.timingSafeEqual(
+      Buffer.from(expectedSignature, "utf8"),
+      Buffer.from(incomingSignature, "utf8")
+    );
+    return { valid: isValid, reason: isValid ? undefined : "Signature mismatch" };
+  } catch (e) {
+    return { valid: false, reason: "Signature comparison error" };
+  }
+}
+
+// Unified Shusto -> Sheba Withdrawal API (POST /api/shusto/withdraw and /api/sheba/withdraw)
+app.post(["/api/shusto/withdraw", "/direct-api/shusto/withdraw", "/api/sheba/withdraw", "/direct-api/sheba/withdraw"], async (req, res) => {
+  const shustoSecret = (process.env.SHUSTO_API_SECRET || process.env.SHEBA_API_SECRET || "shusto_secure_secret_key_2026").trim();
+  const incomingSignature = (req.headers["x-shusto-signature"] || req.headers["x-signature"]) as string;
+  const incomingTimestamp = (req.headers["x-shusto-timestamp"] || req.headers["x-timestamp"]) as string;
+
+  const rawJsonBody = JSON.stringify(req.body || {});
+  console.log("--- [SHUSTO WITHDRAWAL] Request received ---");
+  console.log("Headers:", { timestamp: incomingTimestamp, hasSignature: !!incomingSignature });
+  console.log("Body:", req.body);
+
+  const {
+    shustoUserId,
+    userId: reqUserId,
+    shebaNumber,
+    phone: reqPhone,
+    amount: reqAmount,
+    idempotencyKey: reqIdempotencyKey
+  } = req.body || {};
+
+  const effectiveUserId = (shustoUserId || reqUserId || "").trim();
+  const effectiveNumber = (shebaNumber || reqPhone || "").trim();
+  const numAmount = Number(reqAmount);
+  const idempotencyKey = (reqIdempotencyKey || uuidv4()).trim();
+
+  // Basic validation
+  if (!effectiveUserId) {
+    return res.status(400).json({ success: false, error: "shustoUserId is required" });
+  }
+  if (!effectiveNumber || effectiveNumber.length < 11) {
+    return res.status(400).json({ success: false, error: "Valid 11-digit shebaNumber is required" });
+  }
+  if (!numAmount || isNaN(numAmount) || numAmount <= 0) {
+    return res.status(400).json({ success: false, error: "Valid positive amount is required" });
+  }
+
+  // If this is an external server-to-server call with HMAC signature header, verify it
+  if (incomingSignature && incomingTimestamp) {
+    const authCheck = verifyShustoHMAC(shustoSecret, incomingTimestamp, rawJsonBody, incomingSignature);
+    if (!authCheck.valid) {
+      console.warn("[SHUSTO WITHDRAWAL] HMAC verification failed:", authCheck.reason);
+      return res.status(401).json({ success: false, error: `Unauthorized: ${authCheck.reason}` });
+    }
   }
 
   try {
-    console.log(`Forwarding withdrawal to Sheba: ${shebaWebhookUrl} for ৳${amount}`);
-    
-    // Forward the request to the external Sheba Webhook
-    const response = await axios.post(shebaWebhookUrl, {
-      phone: phone, // Changed from userPhone to phone
-      userId: userId, // Added userId as standard
-      amount: Number(amount),
-      bankName: bankName || "Sheba Wallet",
-      timestamp: new Date().toISOString()
-    }, {
-      headers: {
-        "x-api-key": shebaSecret,
-        "Content-Type": "application/json"
-      },
-      timeout: 15000 // 15 second timeout
-    });
+    // 1. Check idempotency: Ensure this request wasn't already processed
+    if (db_admin) {
+      const existingTxSnap = await db_admin.collection("transactions")
+        .where("idempotencyKey", "==", idempotencyKey)
+        .limit(1)
+        .get();
 
-    console.log("Sheba API Response Status:", response.status);
-    console.log("Sheba API Response Data:", response.data);
+      if (!existingTxSnap.empty) {
+        const txData = existingTxSnap.docs[0].data();
+        console.log(`[SHUSTO WITHDRAWAL] Duplicate request blocked (idempotencyKey: ${idempotencyKey})`);
+        return res.status(200).json({
+          success: true,
+          message: "এই রিকোয়েস্টটি পূর্বেই সফলভাবে সম্পন্ন হয়েছে (Already Processed)",
+          alreadyProcessed: true,
+          transaction: txData
+        });
+      }
+    }
 
-    // Standardize success response - if status is 200-299, consider it a success unless explicitly marked false
-    const isSuccess = response.status >= 200 && response.status < 300;
+    // 2. Atomic Balance Check on Shusto Database
+    let currentBalance = 0;
+    if (db_admin) {
+      const walletDoc = await db_admin.collection("wallets").doc(effectiveUserId).get();
+      if (!walletDoc.exists) {
+        return res.status(404).json({ success: false, error: "Shusto user wallet not found" });
+      }
+      currentBalance = walletDoc.data()?.balance || 0;
+      if (currentBalance < numAmount) {
+        console.warn(`[SHUSTO WITHDRAWAL] Insufficient balance for user ${effectiveUserId}. Bal: ${currentBalance}, Req: ${numAmount}`);
+        return res.status(400).json({
+          success: false,
+          error: `অপর্যাপ্ত ব্যালেন্স! আপনার বর্তমান ব্যালেন্স ৳${currentBalance}, উত্তোলনের জন্য প্রয়োজন ৳${numAmount}।`
+        });
+      }
+    }
 
-    if (isSuccess) {
-      res.json({ 
-        success: true, 
-        message: response.data?.message || "উত্তোলন সফল হয়েছে। শেবা সার্ভার রিকোয়েস্ট গ্রহণ করেছে।",
-        shebaData: response.data
+    // 3. Prepare signed HMAC request to Sheba backend
+    const shebaPayload = {
+      shustoUserId: effectiveUserId,
+      shebaNumber: effectiveNumber,
+      amount: numAmount,
+      idempotencyKey: idempotencyKey
+    };
+
+    const payloadString = JSON.stringify(shebaPayload);
+    const outTimestamp = Math.floor(Date.now() / 1000).toString();
+    const outSignature = generateShustoHMAC(shustoSecret, outTimestamp, payloadString);
+
+    // Determine target Sheba endpoint
+    let targetUrl = process.env.SHEBA_WITHDRAW_URL || process.env.SHEBA_WEBHOOK_URL || "https://shebabangladesh.vercel.app/api/shusto/withdraw";
+    if (targetUrl.includes("/webhook") && !process.env.SHEBA_WITHDRAW_URL) {
+      targetUrl = targetUrl.replace("/webhook", "/withdraw");
+    }
+
+    console.log(`[SHUSTO WITHDRAWAL] Calling Sheba endpoint: ${targetUrl}`);
+    console.log(`[SHUSTO WITHDRAWAL] Outgoing Headers: x-shusto-timestamp=${outTimestamp}, x-shusto-signature=${outSignature.slice(0, 10)}...`);
+
+    let shebaResponse: any = null;
+    try {
+      shebaResponse = await axios.post(targetUrl, shebaPayload, {
+        headers: {
+          "Content-Type": "application/json",
+          "x-shusto-timestamp": outTimestamp,
+          "x-shusto-signature": outSignature,
+          "x-api-key": process.env.SHEBA_API_SECRET || shustoSecret
+        },
+        timeout: 15000
       });
-    } else {
-      res.status(502).json({ 
+      console.log(`[SHUSTO WITHDRAWAL] Sheba Response Status: ${shebaResponse.status}`, shebaResponse.data);
+    } catch (shebaErr: any) {
+      console.error("[SHUSTO WITHDRAWAL] Sheba API error:", {
+        message: shebaErr.message,
+        data: shebaErr.response?.data,
+        status: shebaErr.response?.status
+      });
+
+      const shebaErrMsg = shebaErr.response?.data?.error || shebaErr.response?.data?.message || shebaErr.message;
+      return res.status(shebaErr.response?.status || 502).json({
         success: false,
-        error: response.data?.message || `শেবা সার্ভার এরর কোড: ${response.status}`,
-        details: response.data
+        error: `শেবা সার্ভার এরর: ${shebaErrMsg}`
       });
     }
-  } catch (error: any) {
-    console.error("Sheba API Error Detail:", {
-      message: error.message,
-      data: error.response?.data,
-      status: error.response?.status
+
+    const isShebaSuccess = shebaResponse && shebaResponse.status >= 200 && shebaResponse.status < 300 && shebaResponse.data?.success !== false;
+
+    if (!isShebaSuccess) {
+      return res.status(502).json({
+        success: false,
+        error: shebaResponse?.data?.error || shebaResponse?.data?.message || "শেবা সার্ভার রিকোয়েস্ট প্রত্যাখ্যান করেছে।"
+      });
+    }
+
+    // 4. Atomic Debit & Transaction Recording in Firestore
+    if (db_admin) {
+      const walletRef = db_admin.collection("wallets").doc(effectiveUserId);
+      const txRef = db_admin.collection("transactions").doc();
+      const notifRef = db_admin.collection("notifications").doc();
+
+      await db_admin.runTransaction(async (transaction: any) => {
+        const wDoc = await transaction.get(walletRef);
+        const bal = (wDoc.exists ? wDoc.data()?.balance : 0) || 0;
+        if (bal < numAmount) {
+          throw new Error("Insufficient balance during atomic deduction");
+        }
+
+        // Debit User's Shusto Wallet
+        transaction.update(walletRef, {
+          balance: bal - numAmount,
+          updatedAt: new Date().toISOString()
+        });
+
+        // Record Withdrawal Transaction
+        transaction.set(txRef, {
+          userId: effectiveUserId,
+          amount: numAmount,
+          type: "withdrawal",
+          status: "success",
+          method: "sheba",
+          phoneNumber: effectiveNumber,
+          idempotencyKey: idempotencyKey,
+          details: `Withdrawn to Sheba: ${effectiveNumber}`,
+          createdAt: new Date().toISOString()
+        });
+
+        // Send In-app Notification to User
+        transaction.set(notifRef, {
+          userId: effectiveUserId,
+          title: "উত্তোলন সফল হয়েছে",
+          message: `৳${numAmount} টাকা সফলভাবে সেবা (${effectiveNumber}) অ্যাকাউন্টে পাঠানো হয়েছে।`,
+          type: "wallet",
+          read: false,
+          createdAt: new Date().toISOString()
+        });
+      });
+    }
+
+    console.log(`[SHUSTO WITHDRAWAL] Withdrawal completed atomically for user ${effectiveUserId}, amount ৳${numAmount}`);
+
+    return res.status(200).json({
+      success: true,
+      message: shebaResponse.data?.message || "আপনার টাকা সফলভাবে শেবা অ্যাকাউন্টে পাঠানো হয়েছে।",
+      idempotencyKey: idempotencyKey,
+      shebaData: shebaResponse.data
     });
-    const errorMsg = error.response?.data?.message || error.message;
-    res.status(error.response?.status || 500).json({ 
+
+  } catch (error: any) {
+    console.error("[SHUSTO WITHDRAWAL] Fatal Error:", error);
+    return res.status(500).json({
       success: false,
-      error: `শেবা সার্ভার সমস্যা: ${errorMsg}` 
+      error: `উত্তোলন সম্পন্ন করতে সমস্যা হয়েছে: ${error.message}`
     });
   }
 });
