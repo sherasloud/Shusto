@@ -1,0 +1,322 @@
+import React, { useEffect, useState } from 'react';
+import { FlaskConical, Clock, Info, ChevronRight } from 'lucide-react';
+import { collection, onSnapshot, query, where, addDoc, doc, getDoc, getDocs, updateDoc, increment, runTransaction } from 'firebase/firestore';
+import { db } from '../firebase';
+import { useAuth } from '../AuthContext';
+import { X } from 'lucide-react';
+
+interface LabTest {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+  time?: string;
+}
+
+export function LabTests() {
+  const { user } = useAuth();
+  const [manualTests, setManualTests] = useState<LabTest[]>([]);
+  const [userLabs, setUserLabs] = useState<LabTest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [bookingTest, setBookingTest] = useState<LabTest | null>(null);
+  const [bookingStatus, setBookingStatus] = useState<'idle' | 'booking' | 'success'>('idle');
+  const [nearestLab, setNearestLab] = useState<any>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    
+    const findNearestLab = async () => {
+      const labsQuery = query(collection(db, 'labs'));
+      const snapshot = await getDocs(labsQuery);
+      const providers = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any));
+      
+      const userLoc = {
+        division: (user as any).division || '',
+        district: (user as any).district || '',
+        thana: (user as any).thana || ''
+      };
+
+      // Score providers based on location match
+      const scored = providers.map(p => {
+        let score = 0;
+        if (p.division === userLoc.division) {
+          score += 1;
+          if (p.district === userLoc.district) {
+            score += 2;
+            if (p.thana === userLoc.thana) {
+              score += 4;
+            }
+          }
+        }
+        return { ...p, score };
+      }).sort((a, b) => b.score - a.score);
+
+      if (scored.length > 0 && scored[0].score > 0) {
+        setNearestLab(scored[0]);
+      } else {
+        setNearestLab(providers[0] || null);
+      }
+    };
+
+    findNearestLab();
+  }, [user]);
+
+  useEffect(() => {
+    // Fetch from 'labTests' collection
+    const qTests = query(collection(db, 'labTests'));
+    const unsubTests = onSnapshot(qTests, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as LabTest[];
+      setManualTests(docs);
+      setLoading(false);
+    }, (error) => {
+      console.error("Lab tests fetch error:", error);
+      setLoading(false);
+    });
+
+    // Also fetch from 'users' collection where role is 'lab'
+    const qUsers = query(collection(db, 'users'), where('role', '==', 'lab'));
+    const unsubUsers = onSnapshot(qUsers, (snapshot) => {
+      const docs = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          name: data.displayName || 'Unnamed Lab',
+          category: 'Diagnostic Center',
+          price: 0, // Labs might not have a single price
+          time: '24 Hours'
+        };
+      }) as LabTest[];
+      setUserLabs(docs);
+      setLoading(false);
+    }, (error) => console.error("Users-Labs fetch error:", error));
+
+    return () => {
+      unsubTests();
+      unsubUsers();
+    };
+  }, []);
+
+  const isTestAccount = user?.email?.toLowerCase().trim() === 'thesiambin@gmail.com' || user?.email?.toLowerCase().trim() === 'shustobd@gmail.com';
+
+  const handleBook = async () => {
+    if (!user || !bookingTest) return;
+    setBookingStatus('booking');
+    try {
+      // Robustly parse price
+      const priceRaw = String(bookingTest.price).replace(/,/g, '');
+      const priceMatch = priceRaw.match(/\d+(\.\d+)?/);
+      let price = priceMatch ? Number(priceMatch[0]) : 0;
+
+      // Apply test discount
+      const originalPrice = price;
+      if (isTestAccount) {
+        price = 0;
+      }
+
+      if (price > 0) {
+        await runTransaction(db, async (transaction) => {
+          const walletRef = doc(db, 'wallets', user.uid);
+          const walletSnap = await transaction.get(walletRef);
+          const balance = walletSnap.exists() ? walletSnap.data().balance || 0 : 0;
+
+          // Price check already done before transaction, but good to be safe inside too
+          if (balance < price) {
+            throw new Error('insufficient_balance');
+          }
+
+          // 1. Create Service Request
+          const orderRef = doc(collection(db, 'serviceRequests'));
+          const userLoc = {
+            division: (user as any).division || '',
+            district: (user as any).district || '',
+            thana: (user as any).thana || ''
+          };
+          const locStr = [userLoc.thana, userLoc.district, userLoc.division].filter(Boolean).join(', ') || ((user as any).location || 'Unknown');
+
+          const requestData = {
+            userId: user.uid,
+            userName: (user as any).name || (user as any).displayName || user.displayName || user.email,
+            userLocation: locStr,
+            serviceType: 'lab',
+            postTitle: bookingTest.name,
+            details: `Lab Test: ${bookingTest.name}`,
+            price: price,
+            status: 'pending',
+            paymentStatus: 'paid',
+            providerId: nearestLab?.userId || nearestLab?.id || 'admin',
+            providerName: nearestLab?.name || 'Main Diagnostic',
+            hospitalName: nearestLab?.name || 'Main Diagnostic', // For dashboard compatibility
+            providerEmail: nearestLab?.email?.toLowerCase().trim() || 'shustobd@gmail.com',
+            providerType: 'lab',
+            createdAt: new Date().toISOString()
+          };
+
+          transaction.set(orderRef, requestData);
+
+          // 2. Deduct & Record Transaction
+          transaction.update(walletRef, {
+            balance: increment(-price),
+            updatedAt: new Date().toISOString()
+          });
+
+          const txRef = doc(collection(db, 'transactions'));
+          transaction.set(txRef, {
+            userId: user.uid,
+            amount: price,
+            type: 'payment',
+            status: 'success',
+            targetId: orderRef.id,
+            targetName: `Lab Test: ${bookingTest.name}`,
+            createdAt: new Date().toISOString()
+          });
+        });
+      } else {
+        // Handle free booking (৳0 or test account)
+        const userLoc = {
+          division: (user as any).division || '',
+          district: (user as any).district || '',
+          thana: (user as any).thana || ''
+        };
+        const locStr = [userLoc.thana, userLoc.district, userLoc.division].filter(Boolean).join(', ') || ((user as any).location || 'Unknown');
+        
+        await addDoc(collection(db, 'serviceRequests'), {
+          userId: user.uid,
+          userName: (user as any).name || (user as any).displayName || user.displayName || user.email,
+          userLocation: locStr,
+          serviceType: 'lab',
+          postTitle: bookingTest.name,
+          details: `Lab Test: ${bookingTest.name} ${isTestAccount ? '(Test Account Free)' : ''}`,
+          price: 0,
+          status: 'pending',
+          paymentStatus: 'paid',
+          providerId: nearestLab?.userId || nearestLab?.id || 'admin',
+          providerName: nearestLab?.name || 'Main Diagnostic',
+          hospitalName: nearestLab?.name || 'Main Diagnostic',
+          providerEmail: nearestLab?.email?.toLowerCase().trim() || 'shustobd@gmail.com',
+          providerType: 'lab',
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      setBookingStatus('success');
+      setTimeout(() => {
+        setBookingStatus('idle');
+        setBookingTest(null);
+      }, 2000);
+    } catch (error: any) {
+      console.error("Lab booking error:", error);
+      if (error.message === 'insufficient_balance') {
+        alert('আপনার ওয়ালেটে পর্যাপ্ত টাকা নেই। দয়া করে টাকা যোগ করুন।');
+      } else {
+        alert("বুকিং করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
+      }
+      setBookingStatus('idle');
+    }
+  };
+
+  const allTests = [...manualTests, ...userLabs];
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold text-slate-900">Lab Tests</h1>
+        <p className="text-slate-500">Book diagnostic tests from certified labs.</p>
+      </div>
+
+      {loading ? (
+        <div className="p-12 text-center text-slate-400">Loading tests...</div>
+      ) : allTests.length === 0 ? (
+        <div className="p-12 text-center bg-white rounded-[40px] border border-dashed border-slate-200 text-slate-400">
+          No lab tests available. Please add some from the Admin Panel.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {allTests.map((test) => (
+            <div
+              key={test.id}
+              className="bg-white p-6 rounded-[32px] border border-slate-100 flex items-center justify-between group hover:border-sky-200 hover:shadow-lg hover:shadow-sky-500/5 transition-all cursor-pointer"
+            >
+              <div className="flex items-center gap-6">
+                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-sky-50 group-hover:text-sky-500 transition-colors">
+                  <FlaskConical size={32} />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-sky-600 uppercase tracking-widest mb-1 block">
+                    {test.category}
+                  </span>
+                  <h3 className="text-lg font-bold text-slate-900 mb-1">{test.name}</h3>
+                  <div className="flex items-center gap-3 text-slate-400 text-sm">
+                    <div className="flex items-center gap-1">
+                      <Clock size={14} />
+                      <span>{test.time || '24 Hours'}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Info size={14} />
+                      <span>Home Sample Collection</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-right">
+                <p className="text-2xl font-bold text-slate-900 mb-2">
+                  ৳{isTestAccount ? 0 : test.price}
+                </p>
+                <button 
+                  onClick={() => setBookingTest(test)}
+                  className="inline-flex items-center gap-1 text-sky-600 font-bold text-sm hover:gap-2 transition-all"
+                >
+                  Book Test
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Booking Modal */}
+      {bookingTest && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-[32px] p-8 shadow-2xl border border-slate-100">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-slate-900">Book Lab Test</h2>
+              <button onClick={() => setBookingTest(null)} className="p-2 hover:bg-slate-50 rounded-xl">
+                <X size={20} className="text-slate-400" />
+              </button>
+            </div>
+
+            <div className="bg-slate-50 p-6 rounded-2xl mb-8">
+              <p className="text-xs font-bold text-sky-600 uppercase mb-1">{bookingTest.category}</p>
+              <h3 className="text-xl font-bold text-slate-900 mb-4">{bookingTest.name}</h3>
+              
+              {nearestLab && (
+                <div className="bg-white p-3 rounded-xl border border-slate-100 mb-4 shadow-sm">
+                  <p className="text-[10px] font-black text-sky-600 uppercase tracking-widest mb-1">পারফর্মিং ল্যাব</p>
+                  <div className="font-bold text-slate-800 text-sm">{nearestLab.name}</div>
+                  <p className="text-[10px] text-slate-400">{nearestLab.thana}, {nearestLab.district}</p>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center pt-4 border-t border-slate-200">
+                <span className="text-slate-500 font-medium">Test Price</span>
+                <span className="text-2xl font-bold text-sky-600">৳{bookingTest.price}</span>
+              </div>
+            </div>
+
+            <button 
+              onClick={handleBook}
+              disabled={bookingStatus !== 'idle'}
+              className="w-full py-4 bg-sky-500 text-white font-bold rounded-2xl hover:bg-sky-600 shadow-lg shadow-sky-500/20 transition-all disabled:opacity-50"
+            >
+              {bookingStatus === 'booking' ? 'Processing...' : bookingStatus === 'success' ? 'Test Booked!' : 'Confirm Booking'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

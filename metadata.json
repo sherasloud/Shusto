@@ -1,0 +1,12 @@
+{
+  "name": "Shusto",
+  "description": "Shusto imported from GitHub: sherasloud/Shusto-Telehealth",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

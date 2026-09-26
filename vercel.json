@@ -1,0 +1,21 @@
+{
+  "functions": {
+    "api/**": {
+      "includeFiles": "firebase-applet-config.json"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/[...path]"
+    },
+    {
+      "source": "/direct-api/(.*)",
+      "destination": "/api/[...path]"
+    },
+    {
+      "source": "/((?!api/|direct-api/).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
