@@ -335,8 +335,18 @@ export function Wallet() {
         setGatewayReadyUrl(data.GatewayPageURL);
         setProcessing(false);
 
-        if (typeof window !== 'undefined' && window.self === window.top) {
-           window.location.href = data.GatewayPageURL;
+        // If in top window (direct website visit like shusto.com), redirect immediately
+        if (typeof window !== 'undefined') {
+          if (window.self === window.top) {
+            window.location.href = data.GatewayPageURL;
+          } else {
+            // Embedded iframe preview: attempt new tab or provide clear click prompt
+            try {
+              window.open(data.GatewayPageURL, "_blank");
+            } catch (openErr) {
+              console.warn("Popup blocked, user will click through UI button:", openErr);
+            }
+          }
         }
       } else {
         alert("পেমেন্ট গেটওয়ে লিংক প্রস্তুত হতে পারেনি। দয়া করে পুনরায় চেষ্টা করুন।");
@@ -766,25 +776,76 @@ export function Wallet() {
 
       {/* Add Money Modal */}
       {showAddMoney && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-md rounded-[36px] p-7 sm:p-9 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-6">
-              টাকা যোগ করুন
-            </h2>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-[36px] p-6 sm:p-8 shadow-2xl relative max-h-[92vh] overflow-y-auto border border-slate-100">
+            {/* Header with SSLCommerz Badge */}
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-black text-slate-900">
+                  টাকা যোগ করুন
+                </h2>
+                <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                  SSLCommerz পেমেন্ট গেটওয়ে (লাইভ)
+                </p>
+              </div>
+              <div className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold border border-emerald-200/60 flex items-center gap-1.5 shadow-sm">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                নিরাপদ পেমেন্ট
+              </div>
+            </div>
+
+            {/* Payment Method Badges */}
+            <div className="mb-6 p-3.5 bg-slate-50/80 rounded-2xl border border-slate-100">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                সমর্থিত পেমেন্ট মাধ্যমসমূহ:
+              </p>
+              <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                <div className="px-2.5 py-1 bg-white rounded-lg border border-pink-100 shadow-xs flex items-center gap-1 text-[11px] font-black text-[#E2136E]">
+                  <span>bKash</span>
+                </div>
+                <div className="px-2.5 py-1 bg-white rounded-lg border border-orange-100 shadow-xs flex items-center gap-1 text-[11px] font-black text-[#F7941D]">
+                  <span>Nagad</span>
+                </div>
+                <div className="px-2.5 py-1 bg-white rounded-lg border border-purple-100 shadow-xs flex items-center gap-1 text-[11px] font-black text-[#8C3494]">
+                  <span>Rocket</span>
+                </div>
+                <div className="px-2.5 py-1 bg-white rounded-lg border border-blue-100 shadow-xs flex items-center gap-1 text-[11px] font-black text-blue-600">
+                  <span>Visa / Card</span>
+                </div>
+                <div className="px-2.5 py-1 bg-white rounded-lg border border-slate-200 shadow-xs flex items-center gap-1 text-[11px] font-black text-slate-600">
+                  <span>NetBanking</span>
+                </div>
+              </div>
+            </div>
 
             {gatewayReadyUrl ? (
-              <div className="space-y-4 text-center">
+              <div className="space-y-5 text-center py-2">
+                <div className="w-16 h-16 bg-sky-50 text-sky-600 rounded-3xl flex items-center justify-center mx-auto shadow-inner">
+                  <ExternalLink size={28} className="animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">
+                    পেমেন্ট পেজ প্রস্তুত
+                  </h3>
+                  <p className="text-sm text-slate-500 mt-1 max-w-xs mx-auto">
+                    SSLCommerz এর সুরক্ষিত গেটওয়েতে বিকাশ, নগদ অথবা কার্ডের মাধ্যমে ৳{pendingAmount} পেমেন্ট সম্পন্ন করুন।
+                  </p>
+                </div>
+
                 <a
                   href={gatewayReadyUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full py-4 bg-sky-500 hover:bg-sky-600 text-white font-black rounded-2xl transition-all shadow-lg text-base"
+                  className="flex items-center justify-center gap-2 w-full py-4 bg-sky-500 hover:bg-sky-600 text-white font-black rounded-2xl transition-all shadow-lg shadow-sky-500/25 text-base active:scale-[0.98]"
                 >
                   <ExternalLink size={20} />
-                  পেমেন্ট করুন
+                  পেমেন্ট পেজে যান (SSLCommerz)
                 </a>
 
-
+                <div className="flex items-center justify-center gap-2 text-xs text-slate-400 font-semibold">
+                  <RefreshCw size={13} className="animate-spin text-sky-500" />
+                  <span>পেমেন্ট নিশ্চিতকরণের অপেক্ষা করা হচ্ছে...</span>
+                </div>
 
                 <button
                   onClick={() => {
@@ -792,59 +853,88 @@ export function Wallet() {
                     setPendingTranId(null);
                     setShowAddMoney(false);
                   }}
-                  className="w-full py-2.5 text-slate-400 hover:text-slate-600 font-bold text-sm"
+                  className="w-full py-2.5 text-slate-400 hover:text-slate-600 font-bold text-sm transition-colors"
                 >
                   বাতিল
                 </button>
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="relative">
-                  <span className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl font-bold text-slate-400">
-                    ৳
-                  </span>
-                  <input
-                    type="number"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="w-full pl-12 pr-6 py-4 sm:py-5 bg-slate-50 border border-slate-200/80 rounded-3xl text-2xl font-bold focus:ring-2 focus:ring-sky-500/20 text-slate-900"
-                    placeholder="0.00"
-                    autoFocus
-                  />
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                    পরিমাণ (BDT)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl font-bold text-slate-400">
+                      ৳
+                    </span>
+                    <input
+                      type="number"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-200/90 rounded-2xl text-2xl font-black focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 transition-all text-slate-900"
+                      placeholder="0.00"
+                      autoFocus
+                    />
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
-                  {[500, 1000, 2000].map((val) => (
-                    <button
-                      key={val}
-                      onClick={() => setAmount(val.toString())}
-                      className="py-3 bg-slate-50 rounded-2xl text-sm font-bold text-slate-600 hover:bg-sky-50 hover:text-sky-600 transition-all border border-slate-100"
-                    >
-                      +৳{val}
-                    </button>
-                  ))}
+                {/* Quick Presets */}
+                <div>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    দ্রুত নির্বাচন করুন:
+                  </p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[100, 500, 1000, 2000].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setAmount(val.toString())}
+                        className={cn(
+                          "py-2.5 rounded-xl text-xs font-bold transition-all border",
+                          amount === val.toString()
+                            ? "bg-sky-500 text-white border-sky-500 shadow-sm"
+                            : "bg-slate-50 text-slate-600 hover:bg-sky-50 hover:text-sky-600 border-slate-200/70"
+                        )}
+                      >
+                        +৳{val}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="flex gap-3 pt-2">
                   <button
+                    type="button"
                     onClick={() => {
                       setShowAddMoney(false);
                       setAmount("");
                       setGatewayReadyUrl(null);
                     }}
-                    className="flex-1 py-3.5 sm:py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all text-sm"
+                    className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all text-sm active:scale-[0.98]"
                   >
                     বাতিল
                   </button>
                   <button
+                    type="button"
                     onClick={() => handleAddMoney(false)}
                     disabled={processing}
                     className={cn(
-                      "flex-1 py-3.5 sm:py-4 text-white font-bold rounded-2xl transition-all shadow-lg text-sm",
-                      processing ? "bg-slate-400 cursor-not-allowed" : "bg-sky-500 hover:bg-sky-600 shadow-sky-500/20"
+                      "flex-1 py-4 text-white font-bold rounded-2xl transition-all shadow-lg text-sm flex items-center justify-center gap-2 active:scale-[0.98]",
+                      processing ? "bg-slate-400 cursor-not-allowed" : "bg-sky-500 hover:bg-sky-600 shadow-sky-500/25"
                     )}
                   >
-                    {processing ? "প্রসেস হচ্ছে..." : "এগিয়ে যান"}
+                    {processing ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>প্রসেস হচ্ছে...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard size={18} />
+                        <span>এগিয়ে যান</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
