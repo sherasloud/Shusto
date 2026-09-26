@@ -1750,7 +1750,20 @@ async function startViteOrStaticServer() {
   }
 }
 
-if (!(global as any).__IS_SERVERLESS && !process.env.VERCEL) {
+const isServerlessEnv = 
+  Boolean(process.env.VERCEL) || 
+  Boolean(process.env.NOW_REGION) || 
+  Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME) || 
+  Boolean(process.env.LAMBDA_TASK_ROOT) || 
+  process.env.IS_SERVERLESS === "true" ||
+  (global as any).__IS_SERVERLESS === true;
+
+const isDirectScriptRun = 
+  !isServerlessEnv &&
+  Boolean(process.argv[1]) &&
+  (process.argv[1].endsWith("server.ts") || process.argv[1].endsWith("server.js") || process.argv[1].endsWith("server.cjs"));
+
+if (isDirectScriptRun) {
   startViteOrStaticServer().catch(console.error);
 }
 

@@ -1,9 +1,14 @@
+process.env.IS_SERVERLESS = "true";
 (global as any).__IS_SERVERLESS = true;
 
 import app from "../server.ts";
 
 export default function handler(req: any, res: any) {
   try {
+    const forwardedUrl = req.headers["x-matched-path"] || req.headers["x-invoke-path"] || req.headers["x-forwarded-uri"] || req.url;
+    if (forwardedUrl && typeof forwardedUrl === "string" && (forwardedUrl.startsWith("/api/") || forwardedUrl.startsWith("/direct-api/"))) {
+      req.url = forwardedUrl;
+    }
     return app(req, res);
   } catch (err: any) {
     console.error("Vercel Serverless Function Handler Error:", err);
