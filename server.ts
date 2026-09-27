@@ -609,8 +609,8 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     store_id = store_id.replace(/^["']|["']$/g, "");
     store_passwd = store_passwd.replace(/^["']|["']$/g, "");
 
-    // If environment has placeholder templates, fallback to user's real live credentials
-    if (!store_id || store_id === "YOUR_STORE_ID" || store_id === "demo" || store_id === "" || store_id.includes("YOUR")) {
+    // If environment has placeholder templates or deactivated store ID, fallback to user's real live credentials
+    if (!store_id || store_id.includes("6724cf62ca8f6") || store_id === "YOUR_STORE_ID" || store_id === "demo" || store_id === "" || store_id.includes("YOUR")) {
       store_id = "shusto0live";
     }
     if (!store_passwd || store_passwd === "YOUR_STORE_PASSWORD" || store_passwd === "" || store_passwd.includes("YOUR")) {

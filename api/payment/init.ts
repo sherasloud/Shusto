@@ -38,17 +38,28 @@ export default async function handler(req: any, res: any) {
 
     const tran_id = crypto.randomUUID();
 
-    const store_id =
+    let store_id =
       process.env.STORE_ID ||
       process.env.SSLCOMMERZ_STORE_ID ||
       process.env.SSL_STORE_ID ||
       "shusto0live";
 
-    const store_passwd =
+    let store_passwd =
       process.env.STORE_PASSWD ||
       process.env.SSLCOMMERZ_STORE_PASSWORD ||
       process.env.SSL_STORE_PASSWORD ||
       "6A0D6039B299110857";
+
+    store_id = store_id.trim().replace(/^["']|["']$/g, "");
+    store_passwd = store_passwd.trim().replace(/^["']|["']$/g, "");
+
+    // Deactivated store ID auto-replace
+    if (!store_id || store_id.includes("6724cf62ca8f6") || store_id === "YOUR_STORE_ID" || store_id === "demo") {
+      store_id = "shusto0live";
+    }
+    if (!store_passwd || store_passwd === "YOUR_STORE_PASSWORD") {
+      store_passwd = "6A0D6039B299110857";
+    }
 
     const host =
       req.headers["x-forwarded-host"] ||
