@@ -1,18 +1,13 @@
 {
   "functions": {
-    "api/*.ts": {
-      "includeFiles": "firebase-applet-config.json",
+    "api/**/*.ts": {
       "maxDuration": 30
     }
   },
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/index"
-    },
-    {
       "source": "/direct-api/(.*)",
-      "destination": "/api/[...path]"
+      "destination": "/api/$1"
     },
     {
       "source": "/((?!api/|direct-api/).*)",
