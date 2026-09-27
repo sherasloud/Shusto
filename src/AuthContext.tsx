@@ -107,9 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (!firebaseUser) {
-        if (!sessionStorage.getItem('shusto_demo_user')) {
-          setUser(null);
-        }
+        setUser(null);
         setLoading(false);
         return;
       }

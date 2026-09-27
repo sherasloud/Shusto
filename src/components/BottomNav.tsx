@@ -1,9 +1,9 @@
 import React from 'react';
 import { 
   Home, 
-  Package, 
-  Wallet, 
-  User,
+  Search, 
+  Calendar, 
+  User, 
   Menu,
   Shield,
   Stethoscope,
@@ -27,60 +27,53 @@ interface BottomNavProps {
 export function BottomNav({ activeTab, setActiveTab, onMenuClick }: BottomNavProps) {
   const { user } = useAuth();
   
-  // Tabs that are most important for quick access
-  const getDashboardInfo = () => {
-    if (user?.role === 'admin') return { label: 'অ্যাডমিন', icon: Shield };
-    if (user?.role === 'doctor') return { label: 'ডাক্তার', icon: Stethoscope };
-    if (user?.role === 'pharmacy') return { label: 'স্টেট', icon: Pill };
-    if (user?.role === 'physio') return { label: 'ফিজিওথেরাপি', icon: Activity };
-    if (user?.role === 'hospital') return { label: 'হাসপাতাল', icon: Building };
-    if (user?.role === 'ambulance') return { label: 'অ্যাম্বুলেন্স', icon: Truck };
-    if (user?.role === 'lab') return { label: 'ল্যাব', icon: TestTube };
-    if (user?.role === 'nursing') return { label: 'নার্সিং', icon: Heart };
-    if (user?.role === 'nutritionist') return { label: 'পুষ্টিবিদ', icon: Apple };
-    return { label: 'হোম', icon: Home };
+  const getDashboardIcon = () => {
+    if (user?.role === 'admin') return Shield;
+    if (user?.role === 'doctor') return Stethoscope;
+    if (user?.role === 'pharmacy') return Pill;
+    return Home;
   };
 
-  const dashInfo = getDashboardInfo();
-  
-  const tabs = [
-    { id: 'dashboard', ...dashInfo },
-    { id: 'orders', label: 'অর্ডার', icon: Package },
-    { id: 'wallet', label: 'ওয়ালেট', icon: Wallet },
-    { id: 'profile', label: 'প্রোফাইল', icon: User },
+  const DashIcon = getDashboardIcon();
+
+  const navItems = [
+    { id: 'dashboard', icon: DashIcon, label: 'Home' },
+    { id: 'doctors', icon: Search, label: 'Search' },
+    { id: 'prescriptions', icon: Calendar, label: 'Schedule' },
+    { id: 'profile', icon: User, label: 'Profile' },
   ];
 
   return (
-    <nav className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-white/80 backdrop-blur-xl border border-white/20 shadow-2xl rounded-[32px] px-6 py-4 z-50 flex items-center justify-between">
-      {tabs.map((tab) => {
-        const isActive = activeTab === tab.id;
-        return (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className="flex flex-col items-center gap-1 relative"
-          >
-            <div className={cn(
-              "p-2 rounded-2xl transition-all duration-300",
-              isActive ? "bg-sky-500 text-white scale-110 shadow-lg shadow-sky-500/20" : "text-slate-400"
-            )}>
-              <tab.icon size={22} />
-            </div>
-            {isActive && (
-              <span className="text-[10px] font-bold text-sky-600 mt-1">{tab.label}</span>
-            )}
-          </button>
-        );
-      })}
-      
-      {/* Menu Button to trigger the full sidebar */}
-      <button
-        onClick={onMenuClick}
-        className="flex flex-col items-center gap-1 text-slate-400 p-2"
-      >
-        <Menu size={22} />
-        <span className="text-[10px] font-medium opacity-0">মেনু</span>
-      </button>
+    <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center justify-center pointer-events-auto">
+      <div className="bg-[#121826] border border-white/10 shadow-[0_15px_35px_rgba(0,0,0,0.35)] rounded-full px-3.5 py-2 flex items-center gap-3 sm:gap-5 backdrop-blur-md">
+        {navItems.map((item) => {
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              aria-label={item.label}
+              className={cn(
+                "transition-all duration-300 rounded-full flex items-center justify-center relative",
+                isActive 
+                  ? "w-11 h-11 bg-blue-600 text-white shadow-lg shadow-blue-600/40 scale-105" 
+                  : "w-10 h-10 text-slate-400 hover:text-white"
+              )}
+            >
+              <item.icon size={20} />
+            </button>
+          );
+        })}
+        
+        {/* Menu drawer button */}
+        <button
+          onClick={onMenuClick}
+          aria-label="Open menu"
+          className="w-10 h-10 text-slate-400 hover:text-white flex items-center justify-center transition-colors border-l border-white/10 pl-2 ml-1"
+        >
+          <Menu size={20} />
+        </button>
+      </div>
     </nav>
   );
 }

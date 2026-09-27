@@ -1234,37 +1234,6 @@ export function AdminDashboard() {
     }
   };
 
-  const seedSampleUsers = async () => {
-    setLoading(true);
-    try {
-      const sampleUsersList = [
-        { uid: 'admin_shusto', displayName: 'Shusto Admin', name: 'Shusto Admin', email: 'shustobd@gmail.com', role: 'admin', createdAt: new Date().toISOString() },
-        { uid: 'patient_ariful', displayName: 'আরিফুল ইসলাম', name: 'আরিফুল ইসলাম', email: 'ariful@shusto.demo', role: 'user', phoneNumber: '01712345678', division: 'Dhaka', district: 'Dhaka', createdAt: new Date().toISOString() },
-        { uid: 'patient_fatema', displayName: 'ফাতেমা খাতুন', name: 'ফাতেমা খাতুন', email: 'fatema@shusto.demo', role: 'user', phoneNumber: '01812345679', division: 'Chittagong', district: 'Chittagong', createdAt: new Date().toISOString() },
-        { uid: 'patient_tanvir', displayName: 'তানভীর আহমেদ', name: 'তানভীর আহমেদ', email: 'tanvir@shusto.demo', role: 'user', phoneNumber: '01912345680', division: 'Rajshahi', district: 'Rajshahi', createdAt: new Date().toISOString() },
-        { uid: 'demo-doctor-123', displayName: 'Dr. Rahul Chowdhury', name: 'Dr. Rahul Chowdhury', email: 'doctor@shusto.demo', role: 'doctor', specialty: 'Cardiology', fee: 800, bmdcNumber: 'BMDC-102938', createdAt: new Date().toISOString() },
-        { uid: 'demo-pharmacy-123', displayName: 'City Pharmacy', name: 'City Pharmacy', email: 'pharmacy@shusto.demo', role: 'pharmacy', location: 'Dhanmondi, Dhaka', createdAt: new Date().toISOString() },
-        { uid: 'demo-manager-123', displayName: 'Demo Manager', name: 'Demo Manager', email: 'manager@shusto.demo', role: 'manager', createdAt: new Date().toISOString() },
-        { uid: 'demo-state-123', displayName: 'Demo State Representative', name: 'Demo State Representative', email: 'state@shusto.demo', role: 'state', createdAt: new Date().toISOString() },
-        { uid: 'investor_jahir', displayName: 'মো জহিরুল ইসলাম', name: 'মো জহিরুল ইসলাম', email: 'investor@shusto.demo', role: 'investor', createdAt: new Date().toISOString() }
-      ];
-
-      for (const u of sampleUsersList) {
-        await setDoc(doc(db, 'users', u.uid), u, { merge: true });
-      }
-
-      const snapshot = await getDocs(query(collection(db, 'users'), limit(150)));
-      const fetched = snapshot.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile));
-      setUsers(fetched);
-      showSuccess("স্যাম্পল ইউজার সফলভাবে ডাটাবেজে যুক্ত হয়েছে!");
-    } catch (err) {
-      console.error("Error seeding sample users:", err);
-      alert("ইউজার যুক্ত করা সম্ভব হয়নি।");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const seedMedicines = async () => {
     if (!confirm('This will seed a collection of 25+ common medicines with distinctive actual images. Continue?')) return;
     setLoading(true);
@@ -2650,13 +2619,6 @@ export function AdminDashboard() {
               </div>
               <div className="flex flex-wrap gap-3">
                 <button 
-                  onClick={seedSampleUsers}
-                  disabled={loading}
-                  className="px-6 py-2.5 bg-emerald-50 text-emerald-600 rounded-2xl font-bold flex items-center gap-2 hover:bg-emerald-100 transition-all border border-emerald-100 text-sm shadow-sm"
-                >
-                  <Plus size={18} /> স্যাম্পল ইউজার যোগ করুন
-                </button>
-                <button 
                   onClick={syncAllRoles}
                   disabled={loading}
                   className="px-6 py-2.5 bg-sky-50 text-sky-600 rounded-2xl font-bold flex items-center gap-2 hover:bg-sky-100 transition-all border border-sky-100 text-sm shadow-sm"
@@ -2778,13 +2740,6 @@ export function AdminDashboard() {
                         </p>
                         {!searchTerm && (
                           <div className="flex items-center justify-center gap-3 pt-2">
-                            <button
-                              onClick={seedSampleUsers}
-                              disabled={loading}
-                              className="px-5 py-2.5 bg-emerald-600 text-white font-bold rounded-2xl text-xs hover:bg-emerald-700 transition-all shadow-md"
-                            >
-                              + স্যাম্পল ইউজার ডাটাবেজে যুক্ত করুন
-                            </button>
                             <button
                               onClick={syncAllRoles}
                               disabled={loading}

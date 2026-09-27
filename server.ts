@@ -441,7 +441,15 @@ app.post(["/api/shusto/withdraw", "/direct-api/shusto/withdraw", "/api/sheba/wit
 // Register body-parsers safely (Vercel parses req.body automatically)
 app.use((req, res, next) => {
   // Restore original request path from custom Vercel / proxy headers if rewritten
-  const forwardedPath = (req.headers['x-vercel-forwarded-path'] || req.headers['x-forwarded-path'] || req.headers['x-original-url']) as string;
+  const forwardedPath = (
+    req.headers['x-matched-path'] ||
+    req.headers['x-vercel-forwarded-path'] ||
+    req.headers['x-forwarded-path'] ||
+    req.headers['x-original-url'] ||
+    req.headers['x-invoke-path'] ||
+    req.headers['x-forwarded-uri']
+  ) as string;
+
   if (forwardedPath && (forwardedPath.startsWith('/api/') || forwardedPath.startsWith('/direct-api/'))) {
     const queryIndex = req.url.indexOf('?');
     const queryString = queryIndex !== -1 ? req.url.substring(queryIndex) : '';
@@ -449,6 +457,10 @@ app.use((req, res, next) => {
     const newUrl = `${cleanForwardedPath}${queryString}`;
     console.log(`[ROUTER MIDDLEWARE] Recovered original URL on cloud proxy: ${req.url} -> ${newUrl}`);
     req.url = newUrl;
+  } else if ((req.url.startsWith('/api/index') || req.url === '/api' || req.url === '/api/') && (req.query as any)?.path) {
+    const p = Array.isArray((req.query as any).path) ? (req.query as any).path.join('/') : (req.query as any).path;
+    req.url = `/api/${p}`;
+    console.log(`[ROUTER MIDDLEWARE] Recovered original URL from query.path: -> ${req.url}`);
   }
 
   console.log(`[REQUEST LOGGER] ${req.method} ${req.path || req.url}`);
@@ -678,7 +690,7 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
 
       const response = await axios.post(sslUrl, formParams.toString(), {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        timeout: 5000
+        timeout: 15000
       });
 
       console.log("[PAYMENT_INIT] SSLCommerz response status:", response.status);
