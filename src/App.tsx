@@ -40,6 +40,7 @@ import {
   showAppNotification
 } from './utils/callNotification';
 import { DatabaseQuotaAlert } from './components/DatabaseQuotaAlert';
+import { DatabaseQuotaShield } from './components/DatabaseQuotaShield';
 
 function AppContent() {
   const { user, loading, error } = useAuth();
@@ -477,6 +478,7 @@ function AppContent() {
         setActiveTab={setActiveTab} 
         onMenuClick={() => setIsSidebarOpen(true)} 
       />
+      <DatabaseQuotaShield />
     </div>
   );
 }

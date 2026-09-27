@@ -246,37 +246,18 @@ export function Wallet() {
 
     setProcessing(true);
     try {
-      const payload = JSON.stringify({
-        amount: Number(amount),
-        userId: user?.uid,
-        userName: user?.displayName,
-        userEmail: user?.email,
-        providerType: "add_money",
-        clientBaseUrl: window.location.origin,
-      });
-
-      let response = await fetch(getApiUrl("/api/payment/init"), {
+      const response = await fetch(getApiUrl("/api/payment/init"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: payload,
+        body: JSON.stringify({
+          amount: Number(amount),
+          userId: user?.uid,
+          userName: user?.displayName,
+          userEmail: user?.email,
+          providerType: "add_money",
+          clientBaseUrl: window.location.origin,
+        }),
       });
-
-      // Redundant failover to direct-api if primary api endpoint encounters a server error or 404
-      if (!response.ok && (response.status === 500 || response.status === 404) && !isRetry) {
-        console.warn("Primary payment endpoint failed, trying fallback /direct-api/payment/init...");
-        try {
-          const fallbackResponse = await fetch(getApiUrl("/direct-api/payment/init"), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: payload,
-          });
-          if (fallbackResponse.ok) {
-            response = fallbackResponse;
-          }
-        } catch (fbErr) {
-          console.warn("Fallback request failed:", fbErr);
-        }
-      }
 
       if (!response.ok) {
         if (response.status === 405 && !isRetry) {
@@ -312,7 +293,7 @@ export function Wallet() {
         let errorMsg = "";
         try {
           const parsed = JSON.parse(errorText);
-          errorMsg = parsed.message || parsed.error || errorText;
+          errorMsg = parsed.error || parsed.message || errorText;
         } catch (e) {
           errorMsg = errorText;
         }

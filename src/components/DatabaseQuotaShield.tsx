@@ -77,7 +77,7 @@ export function DatabaseQuotaShield() {
                 >
                   <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-xl ${isCurrentActive ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-600'}`}>
-                      {node.type === 'firestore' ? <Server size={16} /> : node.type === 'mongodb' || node.type === 'mysql' ? <Database size={16} /> : <HardDrive size={16} />}
+                      {node.type === 'firestore' ? <Server size={16} /> : node.type === 'mongodb' ? <Database size={16} /> : <HardDrive size={16} />}
                     </div>
                     <div>
                       <h4 className="text-xs font-bold text-slate-800">{node.name}</h4>
