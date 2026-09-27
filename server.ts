@@ -692,7 +692,7 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
 
       const response = await axios.post(sslUrl, formParams.toString(), {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        timeout: 5000
+        timeout: 20000
       });
 
       console.log("[PAYMENT_INIT] SSLCommerz response status:", response.status);
