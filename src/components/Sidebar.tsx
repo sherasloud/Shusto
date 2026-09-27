@@ -53,7 +53,7 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
       { id: 'ambulance', label: 'অ্যাম্বুলেন্স', icon: Truck },
       { id: 'nursing', label: 'নার্সিং সার্ভিস', icon: Heart },
       { id: 'nutritionist', label: 'পুষ্টিবিদ (Nutritionist)', icon: Apple },
-      { id: 'privacy', label: 'গোপনীয়তা নীতি', icon: Shield },
+      { id: 'privacy', label: 'গোপনীয়তা ও শর্তাবলী', icon: Shield },
     ];
 
     let dashboardItem = { id: 'dashboard', label: 'ড্যাশবোর্ড', icon: LayoutDashboard };
