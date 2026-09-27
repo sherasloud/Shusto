@@ -246,35 +246,37 @@ export function Wallet() {
 
     setProcessing(true);
     try {
-      const payload = JSON.stringify({
+      const payload = {
         amount: Number(amount),
         userId: user?.uid,
         userName: user?.displayName,
         userEmail: user?.email,
         providerType: "add_money",
         clientBaseUrl: window.location.origin,
-      });
+      };
 
-      let response = await fetch(getApiUrl("/api/payment/init"), {
+      const primaryUrl = getApiUrl("/api/payment/init");
+      let response = await fetch(primaryUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: payload,
+        body: JSON.stringify(payload),
       });
 
-      // Redundant failover to direct-api if primary api endpoint encounters a server error or 404
-      if (!response.ok && (response.status === 500 || response.status === 404) && !isRetry) {
-        console.warn("Primary payment endpoint failed, trying fallback /direct-api/payment/init...");
+      // If Vercel Serverless Function crashes or fails with 500/502/504, try cloud backup endpoint
+      if (!response.ok && (response.status >= 500 || response.status === 404)) {
+        console.warn(`Primary endpoint ${primaryUrl} returned ${response.status}. Attempting cloud failover...`);
+        const fallbackUrl = "https://ais-pre-6kavvewen5leykxngifkrf-376108686618.asia-southeast1.run.app/api/payment/init";
         try {
-          const fallbackResponse = await fetch(getApiUrl("/direct-api/payment/init"), {
+          const fallbackResponse = await fetch(fallbackUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: payload,
+            body: JSON.stringify(payload),
           });
           if (fallbackResponse.ok) {
             response = fallbackResponse;
           }
-        } catch (fbErr) {
-          console.warn("Fallback request failed:", fbErr);
+        } catch (failoverErr) {
+          console.error("Cloud failover attempt error:", failoverErr);
         }
       }
 
@@ -312,7 +314,7 @@ export function Wallet() {
         let errorMsg = "";
         try {
           const parsed = JSON.parse(errorText);
-          errorMsg = parsed.message || parsed.error || errorText;
+          errorMsg = parsed.error || parsed.message || errorText;
         } catch (e) {
           errorMsg = errorText;
         }
