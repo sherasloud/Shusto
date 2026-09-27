@@ -27,9 +27,6 @@ import {
   XCircle,
   Copy,
   Check,
-  Sparkles,
-  ExternalLink,
-  RefreshCw,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 
@@ -67,10 +64,6 @@ export function Wallet() {
   const loading = !walletLoaded || !transactionsLoaded;
   const [showAddMoney, setShowAddMoney] = useState(false);
   const [amount, setAmount] = useState("");
-  const [gatewayReadyUrl, setGatewayReadyUrl] = useState<string | null>(null);
-  const [pendingTranId, setPendingTranId] = useState<string | null>(null);
-  const [pendingAmount, setPendingAmount] = useState<number>(0);
-  const [verifyingPayment, setVerifyingPayment] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [withdrawMethod, setWithdrawMethod] = useState<"sheba">(
     "sheba",
@@ -113,83 +106,68 @@ export function Wallet() {
         setTransactionsLoaded(false);
         setProcessing(true);
         try {
-          // 1. Trigger server confirmation credit (handles background validation & credit atomically)
-          try {
-            await fetch(getApiUrl("/api/payment/confirm-credit"), {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                tran_id: tid,
-                userId: user.uid,
-                amount: amt,
-              }),
-            });
-          } catch (serverConfirmErr) {
-            console.warn("[Wallet Client] Server confirm-credit call warning:", serverConfirmErr);
-          }
-
-          // 2. Client-side atomic verification & fallback credit
+          // Check transaction document atomically using a read/write lock to avoid dual client-server credits
           const txDocRef = doc(db, "transactions", tid);
-          const walletRef = doc(db, "wallets", user.uid);
 
-          try {
-            await runTransaction(db, async (txn) => {
-              const txDocSnap = await txn.get(txDocRef);
-              if (txDocSnap.exists()) {
-                console.log(`[Wallet Client] Transaction ${tid} was already credited.`);
-                return;
-              }
-
-              const walletSnap = await txn.get(walletRef);
-              const currentBalance = walletSnap.exists() ? (walletSnap.data().balance || 0) : 0;
-
-              txn.set(
-                walletRef,
-                {
-                  uid: user.uid,
-                  balance: currentBalance + amt,
-                  updatedAt: new Date().toISOString(),
-                },
-                { merge: true },
+          await runTransaction(db, async (txn) => {
+            const txDocSnap = await txn.get(txDocRef);
+            if (txDocSnap.exists()) {
+              console.log(
+                `[Wallet Client] Transaction ${tid} was already credited.`,
               );
-
-              txn.set(txDocRef, {
-                userId: user.uid,
-                amount: amt,
-                type: "add_money",
-                status: "success",
-                tran_id: tid,
-                createdAt: new Date().toISOString(),
-              });
-
-              console.log(`[Wallet Client] Atomically credited ৳${amt} to user ${user.uid}. TxID: ${tid}`);
-            });
-          } catch (txErr) {
-            console.log("[Wallet Client] runTransaction sync completed or handled by server:", txErr);
-          }
-
-          // 3. Force immediate fetch of latest balance
-          try {
-            const walletDoc = await getDoc(walletRef);
-            if (walletDoc.exists()) {
-              const freshBal = walletDoc.data().balance || 0;
-              setBalance(freshBal);
-              localStorage.setItem(`cached_wallet_balance_${user.uid}`, String(freshBal));
-            } else {
-              setBalance((prev) => (prev !== null ? prev + amt : amt));
+              return;
             }
-          } catch (e) {
-            setBalance((prev) => (prev !== null ? prev + amt : amt));
+
+            const walletRef = doc(db, "wallets", user.uid);
+            const walletSnap = await txn.get(walletRef);
+            let currentBalance = 0;
+            if (walletSnap.exists()) {
+              currentBalance = walletSnap.data().balance || 0;
+            }
+
+            txn.set(
+              walletRef,
+              {
+                uid: user.uid,
+                balance: currentBalance + amt,
+                updatedAt: new Date().toISOString(),
+              },
+              { merge: true },
+            );
+
+            txn.set(txDocRef, {
+              userId: user.uid,
+              amount: amt,
+              type: "add_money",
+              status: "success",
+              tran_id: tid,
+              createdAt: new Date().toISOString(),
+            });
+
+            console.log(
+              `[Wallet Client] Atomically credited ৳${amt} to user ${user.uid}. TxID: ${tid}`,
+            );
+          });
+
+          // Force immediate update for UI consistency before the snapshot listener triggers
+          const walletRef = doc(db, "wallets", user.uid);
+          const walletDoc = await getDoc(walletRef);
+          if (walletDoc.exists()) {
+            setBalance(walletDoc.data().balance || 0);
           }
 
-          setCreditSuccessMsg(`৳${amt} আপনার Shusto ওয়ালেটে সফলভাবে জমা করা হয়েছে!`);
+          setCreditSuccessMsg(
+            `৳${amt} আপনার Shusto ওয়ালেটে সফলভাবে জমা করা হয়েছে!`,
+          );
         } catch (err: any) {
-          console.error("[Wallet Client] Payment redirect handler notice:", err);
-          setCreditSuccessMsg(`৳${amt} আপনার ওয়ালেটে জমা প্রক্রিয়া সম্পন্ন হয়েছে।`);
+          console.error(
+            "[Wallet Client] Credit fallback transaction error:",
+            err,
+          );
+          alert(`পেমেন্ট সফল হয়েছে কিন্তু ডেটাবেসে আপনার ব্যালেন্স যুক্ত করতে সমস্যা হয়েছে (হয়তো ডেটাবেস কোটা শেষ)। আপনার পেমেন্ট রেকর্ডটি আমাদের কাছে নিরাপদ রয়েছে, দয়া করে অ্যাডমিনের সাথে যোগাযোগ করুন। এরর: ${err.message}`);
         } finally {
           setProcessing(false);
-          setWalletLoaded(true);
-          setTransactionsLoaded(true);
+          // Safely keep page state but wipe query parameters to prevent duplicate triggers on manual refresh
           window.history.replaceState(
             {},
             document.title,
@@ -326,30 +304,26 @@ export function Wallet() {
 
       const data = await response.json();
       
-      const assignedTranId = data.tran_id || `tran_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      setPendingTranId(assignedTranId);
-      setPendingAmount(Number(amount));
-
       if (data.GatewayPageURL) {
-        console.log("Redirecting to SSLCommerz gateway:", data.GatewayPageURL);
-        setGatewayReadyUrl(data.GatewayPageURL);
-        setProcessing(false);
+        console.log("Redirecting directly to SSLCommerz:", data.GatewayPageURL);
 
-        // If in top window (direct website visit like shusto.com), redirect immediately
-        if (typeof window !== 'undefined') {
-          if (window.self === window.top) {
-            window.location.href = data.GatewayPageURL;
-          } else {
-            // Embedded iframe preview: attempt new tab or provide clear click prompt
-            try {
-              window.open(data.GatewayPageURL, "_blank");
-            } catch (openErr) {
-              console.warn("Popup blocked, user will click through UI button:", openErr);
-            }
-          }
+        if (typeof window !== 'undefined' && window.self !== window.top) {
+           console.log("In an iframe, attempting to open gateway in a new tab");
+           // For better UX in AI Studio, try both
+           const newWindow = window.open(data.GatewayPageURL, "_blank");
+           if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+              // Pop-up blocked, fallback to same window
+              window.location.href = data.GatewayPageURL;
+           } else {
+              setProcessing(false);
+              setShowAddMoney(false);
+              alert("পেমেন্ট গেটওয়ে নতুন ট্যাবে খোলা হয়েছে। পেমেন্ট সম্পন্ন করে এখানে ফিরে আসুন।");
+           }
+        } else {
+           window.location.href = data.GatewayPageURL;
         }
       } else {
-        alert("পেমেন্ট গেটওয়ে লিংক প্রস্তুত হতে পারেনি। দয়া করে পুনরায় চেষ্টা করুন।");
+        alert("পেমেন্ট গেটওয়ে ক্যাটাগরী লিংক পাওয়া যায়নি। দয়া করে পরে আবার চেষ্টা করুন।");
         setProcessing(false);
       }
     } catch (error: any) {
@@ -358,38 +332,6 @@ export function Wallet() {
       setProcessing(false);
     }
   };
-
-  // Auto-verify status while modal is showing gateway page
-  useEffect(() => {
-    if (!showAddMoney || !gatewayReadyUrl || !pendingTranId || !user) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(getApiUrl("/api/payment/verify-status"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tran_id: pendingTranId, userId: user.uid }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.status === "VALID" || data.credited) {
-            clearInterval(interval);
-            const amt = data.amount || pendingAmount || Number(amount);
-            setBalance((prev) => (prev !== null ? prev + amt : amt));
-            setCreditSuccessMsg(`৳${amt} আপনার Shusto ওয়ালেটে সফলভাবে জমা হয়েছে!`);
-            setShowAddMoney(false);
-            setGatewayReadyUrl(null);
-            setPendingTranId(null);
-            setAmount("");
-          }
-        }
-      } catch (e) {}
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [showAddMoney, gatewayReadyUrl, pendingTranId, user, pendingAmount, amount]);
-
-
 
   const handleWithdraw = async (isRetry: boolean = false) => {
     setWithdrawErrorDetails(null);
@@ -610,16 +552,19 @@ export function Wallet() {
             </div>
 
             <div className="flex flex-wrap gap-4">
-              <button
-                onClick={() => {
-                  setGatewayReadyUrl(null);
-                  setShowAddMoney(true);
-                }}
-                className="flex items-center gap-3 px-8 py-4 bg-white text-blue-600 font-black rounded-3xl hover:bg-sky-50 transition-all active:scale-95 shadow-xl shadow-blue-900/10"
-              >
-                <Plus size={20} strokeWidth={3} />
-                Add Money
-              </button>
+              {user?.role === 'user' ? (
+                <button
+                  onClick={() => setShowAddMoney(true)}
+                  className="flex items-center gap-3 px-8 py-4 bg-white text-blue-600 font-black rounded-3xl hover:bg-sky-50 transition-all active:scale-95 shadow-xl shadow-blue-900/10"
+                >
+                  <Plus size={20} strokeWidth={3} />
+                  Add Money
+                </button>
+              ) : (
+                <div className="px-6 py-4 bg-white/10 backdrop-blur-md rounded-3xl border border-white/20 text-xs font-bold text-sky-100 flex items-center gap-2">
+                  <span>⚠️ শুধুমাত্র পেশেন্টরা সরাসরি টাকা যোগ করতে পারেন</span>
+                </div>
+              )}
               <button
                 onClick={() => setShowWithdraw(true)}
                 className="flex items-center gap-3 px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-3xl backdrop-blur-md transition-all border border-white/20 active:scale-95"
@@ -776,169 +721,74 @@ export function Wallet() {
 
       {/* Add Money Modal */}
       {showAddMoney && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-md rounded-[36px] p-6 sm:p-8 shadow-2xl relative max-h-[92vh] overflow-y-auto border border-slate-100">
-            {/* Header with SSLCommerz Badge */}
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-2xl sm:text-3xl font-black text-slate-900">
-                  টাকা যোগ করুন
-                </h2>
-                <p className="text-xs text-slate-500 font-semibold mt-0.5">
-                  SSLCommerz পেমেন্ট গেটওয়ে (লাইভ)
-                </p>
-              </div>
-              <div className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold border border-emerald-200/60 flex items-center gap-1.5 shadow-sm">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                নিরাপদ পেমেন্ট
-              </div>
-            </div>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl">
+            <h2 className="text-3xl font-bold text-slate-900 mb-2">
+              টাকা যোগ করুন
+            </h2>
+            <p className="text-slate-500 mb-8">
+              আপনার Shusto ওয়ালেটে কত টাকা যোগ করতে চান?
+            </p>
 
-            {/* Payment Method Badges */}
-            <div className="mb-6 p-3.5 bg-slate-50/80 rounded-2xl border border-slate-100">
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                সমর্থিত পেমেন্ট মাধ্যমসমূহ:
-              </p>
-              <div className="flex items-center justify-between gap-1.5 flex-wrap">
-                <div className="px-2.5 py-1 bg-white rounded-lg border border-pink-100 shadow-xs flex items-center gap-1 text-[11px] font-black text-[#E2136E]">
-                  <span>bKash</span>
-                </div>
-                <div className="px-2.5 py-1 bg-white rounded-lg border border-orange-100 shadow-xs flex items-center gap-1 text-[11px] font-black text-[#F7941D]">
-                  <span>Nagad</span>
-                </div>
-                <div className="px-2.5 py-1 bg-white rounded-lg border border-purple-100 shadow-xs flex items-center gap-1 text-[11px] font-black text-[#8C3494]">
-                  <span>Rocket</span>
-                </div>
-                <div className="px-2.5 py-1 bg-white rounded-lg border border-blue-100 shadow-xs flex items-center gap-1 text-[11px] font-black text-blue-600">
-                  <span>Visa / Card</span>
-                </div>
-                <div className="px-2.5 py-1 bg-white rounded-lg border border-slate-200 shadow-xs flex items-center gap-1 text-[11px] font-black text-slate-600">
-                  <span>NetBanking</span>
-                </div>
+            <div className="space-y-6">
+              <div className="relative">
+                <span className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl font-bold text-slate-400">
+                  ৳
+                </span>
+                <input
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="w-full pl-12 pr-6 py-5 bg-slate-50 border-none rounded-3xl text-2xl font-bold focus:ring-2 focus:ring-sky-500/20"
+                  placeholder="0.00"
+                />
               </div>
-            </div>
 
-            {gatewayReadyUrl ? (
-              <div className="space-y-5 text-center py-2">
-                <div className="w-16 h-16 bg-sky-50 text-sky-600 rounded-3xl flex items-center justify-center mx-auto shadow-inner">
-                  <ExternalLink size={28} className="animate-pulse" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900">
-                    পেমেন্ট পেজ প্রস্তুত
-                  </h3>
-                  <p className="text-sm text-slate-500 mt-1 max-w-xs mx-auto">
-                    SSLCommerz এর সুরক্ষিত গেটওয়েতে বিকাশ, নগদ অথবা কার্ডের মাধ্যমে ৳{pendingAmount} পেমেন্ট সম্পন্ন করুন।
+              <div className="grid grid-cols-3 gap-3">
+                {[500, 1000, 2000].map((val) => (
+                  <button
+                    key={val}
+                    onClick={() => setAmount(val.toString())}
+                    className="py-3 bg-slate-50 rounded-2xl text-sm font-bold text-slate-600 hover:bg-sky-50 hover:text-sky-600 transition-all"
+                  >
+                    +৳{val}
+                  </button>
+                ))}
+              </div>
+
+              {typeof window !== 'undefined' && window.self !== window.top && (
+                <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100/50 text-xs text-amber-700 leading-relaxed shadow-sm">
+                  <p className="font-bold flex items-center gap-1.5 mb-1 text-amber-800">
+                    <span>⚠️</span> আপনি প্রিভিউ ফ্রেমের ভেতরে আছেন!
                   </p>
+                  পেমেন্ট গেটওয়ে রিডাইরেক্ট সাধারণত iframe-এর মধ্যে সিকিউরিটি কারণে ব্লক করা থাকে। দয়া করে অ্যাপটি <strong>"Open in new tab"</strong> বা নতুন ডোমেইনে ব্রাউজ করে ট্রাই করুন, তাহলে পেমেন্ট পেজটি লোড হবে।
                 </div>
+              )}
 
-                <a
-                  href={gatewayReadyUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full py-4 bg-sky-500 hover:bg-sky-600 text-white font-black rounded-2xl transition-all shadow-lg shadow-sky-500/25 text-base active:scale-[0.98]"
-                >
-                  <ExternalLink size={20} />
-                  পেমেন্ট পেজে যান (SSLCommerz)
-                </a>
-
-                <div className="flex items-center justify-center gap-2 text-xs text-slate-400 font-semibold">
-                  <RefreshCw size={13} className="animate-spin text-sky-500" />
-                  <span>পেমেন্ট নিশ্চিতকরণের অপেক্ষা করা হচ্ছে...</span>
-                </div>
-
+              <div className="flex gap-4 mt-8">
                 <button
                   onClick={() => {
-                    setGatewayReadyUrl(null);
-                    setPendingTranId(null);
                     setShowAddMoney(false);
+                    setAmount("");
                   }}
-                  className="w-full py-2.5 text-slate-400 hover:text-slate-600 font-bold text-sm transition-colors"
+                  className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all"
                 >
                   বাতিল
                 </button>
+                <button
+                  onClick={() => handleAddMoney(false)}
+                  disabled={processing}
+                  className={cn(
+                    "flex-1 py-4 text-white font-bold rounded-2xl transition-all shadow-lg",
+                    processing ? "bg-slate-400 cursor-not-allowed" : "bg-sky-500 hover:bg-sky-600 shadow-sky-500/20"
+                  )}
+                >
+                  {processing ? "প্রসেস হচ্ছে..." : "এগিয়ে যান"}
+                </button>
               </div>
-            ) : (
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                    পরিমাণ (BDT)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl font-bold text-slate-400">
-                      ৳
-                    </span>
-                    <input
-                      type="number"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-200/90 rounded-2xl text-2xl font-black focus:ring-4 focus:ring-sky-500/10 focus:border-sky-500 transition-all text-slate-900"
-                      placeholder="0.00"
-                      autoFocus
-                    />
-                  </div>
-                </div>
 
-                {/* Quick Presets */}
-                <div>
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                    দ্রুত নির্বাচন করুন:
-                  </p>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[100, 500, 1000, 2000].map((val) => (
-                      <button
-                        key={val}
-                        type="button"
-                        onClick={() => setAmount(val.toString())}
-                        className={cn(
-                          "py-2.5 rounded-xl text-xs font-bold transition-all border",
-                          amount === val.toString()
-                            ? "bg-sky-500 text-white border-sky-500 shadow-sm"
-                            : "bg-slate-50 text-slate-600 hover:bg-sky-50 hover:text-sky-600 border-slate-200/70"
-                        )}
-                      >
-                        +৳{val}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAddMoney(false);
-                      setAmount("");
-                      setGatewayReadyUrl(null);
-                    }}
-                    className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all text-sm active:scale-[0.98]"
-                  >
-                    বাতিল
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAddMoney(false)}
-                    disabled={processing}
-                    className={cn(
-                      "flex-1 py-4 text-white font-bold rounded-2xl transition-all shadow-lg text-sm flex items-center justify-center gap-2 active:scale-[0.98]",
-                      processing ? "bg-slate-400 cursor-not-allowed" : "bg-sky-500 hover:bg-sky-600 shadow-sky-500/25"
-                    )}
-                  >
-                    {processing ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        <span>প্রসেস হচ্ছে...</span>
-                      </>
-                    ) : (
-                      <>
-                        <CreditCard size={18} />
-                        <span>এগিয়ে যান</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
+              {/* Removed Mock Recharge button as requested */}
+            </div>
           </div>
         </div>
       )}

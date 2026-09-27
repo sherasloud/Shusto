@@ -1,3 +1,18 @@
+import * as adminModule from "firebase-admin";
+
+// Safe ES Module/CommonJS interop wrapper for firebase-admin
+const admin = (adminModule as any).default && (adminModule as any).default.initializeApp ? (adminModule as any).default : adminModule;
+
+const getFirestore = (app: any, dbId?: string) => {
+  if (typeof app.firestore === "function") {
+    return (dbId && dbId !== "(default)") ? app.firestore(dbId) : app.firestore();
+  }
+  return admin.firestore();
+};
+
+const FieldValue = admin.firestore?.FieldValue || (adminModule as any).firestore?.FieldValue;
+
+
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -6,48 +21,21 @@ import { v4 as uuidv4 } from "uuid";
 import dotenv from "dotenv";
 import fs from "fs";
 import crypto from "crypto";
+import {
+  connectMongoDB,
+  getMongoStatus,
+  Appointment as MongoAppointment,
+  User as MongoUser,
+  Prescription as MongoPrescription,
+  Wallet as MongoWallet,
+  Transaction as MongoTransaction,
+  ServiceRequest as MongoServiceRequest
+} from "./mongo";
+
 dotenv.config();
 
-// Optional MongoDB & MySQL integrations (safe load to prevent any runtime startup crashes)
-let connectMongoDB: any = async () => null;
-let getMongoStatus: any = () => ({ connected: false, message: "Not configured" });
-let MongoAppointment: any = null;
-let MongoUser: any = null;
-let MongoPrescription: any = null;
-let MongoWallet: any = null;
-let MongoTransaction: any = null;
-let MongoServiceRequest: any = null;
-let getMySQLStatus: any = () => ({ status: "disconnected", enabled: false });
-let testMySQLConnection: any = async () => ({ status: "disconnected", enabled: false });
-
-(async () => {
-  try {
-    const mongoMod = await import("./mongo.ts").catch(() => import("./mongo.js").catch(() => null));
-    if (mongoMod) {
-      connectMongoDB = mongoMod.connectMongoDB || connectMongoDB;
-      getMongoStatus = mongoMod.getMongoStatus || getMongoStatus;
-      MongoAppointment = mongoMod.Appointment;
-      MongoUser = mongoMod.User;
-      MongoPrescription = mongoMod.Prescription;
-      MongoWallet = mongoMod.Wallet;
-      MongoTransaction = mongoMod.Transaction;
-      MongoServiceRequest = mongoMod.ServiceRequest;
-      connectMongoDB().catch(() => {});
-    }
-  } catch (e) {
-    console.warn("MongoDB optional module load note:", (e as any)?.message);
-  }
-
-  try {
-    const mysqlMod = await import("./mysql.ts").catch(() => import("./mysql.js").catch(() => null));
-    if (mysqlMod) {
-      getMySQLStatus = mysqlMod.getMySQLStatus || getMySQLStatus;
-      testMySQLConnection = mysqlMod.testMySQLConnection || testMySQLConnection;
-    }
-  } catch (e) {
-    console.warn("MySQL optional module load note:", (e as any)?.message);
-  }
-})();
+// Connect to MongoDB Atlas (Optional)
+connectMongoDB().catch(() => {});
 
 const getFilename = () => {
   return typeof __filename !== "undefined" ? __filename : "";
@@ -63,20 +51,7 @@ const myDirname = getDirname(myFilename);
 
 // Safe Lazy-initializer for Firebase Admin Database
 
-// Default embedded Firebase configuration for resilient deployment across Vercel / serverless / Cloud Run
-const DEFAULT_FIREBASE_CONFIG = {
-  projectId: "ai-studio-applet-webapp-3b366",
-  appId: "1:1007839704792:web:9fd6de8038d9cd7d55c9ad",
-  apiKey: "AIzaSyB5TInPrCSeROrJO1WesZGdO85yQG3919o",
-  authDomain: "ai-studio-applet-webapp-3b366.firebaseapp.com",
-  firestoreDatabaseId: "ai-studio-d521464d-ee88-49d7-a823-d0f7de73bd74",
-  storageBucket: "ai-studio-applet-webapp-3b366.firebasestorage.app",
-  messagingSenderId: "1007839704792",
-  measurementId: "G-X21MN479P1",
-  oAuthClientId: "1007839704792-paunj9iac4hlnepsf4dfj4kdirg2ft84.apps.googleusercontent.com"
-};
-
-let firebaseConfig: any = { ...DEFAULT_FIREBASE_CONFIG };
+let firebaseConfig: any = null;
 try {
   const configPath = path.join(process.cwd(), "firebase-applet-config.json");
   const localConfigPath = path.join(myDirname, "firebase-applet-config.json");
@@ -84,100 +59,47 @@ try {
   
   if (fs.existsSync(configPath)) {
     firebaseConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    console.log("Firebase config loaded from process.cwd()");
   } else if (fs.existsSync(localConfigPath)) {
     firebaseConfig = JSON.parse(fs.readFileSync(localConfigPath, "utf8"));
+    console.log("Firebase config loaded from myDirname");
   } else if (fs.existsSync(parentConfigPath)) {
     firebaseConfig = JSON.parse(fs.readFileSync(parentConfigPath, "utf8"));
+    console.log("Firebase config loaded from myDirname/..");
   } else if (fs.existsSync("firebase-applet-config.json")) {
     firebaseConfig = JSON.parse(fs.readFileSync("firebase-applet-config.json", "utf8"));
+    console.log("Firebase config loaded from relative string");
   }
 } catch (e: any) {
-  console.warn("Using embedded firebase config fallback:", e.message);
+  console.error("Failed to parse firebase config:", e.message);
 }
 
-import { initializeApp as initWebFirebaseApp, getApps as getWebApps, getApp as getWebApp } from "firebase/app";
-import {
-  getFirestore as getWebFirestore,
-  doc as firestoreDoc,
-  getDoc as firestoreGetDoc,
-  setDoc as firestoreSetDoc,
-  updateDoc as firestoreUpdateDoc,
-  runTransaction as firestoreRunTransaction,
-  collection as firestoreCollection,
-  query as firestoreQuery,
-  where as firestoreWhere,
-  limit as firestoreLimit,
-  getDocs as firestoreGetDocs,
-  increment as firestoreIncrement
-} from "firebase/firestore";
-
-// Resilient Web SDK database connection (works across Vercel, Node, Docker without credentials overhead)
-let db_web: any = null;
+let db_admin: any;
 try {
-  const appName = "server-firestore-runtime";
-  const existingApps = getWebApps();
-  const webApp = existingApps.find(a => a.name === appName) || initWebFirebaseApp(firebaseConfig, appName);
-  db_web = getWebFirestore(webApp, firebaseConfig?.firestoreDatabaseId);
-  console.log("Firebase Modular Web SDK Client initialized. DB ID:", firebaseConfig?.firestoreDatabaseId);
-} catch (e: any) {
-  console.error("Failed to initialize Firebase Web SDK on server:", e.message);
-}
-
-const db_admin = null;
-
-// Universal resilient helper to credit user wallet and record transaction
-async function creditUserWallet(userId: string, amount: number, tran_id: string, metadata: any = {}) {
-  if (!userId || !amount || amount <= 0) {
-    throw new Error("Invalid userId or amount");
-  }
-
-  // 1. First priority: db_web (reliable, rule-authorized Web SDK)
-  if (db_web) {
-    try {
-      const txDocRef = firestoreDoc(db_web, "transactions", tran_id);
-      const walletRef = firestoreDoc(db_web, "wallets", userId);
-
-      await firestoreRunTransaction(db_web, async (t) => {
-        const txSnap = await t.get(txDocRef);
-        if (txSnap.exists()) {
-          console.log(`[Credit Wallet] Transaction ${tran_id} already exists/credited.`);
-          return;
-        }
-
-        const walletSnap = await t.get(walletRef);
-        const curBal = walletSnap.exists() ? (walletSnap.data().balance || 0) : 0;
-        const newBal = curBal + amount;
-
-        t.set(walletRef, {
-          uid: userId,
-          balance: newBal,
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-
-        t.set(txDocRef, {
-          tran_id,
-          userId,
-          amount,
-          type: "add_money",
-          status: "success",
-          createdAt: new Date().toISOString(),
-          ...metadata
-        });
+  if (admin && admin.apps && admin.apps.length === 0) {
+    if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
+      const serviceAccount = JSON.parse(
+        Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, "base64").toString("utf-8")
+      );
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        projectId: firebaseConfig?.projectId || process.env.VITE_FIREBASE_PROJECT_ID || "demo-project"
       });
-
-      console.log(`[Credit Wallet] Successfully credited ৳${amount} to user ${userId} via db_web. TxID: ${tran_id}`);
-      return { success: true, credited: true, provider: "db_web" };
-    } catch (err: any) {
-      console.error("[Credit Wallet] db_web transaction failed:", err.message);
-      return { success: false, error: err.message };
+    } else {
+      // Fallback to default application credentials or unauthenticated demo
+      admin.initializeApp({
+        projectId: firebaseConfig?.projectId || process.env.VITE_FIREBASE_PROJECT_ID || "demo-project"
+      });
     }
   }
-
-  return { success: false, error: "Database temporarily unavailable" };
+  db_admin = getFirestore(admin.app(), firebaseConfig?.firestoreDatabaseId);
+  console.log("Firebase Admin initialized successfully.");
+} catch (e: any) {
+  console.error("Firebase Admin Error:", e.message);
 }
 
 const app = express();
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+const PORT = 3000;
 
 // Enable robust CORS support for local and custom domains (like shusto.com) with preflight OPTIONS responder
 app.use((req, res, next) => {
@@ -195,10 +117,9 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-// Database Status Endpoint (MongoDB Atlas + Firebase + MySQL)
+// Database Status Endpoint (MongoDB Atlas + Firebase)
 app.get("/api/db/status", async (req, res) => {
   const mongo = getMongoStatus();
-  const mysqlStatus = getMySQLStatus();
   res.json({
     success: true,
     mongo: {
@@ -206,26 +127,12 @@ app.get("/api/db/status", async (req, res) => {
       targetDatabase: "shustodb",
       cluster: "cluster0.sbpz6mc.mongodb.net",
     },
-    mysql: mysqlStatus,
     firebase: {
       initialized: Boolean(db_admin),
       projectId: firebaseConfig?.projectId || "configured",
     },
     timestamp: new Date().toISOString(),
   });
-});
-
-// MySQL Status & Test Endpoints
-app.get("/api/mysql/status", (req, res) => {
-  res.json({
-    success: true,
-    ...getMySQLStatus(),
-  });
-});
-
-app.get("/api/mysql/test", async (req, res) => {
-  const result = await testMySQLConnection();
-  res.status(result.success ? 200 : 400).json(result);
 });
 
 // Test MongoDB Atlas Ping
@@ -378,76 +285,39 @@ app.post(["/api/shusto/withdraw", "/direct-api/shusto/withdraw", "/api/sheba/wit
 
   try {
     // 1. Check idempotency: Ensure this request wasn't already processed
-    if (db_web) {
-      try {
-        const q = firestoreQuery(firestoreCollection(db_web, "transactions"), firestoreWhere("idempotencyKey", "==", idempotencyKey), firestoreLimit(1));
-        const snap = await firestoreGetDocs(q);
-        if (!snap.empty) {
-          const txData = snap.docs[0].data();
-          console.log(`[SHUSTO WITHDRAWAL] Duplicate request blocked (idempotencyKey: ${idempotencyKey})`);
-          return res.status(200).json({
-            success: true,
-            message: "এই রিকোয়েস্টটি পূর্বেই সফলভাবে সম্পন্ন হয়েছে (Already Processed)",
-            alreadyProcessed: true,
-            transaction: txData
-          });
-        }
-      } catch (e) {
-        console.warn("[SHUSTO WITHDRAWAL] Idempotency check warning:", e);
-      }
-    } else if (db_admin) {
-      try {
-        const existingTxSnap = await db_admin.collection("transactions")
-          .where("idempotencyKey", "==", idempotencyKey)
-          .limit(1)
-          .get();
+    if (db_admin) {
+      const existingTxSnap = await db_admin.collection("transactions")
+        .where("idempotencyKey", "==", idempotencyKey)
+        .limit(1)
+        .get();
 
-        if (!existingTxSnap.empty) {
-          const txData = existingTxSnap.docs[0].data();
-          console.log(`[SHUSTO WITHDRAWAL] Duplicate request blocked (idempotencyKey: ${idempotencyKey})`);
-          return res.status(200).json({
-            success: true,
-            message: "এই রিকোয়েস্টটি পূর্বেই সফলভাবে সম্পন্ন হয়েছে (Already Processed)",
-            alreadyProcessed: true,
-            transaction: txData
-          });
-        }
-      } catch (e) {}
+      if (!existingTxSnap.empty) {
+        const txData = existingTxSnap.docs[0].data();
+        console.log(`[SHUSTO WITHDRAWAL] Duplicate request blocked (idempotencyKey: ${idempotencyKey})`);
+        return res.status(200).json({
+          success: true,
+          message: "এই রিকোয়েস্টটি পূর্বেই সফলভাবে সম্পন্ন হয়েছে (Already Processed)",
+          alreadyProcessed: true,
+          transaction: txData
+        });
+      }
     }
 
     // 2. Atomic Balance Check on Shusto Database
     let currentBalance = 0;
-    if (db_web) {
-      try {
-        const walletRef = firestoreDoc(db_web, "wallets", effectiveUserId);
-        const walletDoc = await firestoreGetDoc(walletRef);
-        if (walletDoc.exists()) {
-          currentBalance = walletDoc.data()?.balance || 0;
-        }
-        if (currentBalance < numAmount) {
-          console.warn(`[SHUSTO WITHDRAWAL] Insufficient balance for user ${effectiveUserId}. Bal: ${currentBalance}, Req: ${numAmount}`);
-          return res.status(400).json({
-            success: false,
-            error: `অপর্যাপ্ত ব্যালেন্স! আপনার বর্তমান ব্যালেন্স ৳${currentBalance}, উত্তোলনের জন্য প্রয়োজন ৳${numAmount}।`
-          });
-        }
-      } catch (e) {
-        console.warn("[SHUSTO WITHDRAWAL] Balance check db_web warning:", e);
+    if (db_admin) {
+      const walletDoc = await db_admin.collection("wallets").doc(effectiveUserId).get();
+      if (!walletDoc.exists) {
+        return res.status(404).json({ success: false, error: "Shusto user wallet not found" });
       }
-    } else if (db_admin) {
-      try {
-        const walletDoc = await db_admin.collection("wallets").doc(effectiveUserId).get();
-        if (walletDoc.exists) {
-          currentBalance = walletDoc.data()?.balance || 0;
-        }
-        if (currentBalance < numAmount) {
-          console.warn(`[SHUSTO WITHDRAWAL] Insufficient balance for user ${effectiveUserId}. Bal: ${currentBalance}, Req: ${numAmount}`);
-          return res.status(400).json({
-            success: false,
-            error: `অপর্যাপ্ত ব্যালেন্স! আপনার বর্তমান ব্যালেন্স ৳${currentBalance}, উত্তোলনের জন্য প্রয়োজন ৳${numAmount}।`
-          });
-        }
-      } catch (e) {}
+      currentBalance = walletDoc.data()?.balance || 0;
+      if (currentBalance < numAmount) {
+        console.warn(`[SHUSTO WITHDRAWAL] Insufficient balance for user ${effectiveUserId}. Bal: ${currentBalance}, Req: ${numAmount}`);
+        return res.status(400).json({
+          success: false,
+          error: `অপর্যাপ্ত ব্যালেন্স! আপনার বর্তমান ব্যালেন্স ৳${currentBalance}, উত্তোলনের জন্য প্রয়োজন ৳${numAmount}।`
+        });
+      }
     }
 
     // 3. Prepare signed HMAC request to Sheba backend
@@ -507,91 +377,47 @@ app.post(["/api/shusto/withdraw", "/direct-api/shusto/withdraw", "/api/sheba/wit
     }
 
     // 4. Atomic Debit & Transaction Recording in Firestore
-    if (db_web) {
-      try {
-        const walletRef = firestoreDoc(db_web, "wallets", effectiveUserId);
-        const txRef = firestoreDoc(db_web, "transactions", idempotencyKey || uuidv4());
-        const notifRef = firestoreDoc(db_web, "notifications", uuidv4());
+    if (db_admin) {
+      const walletRef = db_admin.collection("wallets").doc(effectiveUserId);
+      const txRef = db_admin.collection("transactions").doc();
+      const notifRef = db_admin.collection("notifications").doc();
 
-        await firestoreRunTransaction(db_web, async (transaction: any) => {
-          const wDoc = await transaction.get(walletRef);
-          const bal = (wDoc.exists() ? wDoc.data()?.balance : 0) || 0;
-          if (bal < numAmount) {
-            throw new Error("Insufficient balance during atomic deduction");
-          }
+      await db_admin.runTransaction(async (transaction: any) => {
+        const wDoc = await transaction.get(walletRef);
+        const bal = (wDoc.exists ? wDoc.data()?.balance : 0) || 0;
+        if (bal < numAmount) {
+          throw new Error("Insufficient balance during atomic deduction");
+        }
 
-          transaction.set(walletRef, {
-            balance: bal - numAmount,
-            updatedAt: new Date().toISOString()
-          }, { merge: true });
-
-          transaction.set(txRef, {
-            userId: effectiveUserId,
-            amount: numAmount,
-            type: "withdrawal",
-            status: "success",
-            method: "sheba",
-            phoneNumber: effectiveNumber,
-            idempotencyKey: idempotencyKey,
-            details: `Withdrawn to Sheba: ${effectiveNumber}`,
-            createdAt: new Date().toISOString()
-          });
-
-          transaction.set(notifRef, {
-            userId: effectiveUserId,
-            title: "উত্তোলন সফল হয়েছে",
-            message: `৳${numAmount} টাকা সফলভাবে সেবা (${effectiveNumber}) অ্যাকাউন্টে পাঠানো হয়েছে।`,
-            type: "wallet",
-            read: false,
-            createdAt: new Date().toISOString()
-          });
+        // Debit User's Shusto Wallet
+        transaction.update(walletRef, {
+          balance: bal - numAmount,
+          updatedAt: new Date().toISOString()
         });
-        console.log(`[SHUSTO WITHDRAWAL] db_web atomic debit completed for user ${effectiveUserId}`);
-      } catch (err: any) {
-        console.error("[SHUSTO WITHDRAWAL] db_web debit error:", err.message);
-      }
-    } else if (db_admin) {
-      try {
-        const walletRef = db_admin.collection("wallets").doc(effectiveUserId);
-        const txRef = db_admin.collection("transactions").doc();
-        const notifRef = db_admin.collection("notifications").doc();
 
-        await db_admin.runTransaction(async (transaction: any) => {
-          const wDoc = await transaction.get(walletRef);
-          const bal = (wDoc.exists ? wDoc.data()?.balance : 0) || 0;
-          if (bal < numAmount) {
-            throw new Error("Insufficient balance during atomic deduction");
-          }
-
-          transaction.update(walletRef, {
-            balance: bal - numAmount,
-            updatedAt: new Date().toISOString()
-          });
-
-          transaction.set(txRef, {
-            userId: effectiveUserId,
-            amount: numAmount,
-            type: "withdrawal",
-            status: "success",
-            method: "sheba",
-            phoneNumber: effectiveNumber,
-            idempotencyKey: idempotencyKey,
-            details: `Withdrawn to Sheba: ${effectiveNumber}`,
-            createdAt: new Date().toISOString()
-          });
-
-          transaction.set(notifRef, {
-            userId: effectiveUserId,
-            title: "উত্তোলন সফল হয়েছে",
-            message: `৳${numAmount} টাকা সফলভাবে সেবা (${effectiveNumber}) অ্যাকাউন্টে পাঠানো হয়েছে।`,
-            type: "wallet",
-            read: false,
-            createdAt: new Date().toISOString()
-          });
+        // Record Withdrawal Transaction
+        transaction.set(txRef, {
+          userId: effectiveUserId,
+          amount: numAmount,
+          type: "withdrawal",
+          status: "success",
+          method: "sheba",
+          phoneNumber: effectiveNumber,
+          idempotencyKey: idempotencyKey,
+          details: `Withdrawn to Sheba: ${effectiveNumber}`,
+          createdAt: new Date().toISOString()
         });
-      } catch (e: any) {
-        console.error("[SHUSTO WITHDRAWAL] db_admin debit error:", e.message);
-      }
+
+        // Send In-app Notification to User
+        transaction.set(notifRef, {
+          userId: effectiveUserId,
+          title: "উত্তোলন সফল হয়েছে",
+          message: `৳${numAmount} টাকা সফলভাবে সেবা (${effectiveNumber}) অ্যাকাউন্টে পাঠানো হয়েছে।`,
+          type: "wallet",
+          read: false,
+          createdAt: new Date().toISOString()
+        });
+      });
     }
 
     console.log(`[SHUSTO WITHDRAWAL] Withdrawal completed atomically for user ${effectiveUserId}, amount ৳${numAmount}`);
@@ -763,14 +589,6 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     return `${protocol}://${host}`;
   }
 
-  function isSSLCommerzSandbox(store_id: string): boolean {
-    if (process.env.SSL_MODE === "sandbox") return true;
-    if (process.env.SSL_MODE === "live") return false;
-    if (store_id === "shusto0live" || store_id.endsWith("live")) return false;
-    if (store_id === "shust6992a1e590b0e" || store_id.includes("test") || store_id === "demo") return true;
-    return false;
-  }
-
   function getSSLCommerzCredentials() {
     let store_id = (process.env.SSL_STORE_ID || "shusto0live").trim();
     let store_passwd = (process.env.SSL_STORE_PASSWORD || "6A0D6039B299110857").trim();
@@ -779,7 +597,7 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     store_id = store_id.replace(/^["']|["']$/g, "");
     store_passwd = store_passwd.replace(/^["']|["']$/g, "");
 
-    // If environment has placeholder templates, fallback to user's real credentials
+    // If environment has placeholder templates, fallback to user's real live credentials
     if (!store_id || store_id === "YOUR_STORE_ID" || store_id === "demo" || store_id === "" || store_id.includes("YOUR")) {
       store_id = "shusto0live";
     }
@@ -845,7 +663,7 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     };
 
     try {
-      const isSandboxMode = isSSLCommerzSandbox(store_id);
+      const isSandboxMode = process.env.SSL_MODE === "sandbox" || store_id.includes("test") || store_id === "demo";
       const sslUrl = isSandboxMode
         ? "https://sandbox.sslcommerz.com/gwprocess/v4/api.php"
         : "https://securepay.sslcommerz.com/gwprocess/v4/api.php";
@@ -867,18 +685,18 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
       
       if (response.data && response.data.status === "SUCCESS") {
         console.log("[PAYMENT_INIT] SSLCommerz SUCCESS response");
-        res.json({
-          ...response.data,
-          tran_id: tran_id,
-          amount: Number(amount)
-        });
+        res.json(response.data);
       } else {
         console.error("[PAYMENT_INIT] SSLCommerz error response:", response.data);
         res.status(400).json({ error: `SSLCommerz error: ${response.data?.failedreason || "unknown gateway error"}` });
       }
     } catch (error: any) {
       console.error("[PAYMENT_INIT] Exception:", error?.response?.data || error?.message || error);
-      res.status(500).json({ error: `Payment initiation failed: ${error?.message || "Internal error"}` });
+      res.status(500).json({ 
+        error: `Payment initiation failed: ${error?.message || "Internal error"}`,
+        details: error?.response?.data || null,
+        stack: error?.stack || null
+      });
     }
   });
 
@@ -917,7 +735,7 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     let isPaymentValid = false;
     let paidAmount = Number(bodyParams.amount || bodyParams.total_amount || queryParams.amount || 0);
 
-    const isSandboxMode = isSSLCommerzSandbox(store_id);
+    const isSandboxMode = process.env.SSL_MODE === "sandbox" || store_id.includes("test") || store_id === "demo";
     const validationUrl = isSandboxMode
       ? "https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php"
       : "https://securepay.sslcommerz.com/validator/api/validationserverAPI.php";
@@ -978,22 +796,39 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     }
 
     if (isPaymentValid) {
-      if (userId) {
+      if (userId && db_admin) {
         try {
-          const creditRes = await creditUserWallet(userId, paidAmount, tran_id, {
-            val_id: val_id || bodyParams.val_id,
-            providerType: providerType || "add_money"
-          });
-          console.log(`[SSLCOMMERZ SUCCESS] Auto-credited wallet for user ${userId}, result:`, creditRes);
-        } catch (e: any) {
-          console.error("[SSLCOMMERZ SUCCESS] creditUserWallet non-fatal error:", e.message);
-        }
-      } else {
-        console.warn("[SSLCOMMERZ SUCCESS] Missing userId in callback. TranID:", tran_id);
-      }
+          // Use tran_id directly as Firestore document ID for reliable point lookup & update isolation (matches client doc path)
+          const txRef = db_admin.collection("transactions").doc(tran_id);
+          const txSnap = await txRef.get();
+          
+          if (!txSnap.exists) {
+            await db_admin.runTransaction(async (t) => {
+              const walletRef = db_admin.collection("wallets").doc(userId);
+              const targetTxRef = db_admin.collection("transactions").doc(tran_id);
+              
+              t.set(walletRef, {
+                uid: userId,
+                balance: FieldValue.increment(paidAmount),
+                updatedAt: new Date().toISOString()
+              }, { merge: true });
+              
+              t.set(targetTxRef, {
+                tran_id,
+                userId,
+                amount: paidAmount,
+                type: "add_money",
+                status: "success",
+                createdAt: new Date().toISOString()
+              });
+            });
+            console.log(`[SSLCOMMERZ SUCCESS] Successfully credited ৳${paidAmount} to wallet of user ${userId}`);
+          } else {
+            console.log(`[SSLCOMMERZ SUCCESS] Transaction ${tran_id} was already credited.`);
+          }
 
-      const redirectUrl = `${clientBaseUrl}/?payment=success&amount=${paidAmount}&tran_id=${tran_id}&userId=${encodeURIComponent(userId || "")}`;
-      return res.status(200).send(`
+          const redirectUrl = `${clientBaseUrl}/?payment=success&amount=${paidAmount}&tran_id=${tran_id}`;
+          return res.status(200).send(`
 <!DOCTYPE html>
 <html lang="bn">
 <head>
@@ -1087,7 +922,7 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
             </svg>
         </div>
         <h2>পেমেন্ট সফল হয়েছে!</h2>
-        <p>আপনার Shusto ওয়ালেটে ৳${paidAmount} সফলভাবে যুক্ত হয়েছে। অনুগ্রহ করে ক্ষণিক অপেক্ষা করুন, আপনাকে অ্যাপে ফিরিয়ে নেওয়া হচ্ছে...</p>
+        <p>আপনার Shusto ওয়ালেটে ৳${paidAmount} সফলভাবে যুক্ত করা হচ্ছে। অনুগ্রহ করে ক্ষণিক অপেক্ষা করুন, আপনাকে অ্যাপে ফিরিয়ে নেওয়া হচ্ছে...</p>
         <div class="loader"></div>
         <a class="btn" href="${redirectUrl}">অ্যাপে ফিরে যান</a>
     </div>
@@ -1096,7 +931,223 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     </script>
 </body>
 </html>
-      `);
+          `);
+        } catch (e: any) {
+          console.error("[SSLCOMMERZ SUCCESS] Firebase Update Failed but payment is validated. Redirecting to client sync:", e.message);
+          const redirectUrl = `${clientBaseUrl}/?payment=success&amount=${paidAmount}&tran_id=${tran_id}&fallback=db_error`;
+          return res.status(200).send(`
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>পেমেন্ট সফল - Shusto</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            max-width: 410px;
+            width: 100%;
+        }
+        .icon-circle {
+            width: 72px;
+            height: 72px;
+            background-color: #f0fdf4;
+            color: #15803d;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px auto;
+        }
+        .icon {
+            width: 40px;
+            height: 40px;
+        }
+        h2 {
+            margin: 0 0 12px 0;
+            color: #0f172a;
+            font-size: 22px;
+            font-weight: 700;
+        }
+        p {
+            margin: 0 0 24px 0;
+            color: #64748b;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+        .loader {
+            border: 4px solid #f1f5f9;
+            border-top: 4px solid #0ea5e9;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .btn {
+            display: inline-block;
+            margin-top: 24px;
+            background-color: #0ea5e9;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 14px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        .btn:hover {
+            background-color: #0284c7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon-circle">
+            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+            </svg>
+        </div>
+        <h2>পেমেন্ট সফল হয়েছে!</h2>
+        <p>আপনার Shusto ওয়ালেটে ৳${paidAmount} সফলভাবে যুক্ত করা হচ্ছে। অনুগ্রহ করে ক্ষণিক অপেক্ষা করুন, আপনাকে অ্যাপে ফিরিয়ে নেওয়া হচ্ছে...</p>
+        <div class="loader"></div>
+        <a class="btn" href="${redirectUrl}">অ্যাপে ফিরে যান</a>
+    </div>
+    <script>
+        window.location.replace(${JSON.stringify(redirectUrl)});
+    </script>
+</body>
+</html>
+          `);
+        }
+      } else {
+        console.warn("[SSLCOMMERZ SUCCESS] db_admin or userId missing. Redirecting to client sync.");
+        const redirectUrl = `${clientBaseUrl}/?payment=success&amount=${paidAmount}&tran_id=${tran_id}&fallback=db_missing`;
+        return res.status(200).send(`
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>পেমেন্ট সফল - Shusto</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            max-width: 410px;
+            width: 100%;
+        }
+        .icon-circle {
+            width: 72px;
+            height: 72px;
+            background-color: #f0fdf4;
+            color: #15803d;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px auto;
+        }
+        .icon {
+            width: 40px;
+            height: 40px;
+        }
+        h2 {
+            margin: 0 0 12px 0;
+            color: #0f172a;
+            font-size: 22px;
+            font-weight: 700;
+        }
+        p {
+            margin: 0 0 24px 0;
+            color: #64748b;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+        .loader {
+            border: 4px solid #f1f5f9;
+            border-top: 4px solid #0ea5e9;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .btn {
+            display: inline-block;
+            margin-top: 24px;
+            background-color: #0ea5e9;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 14px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        .btn:hover {
+            background-color: #0284c7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon-circle">
+            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+            </svg>
+        </div>
+        <h2>পেমেন্ট সফল হয়েছে!</h2>
+        <p>আপনার Shusto ওয়ালেটে ৳${paidAmount} যুক্ত করা হচ্ছে। অনুগ্রহ করে ক্ষণিক অপেক্ষা করুন, আপনাকে অ্যাপে ফিরিয়ে নেওয়া হচ্ছে...</p>
+        <div class="loader"></div>
+        <a class="btn" href="${redirectUrl}">অ্যাপে ফিরে যান</a>
+    </div>
+    <script>
+        window.location.replace(${JSON.stringify(redirectUrl)});
+    </script>
+</body>
+</html>
+        `);
+      }
     } else {
       console.warn("[SSLCOMMERZ SUCCESS] Payment invalid. Redirection values:", { isPaymentValid, userId });
       const redirectUrl = `${clientBaseUrl}/?payment=failed&reason=invalid_payment`;
@@ -1581,9 +1632,9 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     if (val_id) {
       const { store_id, store_passwd } = getSSLCommerzCredentials();
 
-      const validationUrl = isSSLCommerzSandbox(store_id)
-        ? "https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php"
-        : "https://securepay.sslcommerz.com/validator/api/validationserverAPI.php";
+      const validationUrl = store_id.endsWith("live")
+        ? "https://securepay.sslcommerz.com/validator/api/validationserverAPI.php"
+        : "https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php";
 
       try {
         const valResp = await axios.get(validationUrl, {
@@ -1620,97 +1671,44 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     }
 
     if (isIPNValid && userId && paidAmount > 0 && tran_id) {
-      try {
-        const creditRes = await creditUserWallet(userId, paidAmount, tran_id, {
-          val_id: val_id || bodyParams.val_id,
-          source: "sslcommerz_ipn"
-        });
-        console.log(`[SSLCOMMERZ IPN] Automatically processed credit for user ${userId}, result:`, creditRes);
-      } catch (e: any) {
-        console.error("[SSLCOMMERZ IPN] creditUserWallet error:", e.message);
+      if (db_admin) {
+        try {
+          const txRef = db_admin.collection("transactions").doc(tran_id);
+          const txSnap = await txRef.get();
+          
+          if (!txSnap.exists) {
+            await db_admin.runTransaction(async (t) => {
+              const walletRef = db_admin.collection("wallets").doc(userId);
+              const targetTxRef = db_admin.collection("transactions").doc(tran_id);
+              
+              t.set(walletRef, {
+                uid: userId,
+                balance: FieldValue.increment(paidAmount),
+                updatedAt: new Date().toISOString()
+              }, { merge: true });
+              
+              t.set(targetTxRef, {
+                tran_id,
+                userId,
+                amount: paidAmount,
+                type: "add_money",
+                status: "success",
+                createdAt: new Date().toISOString()
+              });
+            });
+            console.log(`[SSLCOMMERZ IPN] Automatically Added ৳${paidAmount} to wallet of user ${userId}`);
+          } else {
+            console.log(`[SSLCOMMERZ IPN] Transaction ${tran_id} already exists, skipping.`);
+          }
+        } catch (e: any) {
+          console.error("[SSLCOMMERZ IPN] Firebase Update Failed:", e.message);
+        }
+      } else {
+        console.error("[SSLCOMMERZ IPN] db_admin missing! Payment validation passed, but cannot save to DB.");
       }
     }
 
     res.status(200).send("OK");
-  });
-
-  // Client confirmation endpoint to verify and ensure wallet is credited
-  app.post(["/api/payment/confirm-credit", "/direct-api/payment/confirm-credit", "/payment/confirm-credit"], async (req, res) => {
-    console.log("[CONFIRM_CREDIT] Received client verification request:", req.body);
-    const { tran_id, userId, amount } = req.body || {};
-    if (!tran_id || !userId || !amount) {
-      return res.status(400).json({ success: false, error: "tran_id, userId, and amount are required" });
-    }
-
-    try {
-      const numAmount = Number(amount);
-      if (isNaN(numAmount) || numAmount <= 0) {
-        return res.status(400).json({ success: false, error: "Invalid amount" });
-      }
-
-      const result = await creditUserWallet(userId, numAmount, tran_id, {
-        confirmedByClient: true,
-        source: "client_sync_confirm"
-      });
-
-      return res.json({ success: true, ...result });
-    } catch (err: any) {
-      console.error("[CONFIRM_CREDIT] Failed:", err.message);
-      return res.status(500).json({ success: false, error: err.message });
-    }
-  });
-
-  // Direct SSLCommerz and Firestore verification endpoint
-  app.post(["/api/payment/verify-status", "/direct-api/payment/verify-status", "/payment/verify-status"], async (req, res) => {
-    const { tran_id, userId } = req.body || {};
-    if (!tran_id) {
-      return res.status(400).json({ error: "tran_id is required" });
-    }
-
-    try {
-      // 1. Check if already credited in Firestore
-      if (db_web) {
-        const txDoc = await firestoreGetDoc(firestoreDoc(db_web, "transactions", tran_id));
-        if (txDoc.exists() && txDoc.data()?.status === "success") {
-          return res.json({ status: "VALID", credited: true, transaction: txDoc.data() });
-        }
-      }
-
-      // 2. Query SSLCommerz Merchant Validation API directly
-      const { store_id, store_passwd } = getSSLCommerzCredentials();
-      const isSandboxMode = isSSLCommerzSandbox(store_id);
-      const queryUrl = isSandboxMode
-        ? "https://sandbox.sslcommerz.com/validator/api/merchantTransIDvalidationAPI.php"
-        : "https://securepay.sslcommerz.com/validator/api/merchantTransIDvalidationAPI.php";
-
-      const sslResp = await axios.get(queryUrl, {
-        params: {
-          tran_id,
-          store_id,
-          store_passwd,
-          format: "json",
-        },
-        timeout: 7000,
-      });
-
-      const element = sslResp.data?.element?.[0];
-      const status = element?.status?.toUpperCase();
-      const isSuccess = status === "VALID" || status === "VALIDATED";
-      const paidAmount = Number(element?.amount || 0);
-
-      if (isSuccess && userId && paidAmount > 0) {
-        await creditUserWallet(userId, paidAmount, tran_id, {
-          val_id: element?.val_id,
-          source: "verify_status_query",
-        });
-        return res.json({ status: "VALID", credited: true, amount: paidAmount });
-      }
-
-      return res.json({ status: status || "PENDING", data: sslResp.data });
-    } catch (err: any) {
-      console.error("[VERIFY_STATUS] Error:", err.message);
-      return res.status(500).json({ error: err.message });
-    }
   });
 
 // Serve static client assets and hot reload dev server dynamically (only if NOT on external serverless like Vercel)
@@ -1728,13 +1726,6 @@ async function startViteOrStaticServer() {
         app.use(vite.middlewares);
       } catch (viteLoadErr: any) {
         console.warn("Vite server failed to load dynamically:", viteLoadErr.message);
-        const distPath = path.join(process.cwd(), "dist");
-        if (fs.existsSync(distPath)) {
-          app.use(express.static(distPath));
-          app.get("*", (req, res) => {
-            res.sendFile(path.join(distPath, "index.html"));
-          });
-        }
       }
     } else {
       const distPath = path.join(process.cwd(), "dist");
@@ -1750,20 +1741,7 @@ async function startViteOrStaticServer() {
   }
 }
 
-const isServerlessEnv = 
-  Boolean(process.env.VERCEL) || 
-  Boolean(process.env.NOW_REGION) || 
-  Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME) || 
-  Boolean(process.env.LAMBDA_TASK_ROOT) || 
-  process.env.IS_SERVERLESS === "true" ||
-  (global as any).__IS_SERVERLESS === true;
-
-const isDirectScriptRun = 
-  !isServerlessEnv &&
-  Boolean(process.argv[1]) &&
-  (process.argv[1].endsWith("server.ts") || process.argv[1].endsWith("server.js") || process.argv[1].endsWith("server.cjs"));
-
-if (isDirectScriptRun) {
+if (!(global as any).__IS_SERVERLESS && !process.env.VERCEL) {
   startViteOrStaticServer().catch(console.error);
 }
 
