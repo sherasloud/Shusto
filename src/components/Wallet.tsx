@@ -239,7 +239,7 @@ export function Wallet() {
       return;
     }
 
-    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+    if (!amount || isNaN(Number(amount)) || Number(amount) < 1) {
       alert("সঠিক পরিমাণ লিখুন।");
       return;
     }

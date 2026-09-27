@@ -627,9 +627,9 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     const params = req.body || {};
     const { amount, userId, providerId, providerType, userName, userEmail, mock, clientBaseUrl: incomingClientBaseUrl } = params;
     
-    if (!amount || !userId) {
-      console.error("[PAYMENT_INIT] Missing required fields:", { amount, userId });
-      return res.status(400).json({ error: "Amount and userId are required" });
+    if (!amount || !userId || Number(amount) < 10) {
+      console.error("[PAYMENT_INIT] Missing required fields or amount < 10:", { amount, userId });
+      return res.status(400).json({ error: "SSLCommerz গেটওয়ের নিয়ম অনুযায়ী সর্বনিম্ন ১০ টাকা যোগ করতে হবে (Minimum is 10 BDT)" });
     }
 
     const tran_id = uuidv4();

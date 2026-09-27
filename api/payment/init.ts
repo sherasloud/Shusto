@@ -32,8 +32,8 @@ export default async function handler(req: any, res: any) {
 
     const { amount, userId, userName, userEmail, clientBaseUrl: incomingClientBaseUrl } = body;
 
-    if (!amount || !userId) {
-      return res.status(400).json({ error: "Amount and userId are required" });
+    if (!amount || !userId || Number(amount) < 10) {
+      return res.status(400).json({ error: "SSLCommerz গেটওয়ের নিয়ম অনুযায়ী সর্বনিম্ন ১০ টাকা যোগ করতে হবে (Minimum is 10 BDT)" });
     }
 
     const tran_id = crypto.randomUUID();
