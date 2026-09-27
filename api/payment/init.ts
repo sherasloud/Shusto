@@ -42,7 +42,7 @@ export default async function handler(req: any, res: any) {
       process.env.STORE_ID ||
       process.env.SSLCOMMERZ_STORE_ID ||
       process.env.SSL_STORE_ID ||
-      "shust6724cf62ca8f6";
+      "shusto0live";
 
     const store_passwd =
       process.env.STORE_PASSWD ||
