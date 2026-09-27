@@ -13,7 +13,7 @@ export default function handler(req: any, res: any) {
     }
     return app(req, res);
   } catch (error: any) {
-    console.error("Vercel Serverless Function Error (/api/[...path]):", error);
+    console.error("Vercel Serverless Function Error (/api/index):", error);
     try {
       if (typeof res.status === "function") {
         return res.status(500).json({

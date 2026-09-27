@@ -30,7 +30,7 @@ import {
   Wallet as MongoWallet,
   Transaction as MongoTransaction,
   ServiceRequest as MongoServiceRequest
-} from "./mongo";
+} from "./mongo.ts";
 
 dotenv.config();
 
@@ -116,6 +116,18 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
+
+// Serverless URL normalization middleware (supports Vercel, Netlify, Cloud Run rewrites)
+app.use((req, res, next) => {
+  if (req.query && (req.query as any).path) {
+    const rawPath = (req.query as any).path;
+    const subPath = Array.isArray(rawPath) ? rawPath.join("/") : rawPath;
+    if (!req.url.startsWith(`/api/${subPath}`) && !req.url.startsWith(`/direct-api/${subPath}`)) {
+      req.url = `/api/${subPath}`;
+    }
+  }
+  next();
+});
 
 // Database Status Endpoint (MongoDB Atlas + Firebase)
 app.get("/api/db/status", async (req, res) => {
@@ -451,7 +463,9 @@ app.use((req, res, next) => {
     req.url = newUrl;
   }
 
-  console.log(`[REQUEST LOGGER] ${req.method} ${req.path || req.url}`);
+  if (req.url.startsWith('/api') || req.url.startsWith('/direct-api')) {
+    console.log(`[API] ${req.method} ${req.path || req.url}`);
+  }
   if (req.body !== undefined) {
     return next();
   }
