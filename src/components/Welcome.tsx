@@ -92,6 +92,7 @@ export function Welcome({ onFinish }: WelcomeProps) {
                 src={slide.image} 
                 alt={slide.title} 
                 onLoad={() => setImageLoaded(true)}
+                onError={() => setImageLoaded(true)}
                 className={`w-full h-full object-cover transition-opacity duration-300 relative z-10 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
                 style={{ 
                   imageRendering: '-webkit-optimize-contrast',

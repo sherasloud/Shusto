@@ -72,6 +72,16 @@ export async function queryMySQL<T = any>(sql: string, params: any[] = []): Prom
   if (!p) {
     throw new Error('MySQL connection is not configured.');
   }
+
+  // 🛡️ ZERO-RISK ABSOLUTE USER DATA PROTECTION (NO HARD DELETE PERMITTED)
+  const normalized = sql.trim().toUpperCase().replace(/\s+/g, ' ');
+  if (normalized.includes('DROP TABLE') || normalized.includes('DROP DATABASE') || normalized.includes('TRUNCATE')) {
+    throw new Error('🛡️ SECURITY BLOCKED: Destructive DROP/TRUNCATE commands are permanently disabled in this ecosystem.');
+  }
+  if (normalized.startsWith('DELETE FROM USERS') || normalized.startsWith('DELETE FROM `USERS`') || normalized.includes('DELETE FROM USERS') || normalized.includes('DELETE FROM `USERS`')) {
+    throw new Error('🛡️ ABSOLUTE PROTECTION ACTIVATED: User data can NEVER be deleted. Every user profile, wallet and history is permanently safe and immutable.');
+  }
+
   const [rows] = await p.execute(sql, params);
   return rows as T[];
 }

@@ -6,7 +6,7 @@
 CREATE DATABASE IF NOT EXISTS `shustobd` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `shustobd`;
 
--- 1. Users & Profiles Table
+-- 1. Users & Profiles Table (Protected with Zero-Loss Soft Delete Architecture)
 CREATE TABLE IF NOT EXISTS `users` (
   `id` VARCHAR(128) NOT NULL,
   `phone` VARCHAR(32) NOT NULL UNIQUE,
@@ -15,11 +15,14 @@ CREATE TABLE IF NOT EXISTS `users` (
   `role` ENUM('user', 'doctor', 'hospital', 'pharmacy', 'ambulance', 'lab', 'physio', 'investor', 'manager', 'admin', 'state') NOT NULL DEFAULT 'user',
   `wallet_balance` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   `is_approved` TINYINT(1) NOT NULL DEFAULT 0,
+  `is_deleted` TINYINT(1) NOT NULL DEFAULT 0,
+  `deleted_at` TIMESTAMP NULL DEFAULT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   INDEX `idx_users_role` (`role`),
-  INDEX `idx_users_phone` (`phone`)
+  INDEX `idx_users_phone` (`phone`),
+  INDEX `idx_users_active` (`is_deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 2. Doctors Table

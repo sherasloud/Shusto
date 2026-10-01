@@ -40,6 +40,7 @@ import {
   showAppNotification
 } from './utils/callNotification';
 import { DatabaseQuotaAlert } from './components/DatabaseQuotaAlert';
+import { safeStorage } from './utils/safeStorage';
 
 function AppContent() {
   const { user, loading, error } = useAuth();
@@ -66,7 +67,13 @@ function AppContent() {
     doctorName?: string;
     appointmentId?: string;
   } | null>(null);
-  const [hasSeenWelcome, setHasSeenWelcome] = useState(() => localStorage.getItem('hasSeenWelcome') === 'true');
+  const [hasSeenWelcome, setHasSeenWelcome] = useState(() => {
+    try {
+      return safeStorage.getItem('hasSeenWelcome') === 'true';
+    } catch (e) {
+      return true;
+    }
+  });
 
   useEffect(() => {
     const handleSwitchTab = (e: any) => {
@@ -273,7 +280,7 @@ function AppContent() {
     }
   };
 
-  if (loading) {
+  if (loading && user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
@@ -299,17 +306,6 @@ function AppContent() {
           আবার চেষ্টা করুন
         </button>
       </div>
-    );
-  }
-
-  if (!hasSeenWelcome) {
-    return (
-      <Welcome 
-        onFinish={() => {
-          setHasSeenWelcome(true);
-          localStorage.setItem('hasSeenWelcome', 'true');
-        }} 
-      />
     );
   }
 
@@ -485,19 +481,29 @@ export default function App() {
   const API_KEY = (import.meta as any).env.VITE_GOOGLE_MAPS_PLATFORM_KEY || '';
 
   useEffect(() => {
-    // Capture referral code from URL
-    const params = new URLSearchParams(window.location.search);
-    const referralUID = params.get('ref');
-    if (referralUID) {
-      sessionStorage.setItem('shusto_referral', referralUID);
-    }
+    // Capture referral code from URL safely
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const referralUID = params.get('ref');
+      if (referralUID) {
+        safeStorage.setSessionItem('shusto_referral', referralUID);
+      }
+    } catch (e) {}
   }, []);
 
-  return (
-    <APIProvider apiKey={API_KEY} version="weekly">
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </APIProvider>
+  const content = (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
+
+  if (API_KEY) {
+    return (
+      <APIProvider apiKey={API_KEY} version="weekly">
+        {content}
+      </APIProvider>
+    );
+  }
+
+  return content;
 }

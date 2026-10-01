@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, query, where, collection, getDocs, deleteDoc, onSnapshot, addDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebase';
+import { safeStorage } from './utils/safeStorage';
 
 interface UserProfile {
   uid: string;
@@ -32,25 +33,27 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(() => {
-    const cached = localStorage.getItem('shusto_user_cache');
-    if (cached) {
-      try {
+    try {
+      const cached = safeStorage.getItem('shusto_user_cache');
+      if (cached) {
         return JSON.parse(cached);
-      } catch (e) {
-        return null;
       }
+    } catch (e) {
+      return null;
     }
     return null;
   });
-  const [loading, setLoading] = useState(!localStorage.getItem('shusto_user_cache'));
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user) {
-      localStorage.setItem('shusto_user_cache', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('shusto_user_cache');
-    }
+    try {
+      if (user) {
+        safeStorage.setItem('shusto_user_cache', JSON.stringify(user));
+      } else {
+        safeStorage.removeItem('shusto_user_cache');
+      }
+    } catch (e) {}
   }, [user]);
 
   useEffect(() => {
@@ -76,13 +79,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (userDoc.exists()) {
           const existingData = userDoc.data() as UserProfile;
           setUser(existingData);
-          localStorage.setItem('shusto_user_cache', JSON.stringify(existingData));
+          safeStorage.setItem('shusto_user_cache', JSON.stringify(existingData));
         } else {
           setUser(profile);
-          localStorage.setItem('shusto_user_cache', JSON.stringify(profile));
+          safeStorage.setItem('shusto_user_cache', JSON.stringify(profile));
         }
         
-        localStorage.setItem('hasSeenWelcome', 'true');
+        safeStorage.setItem('hasSeenWelcome', 'true');
         setLoading(false);
         setError(null);
       }
@@ -128,7 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Set user immediately so user is taken into the app without waiting
       setUser(prev => (prev && prev.uid === firebaseUser.uid ? prev : baseProfile));
-      localStorage.setItem('hasSeenWelcome', 'true');
+      safeStorage.setItem('hasSeenWelcome', 'true');
       setLoading(false);
 
       // Real-time listener for user's full Firestore profile
@@ -158,7 +161,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } else {
             const existingData = userDoc.data() as UserProfile;
             setUser(existingData);
-            localStorage.setItem('shusto_user_cache', JSON.stringify(existingData));
+            safeStorage.setItem('shusto_user_cache', JSON.stringify(existingData));
             setLoading(false);
           }
         } catch (err) {
@@ -272,16 +275,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (userDoc.exists()) {
           const existingData = userDoc.data() as UserProfile;
           setUser(existingData);
-          localStorage.setItem('shusto_user_cache', JSON.stringify(existingData));
+          safeStorage.setItem('shusto_user_cache', JSON.stringify(existingData));
         } else {
           setUser(immediateProfile);
-          localStorage.setItem('shusto_user_cache', JSON.stringify(immediateProfile));
+          safeStorage.setItem('shusto_user_cache', JSON.stringify(immediateProfile));
           setDoc(userRef, immediateProfile, { merge: true }).catch(e => {
             console.warn("User profile background write warning:", e);
           });
         }
         
-        localStorage.setItem('hasSeenWelcome', 'true');
+        safeStorage.setItem('hasSeenWelcome', 'true');
         setLoading(false);
         setError(null);
         return;
@@ -332,7 +335,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    localStorage.removeItem('shusto_user_cache');
+    safeStorage.removeItem('shusto_user_cache');
     setUser(null);
     await signOut(auth);
   };

@@ -11,54 +11,58 @@
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" type="image/jpeg" href="https://i.postimg.cc/HWMYLkGG/Image.jpg" />
     <link rel="apple-touch-icon" href="https://i.postimg.cc/HWMYLkGG/Image.jpg" />
+    <script type="module">
+      import RefreshRuntime from "/@react-refresh";
+      RefreshRuntime.injectIntoGlobalHook(window);
+      window.$RefreshReg$ = () => {};
+      window.$RefreshSig$ = () => (type) => type;
+      window.__vite_plugin_react_preamble_installed__ = true;
+    </script>
     <script>
-      // Self-healing mechanism for Service Worker and Cache Storage issues (fixes blank screens on web)
+      // Safe cleanup of any stale Service Worker and Cache Storage
       (function() {
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.getRegistrations().then(function(registrations) {
-            for (var i = 0; i < registrations.length; i++) {
-              registrations[i].unregister().then(function() {
-                console.log('Unregistered stale service worker');
-              });
-            }
-          }).catch(function(err) {
-            console.error('Error unregistering service workers:', err);
-          });
-        }
-
-        if ('caches' in window) {
-          caches.keys().then(function(keys) {
-            keys.forEach(function(key) {
-              caches.delete(key).then(function() {
-                console.log('Cleared stale cache: ' + key);
-              });
-            });
-          }).catch(function(err) {
-            console.error('Error clearing caches:', err);
-          });
-        }
-
-        window.addEventListener('error', function(e) {
-          var isChunkError = e.message && (
-            e.message.indexOf('Failed to fetch dynamically imported module') !== -1 ||
-            e.message.indexOf('Unexpected token') !== -1 ||
-            e.message.indexOf('import') !== -1
-          );
-          var isScriptTagError = e.target && e.target.tagName === 'SCRIPT';
-          
-          if (isChunkError || isScriptTagError) {
-            console.warn('Script loading error detected. Forcing reload to fetch fresh assets...', e);
-            var reloadCount = parseInt(sessionStorage.getItem('shusto_reload_count') || '0', 10);
-            if (reloadCount < 3) {
-              sessionStorage.setItem('shusto_reload_count', (reloadCount + 1).toString());
-              window.location.reload(true);
-            }
+        try {
+          if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+              for (var i = 0; i < registrations.length; i++) {
+                try {
+                  registrations[i].unregister();
+                } catch (e) {}
+              }
+            }).catch(function() {});
           }
-        }, true);
+        } catch (e) {}
+
+        try {
+          if (typeof window !== 'undefined' && 'caches' in window) {
+            caches.keys().then(function(keys) {
+              keys.forEach(function(key) {
+                try {
+                  caches.delete(key);
+                } catch (e) {}
+              });
+            }).catch(function() {});
+          }
+        } catch (e) {}
       })();
+
+      // Catch any fatal loading error and show details instead of blank screen
+      window.addEventListener('error', function(e) {
+        var root = document.getElementById('root');
+        if (root && !root.hasChildNodes()) {
+          console.error("Boot script error caught:", e.error || e.message);
+          var msg = (e.error && e.error.message) || e.message || 'একটি স্ক্রিপ্ট লোড হতে সমস্যা হয়েছে।';
+          root.innerHTML = '<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;text-align:center;font-family:sans-serif;background:#fff1f2;color:#9f1239;">' +
+            '<div style="width:48px;height:48px;background:#fef2f2;color:#ef4444;border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem auto;font-weight:bold;font-size:24px;">!</div>' +
+            '<h3 style="color:#0f172a;margin:0 0 0.5rem 0;font-size:18px;">অ্যাপ লোড হতে সমস্যা হয়েছে</h3>' +
+            '<p style="color:#64748b;font-size:13px;line-height:1.5;margin:0 0 1.25rem 0;">' + msg + '</p>' +
+            '<button onclick="window.location.reload()" style="background:#0ea5e9;color:white;border:none;padding:12px 20px;border-radius:12px;font-weight:bold;cursor:pointer;width:100%;font-size:14px;">আবার চেষ্টা করুন</button>' +
+            '</div>';
+        }
+      });
     </script>
   </head>
-  <body>
+  <body class="bg-slate-50">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
