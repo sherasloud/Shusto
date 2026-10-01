@@ -23,5 +23,6 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
+  "include": ["src/**/*", "server.ts", "capacitor.config.ts", "mongo.ts", "mysql.ts", "vite.config.ts"],
   "exclude": ["node_modules", "dist", "android", "ios", "ios/App/App/public"]
 }
