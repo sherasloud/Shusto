@@ -108,7 +108,18 @@ export function Login() {
           <span>১০০% বিশ্বস্ত ও নিরাপদ সাইন-ইন</span>
         </div>
         <p className="mt-4 text-[11px] text-slate-400">
-          By continuing, you agree to our Terms of Service and Privacy Policy.
+          By continuing, you agree to our{' '}
+          <a 
+            href="/Privacy" 
+            onClick={(e) => {
+              e.preventDefault();
+              window.history.pushState({}, '', '/Privacy');
+              window.dispatchEvent(new PopStateEvent('popstate'));
+            }}
+            className="text-sky-600 hover:underline font-semibold"
+          >
+            Terms of Service & Privacy Policy
+          </a>.
         </p>
       </div>
     </div>

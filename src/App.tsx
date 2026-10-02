@@ -44,13 +44,39 @@ import { safeStorage } from './utils/safeStorage';
 
 function AppContent() {
   const { user, loading, error } = useAuth();
+
+  const isPrivacyPath = () => {
+    const path = window.location.pathname.toLowerCase();
+    const params = new URLSearchParams(window.location.search);
+    return (
+      path.includes('privacy') || 
+      path.includes('terms') || 
+      path.includes('policy') || 
+      params.get('tab') === 'privacy' || 
+      params.get('privacy') === 'true'
+    );
+  };
+
   const [activeTab, setActiveTab] = useState(() => {
+    if (isPrivacyPath()) {
+      return 'privacy';
+    }
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment')) {
       return 'wallet';
     }
     return 'dashboard';
   });
+
+  useEffect(() => {
+    const handleLocationChange = () => {
+      if (isPrivacyPath()) {
+        setActiveTab('privacy');
+      }
+    };
+    window.addEventListener('popstate', handleLocationChange);
+    return () => window.removeEventListener('popstate', handleLocationChange);
+  }, []);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [incomingCall, setIncomingCall] = useState<{ 
@@ -310,6 +336,13 @@ function AppContent() {
   }
 
   if (!user) {
+    if (activeTab === 'privacy' || isPrivacyPath()) {
+      return (
+        <div className="min-h-screen bg-slate-50 py-6 px-4">
+          <PrivacyPolicy onBack={() => { window.location.href = '/'; }} />
+        </div>
+      );
+    }
     return <Login />;
   }
 
