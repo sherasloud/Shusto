@@ -366,6 +366,34 @@ export function Profile() {
                 </button>
               </div>
             )}
+
+            {/* Google Play Policy Required: Account Deletion Section */}
+            <div className="pt-8 mt-8 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div>
+                <h4 className="text-sm font-bold text-slate-800">অ্যাকাউন্ট ও ডাটা মুছে ফেলা (Delete Account)</h4>
+                <p className="text-xs text-slate-500 mt-0.5">গুগল প্লে পলিসি অনুযায়ী আপনার সকল ডাটা স্থায়ীভাবে মুছে ফেলতে পারেন</p>
+              </div>
+              <button
+                onClick={async () => {
+                  if (window.confirm("আপনি কি নিশ্চিত যে আপনার Shusto অ্যাকাউন্ট ও সমস্ত ডাটা স্থায়ীভাবে মুছে ফেলতে চান?")) {
+                    try {
+                      if (user?.uid) {
+                        const { deleteDoc, doc } = await import('firebase/firestore');
+                        await deleteDoc(doc(db, 'users', user.uid));
+                      }
+                      await logout();
+                      alert("আপনার অ্যাকাউন্ট ও সম্পর্কিত ডাটা সফলতা সহকারে মুছে ফেলা হয়েছে।");
+                    } catch (e: any) {
+                      console.error("Delete account error:", e);
+                      alert("অ্যাকাউন্ট ডিলিট করতে সমস্যা হয়েছে: " + (e?.message || e));
+                    }
+                  }
+                }}
+                className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200/80 transition-all"
+              >
+                অ্যাকাউন্ট মুছে ফেলুন (Delete Account)
+              </button>
+            </div>
           </div>
         </div>
       </div>

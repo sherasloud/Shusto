@@ -207,6 +207,20 @@ export function PrivacyPolicy({ onBack, defaultTab = 'privacy' }: { onBack: () =
                   সকল ডেটা আন্তর্জাতিক স্ট্যান্ডার্ড এনক্রিপশন ও সুরক্ষিত ক্লাউড অবকাঠামোতে সংরক্ষিত থাকে।
                 </div>
               </div>
+
+              <div>
+                <h3 className="text-base font-bold text-slate-900 mb-2 flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-xs">৪</span>
+                  অ্যাকাউন্ট ও তথ্য অপসারণের অধিকার (Account & Data Deletion - Google Play Policy)
+                </h3>
+                <p className="mb-2">
+                  গুগল প্লে স্টোর পলিসি (Google Play Policy) অনুযায়ী আপনার ব্যক্তিগত অ্যাকাউন্ট এবং এর সাথে সম্পর্কিত স্বাস্থ্য ডাটা সম্পূর্ণরূপে মুছে ফেলার অধিকার আপনার রয়েছে:
+                </p>
+                <ul className="space-y-1.5 list-disc pl-5 text-xs md:text-sm text-slate-600">
+                  <li><strong>ইন-অ্যাপ ডিলিট:</strong> অ্যাপের <code>Profile (প্রোফাইল)</code> সেকশনে গিয়ে সহজেই "Delete Account & Data" বাটনে ক্লিক করে তাৎক্ষণিক অ্যাকাউন্ট বন্ধ করতে পারেন।</li>
+                  <li><strong>ইমেইল সাপোর্ট:</strong> অথবা <code>shustobd@gmail.com</code> ঠিকানায় আপনার ইমেইল/নম্বর উল্লেখ করে ইমেইল পাঠাতে পারেন। আমাদের সিকিউরিটি টিম ২৪ ঘণ্টার মধ্যে সকল ডাটা সার্ভার থেকে স্থায়ীভাবে মুছে দেবে।</li>
+                </ul>
+              </div>
             </div>
           </div>
         )}

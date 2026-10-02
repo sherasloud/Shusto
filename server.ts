@@ -30,7 +30,7 @@ import {
   Wallet as MongoWallet,
   Transaction as MongoTransaction,
   ServiceRequest as MongoServiceRequest
-} from "./mongo";
+} from "./mongo.ts";
 
 dotenv.config();
 
