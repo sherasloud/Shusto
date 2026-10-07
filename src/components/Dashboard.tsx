@@ -23,6 +23,7 @@ import {
   UserCheck,
   X,
 } from 'lucide-react';
+import { AdMobBanner } from './AdMobBanner';
 import { collection, query, where, onSnapshot, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { motion, AnimatePresence } from 'motion/react';
@@ -445,6 +446,9 @@ export function Dashboard() {
             ))}
           </div>
         </div>
+
+        {/* Google AdMob Sponsored Banner */}
+        <AdMobBanner />
 
       </div>
 

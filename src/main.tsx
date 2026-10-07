@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client';
-import App from './App.tsx';
+import App from './App';
 import './index.css';
-import { ErrorBoundary } from './components/ErrorBoundary.tsx';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Global uncaught error listener to display error overlay instead of blank white screen
 window.addEventListener('unhandledrejection', (event) => {

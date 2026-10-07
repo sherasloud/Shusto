@@ -40,15 +40,175 @@ var import_axios = __toESM(require("axios"), 1);
 var import_uuid = require("uuid");
 var import_dotenv = __toESM(require("dotenv"), 1);
 var import_fs = __toESM(require("fs"), 1);
+var import_crypto = __toESM(require("crypto"), 1);
+
+// mongo.ts
+var import_mongoose = __toESM(require("mongoose"), 1);
+var MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://shustobd_db_user:7uChu8AqPXBblfgl@cluster0.sbpz6mc.mongodb.net/shustodb?retryWrites=true&w=majority&appName=Cluster0";
+var isConnected = false;
+async function connectMongoDB() {
+  if (isConnected) {
+    return import_mongoose.default.connection;
+  }
+  try {
+    import_mongoose.default.set("strictQuery", false);
+    const conn = await import_mongoose.default.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 15e3,
+      socketTimeoutMS: 45e3
+    });
+    isConnected = true;
+    console.log(`\u2705 MongoDB Atlas connected successfully: ${conn.connection.host}/${conn.connection.name}`);
+    return conn.connection;
+  } catch (error) {
+    console.error("\u26A0\uFE0F MongoDB connection warning:", error.message);
+    return null;
+  }
+}
+function getMongoStatus() {
+  const states = {
+    0: "disconnected",
+    1: "connected",
+    2: "connecting",
+    3: "disconnecting"
+  };
+  const readyState = import_mongoose.default.connection.readyState;
+  return {
+    connected: readyState === 1,
+    status: states[readyState] || "unknown",
+    host: import_mongoose.default.connection.host || null,
+    name: import_mongoose.default.connection.name || null
+  };
+}
+var appointmentSchema = new import_mongoose.default.Schema(
+  {
+    patientName: { type: String, required: true },
+    patientPhone: { type: String, default: "" },
+    patientAge: { type: String, default: "" },
+    patientGender: { type: String, default: "" },
+    doctorId: { type: String, required: true },
+    doctorName: { type: String, required: true },
+    doctorSpecialty: { type: String, default: "" },
+    doctorHospital: { type: String, default: "" },
+    date: { type: String, default: "" },
+    timeSlot: { type: String, default: "" },
+    symptoms: { type: String, default: "" },
+    status: {
+      type: String,
+      enum: ["pending", "confirmed", "completed", "cancelled"],
+      default: "pending"
+    },
+    fee: { type: Number, default: 500 },
+    meetingLink: { type: String, default: "" },
+    userId: { type: String, default: "" },
+    prescriptionId: { type: String, default: "" }
+  },
+  { timestamps: true }
+);
+var userSchema = new import_mongoose.default.Schema(
+  {
+    uid: { type: String, required: true, unique: true, index: true },
+    name: { type: String, default: "" },
+    phone: { type: String, default: "" },
+    email: { type: String, default: "" },
+    role: { type: String, default: "patient" },
+    avatar: { type: String, default: "" },
+    address: { type: String, default: "" },
+    bloodGroup: { type: String, default: "" },
+    age: { type: String, default: "" },
+    gender: { type: String, default: "" },
+    isDoctor: { type: Boolean, default: false },
+    doctorDetails: {
+      specialty: { type: String, default: "" },
+      degrees: { type: String, default: "" },
+      hospital: { type: String, default: "" },
+      bmdcNumber: { type: String, default: "" },
+      consultationFee: { type: Number, default: 500 },
+      isAvailable: { type: Boolean, default: true }
+    }
+  },
+  { timestamps: true }
+);
+var prescriptionSchema = new import_mongoose.default.Schema(
+  {
+    appointmentId: { type: String, default: "" },
+    patientName: { type: String, default: "" },
+    patientPhone: { type: String, default: "" },
+    patientAge: { type: String, default: "" },
+    patientGender: { type: String, default: "" },
+    doctorName: { type: String, default: "" },
+    doctorId: { type: String, default: "" },
+    diagnosis: { type: String, default: "" },
+    medicines: [
+      {
+        name: { type: String, default: "" },
+        dosage: { type: String, default: "" },
+        duration: { type: String, default: "" },
+        instructions: { type: String, default: "" }
+      }
+    ],
+    advice: { type: String, default: "" },
+    followUpDate: { type: String, default: "" },
+    userId: { type: String, default: "" }
+  },
+  { timestamps: true }
+);
+var walletSchema = new import_mongoose.default.Schema(
+  {
+    userId: { type: String, required: true, unique: true, index: true },
+    balance: { type: Number, default: 0 },
+    pendingBalance: { type: Number, default: 0 },
+    totalEarned: { type: Number, default: 0 },
+    totalWithdrawn: { type: Number, default: 0 },
+    currency: { type: String, default: "BDT" }
+  },
+  { timestamps: true }
+);
+var transactionSchema = new import_mongoose.default.Schema(
+  {
+    userId: { type: String, required: true, index: true },
+    type: { type: String, enum: ["credit", "debit", "withdrawal", "fee", "refund"], required: true },
+    amount: { type: Number, required: true },
+    status: { type: String, enum: ["pending", "completed", "failed"], default: "completed" },
+    description: { type: String, default: "" },
+    paymentMethod: { type: String, default: "" },
+    accountNumber: { type: String, default: "" },
+    referenceId: { type: String, default: "" }
+  },
+  { timestamps: true }
+);
+var serviceRequestSchema = new import_mongoose.default.Schema(
+  {
+    serviceType: { type: String, required: true },
+    patientName: { type: String, default: "" },
+    patientPhone: { type: String, default: "" },
+    address: { type: String, default: "" },
+    details: { type: String, default: "" },
+    status: { type: String, enum: ["pending", "accepted", "in_progress", "completed", "cancelled"], default: "pending" },
+    cost: { type: Number, default: 0 },
+    userId: { type: String, default: "" },
+    providerId: { type: String, default: "" }
+  },
+  { timestamps: true }
+);
+var Appointment = import_mongoose.default.models.Appointment || import_mongoose.default.model("Appointment", appointmentSchema);
+var User = import_mongoose.default.models.User || import_mongoose.default.model("User", userSchema);
+var Prescription = import_mongoose.default.models.Prescription || import_mongoose.default.model("Prescription", prescriptionSchema);
+var Wallet = import_mongoose.default.models.Wallet || import_mongoose.default.model("Wallet", walletSchema);
+var Transaction = import_mongoose.default.models.Transaction || import_mongoose.default.model("Transaction", transactionSchema);
+var ServiceRequest = import_mongoose.default.models.ServiceRequest || import_mongoose.default.model("ServiceRequest", serviceRequestSchema);
+
+// server.ts
 var admin = adminModule.default && adminModule.default.initializeApp ? adminModule.default : adminModule;
 var getFirestore = (app2, dbId) => {
   if (typeof app2.firestore === "function") {
-    return dbId ? app2.firestore(dbId) : app2.firestore();
+    return dbId && dbId !== "(default)" ? app2.firestore(dbId) : app2.firestore();
   }
   return admin.firestore();
 };
 var FieldValue = admin.firestore?.FieldValue || adminModule.firestore?.FieldValue;
 import_dotenv.default.config();
+connectMongoDB().catch(() => {
+});
 var getFilename = () => {
   return typeof __filename !== "undefined" ? __filename : "";
 };
@@ -114,8 +274,262 @@ app.use((req, res, next) => {
   }
   next();
 });
+app.use(import_express.default.json());
+app.get("/api/db/status", async (req, res) => {
+  const mongo = getMongoStatus();
+  res.json({
+    success: true,
+    mongo: {
+      ...mongo,
+      targetDatabase: "shustodb",
+      cluster: "cluster0.sbpz6mc.mongodb.net"
+    },
+    firebase: {
+      initialized: Boolean(db_admin),
+      projectId: firebaseConfig?.projectId || "configured"
+    },
+    timestamp: (/* @__PURE__ */ new Date()).toISOString()
+  });
+});
+app.get("/api/mongo/test-connection", async (req, res) => {
+  try {
+    const conn = await connectMongoDB();
+    if (!conn) {
+      return res.status(500).json({ success: false, message: "Could not connect to MongoDB Atlas" });
+    }
+    const adminDb = conn.db.admin();
+    const pingResult = await adminDb.ping();
+    res.json({
+      success: true,
+      message: "Successfully pinged and connected to MongoDB Atlas!",
+      ping: pingResult,
+      dbName: conn.name,
+      host: conn.host
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+app.get("/api/mongo/appointments", async (req, res) => {
+  try {
+    await connectMongoDB();
+    const { doctorId, userId } = req.query;
+    const filter = {};
+    if (doctorId) filter.doctorId = doctorId;
+    if (userId) filter.userId = userId;
+    const list = await Appointment.find(filter).sort({ createdAt: -1 }).limit(100);
+    res.json({ success: true, appointments: list });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+app.post("/api/mongo/appointments", async (req, res) => {
+  try {
+    await connectMongoDB();
+    const newApp = await Appointment.create(req.body);
+    res.json({ success: true, appointment: newApp });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+app.post("/api/sheba/webhook", async (req, res) => {
+  const apiKeyHeader = req.headers["x-api-key"];
+  const shustoSecret = process.env.SHUSTO_API_SECRET;
+  if (shustoSecret && apiKeyHeader !== shustoSecret) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  console.log("Received webhook from Sheba:", req.body);
+  res.json({ success: true });
+});
+function generateShustoHMAC(secret, timestamp, rawBody) {
+  return import_crypto.default.createHmac("sha256", secret).update(`${timestamp}.${rawBody}`).digest("hex");
+}
+function verifyShustoHMAC(secret, timestamp, rawBody, incomingSignature) {
+  if (!secret) return { valid: false, reason: "Secret is not configured" };
+  if (!timestamp || !incomingSignature) return { valid: false, reason: "Missing timestamp or signature headers" };
+  const tsNum = Number(timestamp);
+  if (isNaN(tsNum)) return { valid: false, reason: "Invalid timestamp" };
+  const nowSec = Math.floor(Date.now() / 1e3);
+  const isMs = tsNum > 1e11;
+  const incomingSec = isMs ? Math.floor(tsNum / 1e3) : tsNum;
+  const diffSec = Math.abs(nowSec - incomingSec);
+  if (diffSec > 300) {
+    return { valid: false, reason: `Timestamp replay protection failed (request age: ${diffSec}s, max allowed: 300s)` };
+  }
+  const expectedSignature = import_crypto.default.createHmac("sha256", secret).update(`${timestamp}.${rawBody}`).digest("hex");
+  try {
+    const isValid = import_crypto.default.timingSafeEqual(
+      Buffer.from(expectedSignature, "utf8"),
+      Buffer.from(incomingSignature, "utf8")
+    );
+    return { valid: isValid, reason: isValid ? void 0 : "Signature mismatch" };
+  } catch (e) {
+    return { valid: false, reason: "Signature comparison error" };
+  }
+}
+app.post(["/api/shusto/withdraw", "/direct-api/shusto/withdraw", "/api/sheba/withdraw", "/direct-api/sheba/withdraw"], async (req, res) => {
+  const shustoSecret = (process.env.SHUSTO_API_SECRET || process.env.SHEBA_API_SECRET || "shusto_secure_secret_key_2026").trim();
+  const incomingSignature = req.headers["x-shusto-signature"] || req.headers["x-signature"];
+  const incomingTimestamp = req.headers["x-shusto-timestamp"] || req.headers["x-timestamp"];
+  const rawJsonBody = JSON.stringify(req.body || {});
+  console.log("--- [SHUSTO WITHDRAWAL] Request received ---");
+  console.log("Headers:", { timestamp: incomingTimestamp, hasSignature: !!incomingSignature });
+  console.log("Body:", req.body);
+  const {
+    shustoUserId,
+    userId: reqUserId,
+    shebaNumber,
+    phone: reqPhone,
+    amount: reqAmount,
+    idempotencyKey: reqIdempotencyKey
+  } = req.body || {};
+  const effectiveUserId = (shustoUserId || reqUserId || "").trim();
+  const effectiveNumber = (shebaNumber || reqPhone || "").trim();
+  const numAmount = Number(reqAmount);
+  const idempotencyKey = (reqIdempotencyKey || (0, import_uuid.v4)()).trim();
+  if (!effectiveUserId) {
+    return res.status(400).json({ success: false, error: "shustoUserId is required" });
+  }
+  if (!effectiveNumber || effectiveNumber.length < 11) {
+    return res.status(400).json({ success: false, error: "Valid 11-digit shebaNumber is required" });
+  }
+  if (!numAmount || isNaN(numAmount) || numAmount <= 0) {
+    return res.status(400).json({ success: false, error: "Valid positive amount is required" });
+  }
+  if (incomingSignature && incomingTimestamp) {
+    const authCheck = verifyShustoHMAC(shustoSecret, incomingTimestamp, rawJsonBody, incomingSignature);
+    if (!authCheck.valid) {
+      console.warn("[SHUSTO WITHDRAWAL] HMAC verification failed:", authCheck.reason);
+      return res.status(401).json({ success: false, error: `Unauthorized: ${authCheck.reason}` });
+    }
+  }
+  try {
+    if (db_admin) {
+      const existingTxSnap = await db_admin.collection("transactions").where("idempotencyKey", "==", idempotencyKey).limit(1).get();
+      if (!existingTxSnap.empty) {
+        const txData = existingTxSnap.docs[0].data();
+        console.log(`[SHUSTO WITHDRAWAL] Duplicate request blocked (idempotencyKey: ${idempotencyKey})`);
+        return res.status(200).json({
+          success: true,
+          message: "\u098F\u0987 \u09B0\u09BF\u0995\u09CB\u09DF\u09C7\u09B8\u09CD\u099F\u099F\u09BF \u09AA\u09C2\u09B0\u09CD\u09AC\u09C7\u0987 \u09B8\u09AB\u09B2\u09AD\u09BE\u09AC\u09C7 \u09B8\u09AE\u09CD\u09AA\u09A8\u09CD\u09A8 \u09B9\u09DF\u09C7\u099B\u09C7 (Already Processed)",
+          alreadyProcessed: true,
+          transaction: txData
+        });
+      }
+    }
+    let currentBalance = 0;
+    if (db_admin) {
+      const walletDoc = await db_admin.collection("wallets").doc(effectiveUserId).get();
+      if (!walletDoc.exists) {
+        return res.status(404).json({ success: false, error: "Shusto user wallet not found" });
+      }
+      currentBalance = walletDoc.data()?.balance || 0;
+      if (currentBalance < numAmount) {
+        console.warn(`[SHUSTO WITHDRAWAL] Insufficient balance for user ${effectiveUserId}. Bal: ${currentBalance}, Req: ${numAmount}`);
+        return res.status(400).json({
+          success: false,
+          error: `\u0985\u09AA\u09B0\u09CD\u09AF\u09BE\u09AA\u09CD\u09A4 \u09AC\u09CD\u09AF\u09BE\u09B2\u09C7\u09A8\u09CD\u09B8! \u0986\u09AA\u09A8\u09BE\u09B0 \u09AC\u09B0\u09CD\u09A4\u09AE\u09BE\u09A8 \u09AC\u09CD\u09AF\u09BE\u09B2\u09C7\u09A8\u09CD\u09B8 \u09F3${currentBalance}, \u0989\u09A4\u09CD\u09A4\u09CB\u09B2\u09A8\u09C7\u09B0 \u099C\u09A8\u09CD\u09AF \u09AA\u09CD\u09B0\u09DF\u09CB\u099C\u09A8 \u09F3${numAmount}\u0964`
+        });
+      }
+    }
+    const shebaPayload = {
+      shustoUserId: effectiveUserId,
+      shebaNumber: effectiveNumber,
+      amount: numAmount,
+      idempotencyKey
+    };
+    const payloadString = JSON.stringify(shebaPayload);
+    const outTimestamp = Math.floor(Date.now() / 1e3).toString();
+    const outSignature = generateShustoHMAC(shustoSecret, outTimestamp, payloadString);
+    let targetUrl = process.env.SHEBA_WITHDRAW_URL || process.env.SHEBA_WEBHOOK_URL || "https://shebabangladesh.vercel.app/api/shusto/withdraw";
+    if (targetUrl.includes("/webhook") && !process.env.SHEBA_WITHDRAW_URL) {
+      targetUrl = targetUrl.replace("/webhook", "/withdraw");
+    }
+    console.log(`[SHUSTO WITHDRAWAL] Calling Sheba endpoint: ${targetUrl}`);
+    console.log(`[SHUSTO WITHDRAWAL] Outgoing Headers: x-shusto-timestamp=${outTimestamp}, x-shusto-signature=${outSignature.slice(0, 10)}...`);
+    let shebaResponse = null;
+    try {
+      shebaResponse = await import_axios.default.post(targetUrl, shebaPayload, {
+        headers: {
+          "Content-Type": "application/json",
+          "x-shusto-timestamp": outTimestamp,
+          "x-shusto-signature": outSignature,
+          "x-api-key": process.env.SHEBA_API_SECRET || shustoSecret
+        },
+        timeout: 15e3
+      });
+      console.log(`[SHUSTO WITHDRAWAL] Sheba Response Status: ${shebaResponse.status}`, shebaResponse.data);
+    } catch (shebaErr) {
+      console.error("[SHUSTO WITHDRAWAL] Sheba API error:", {
+        message: shebaErr.message,
+        data: shebaErr.response?.data,
+        status: shebaErr.response?.status
+      });
+      const shebaErrMsg = shebaErr.response?.data?.error || shebaErr.response?.data?.message || shebaErr.message;
+      return res.status(shebaErr.response?.status || 502).json({
+        success: false,
+        error: `\u09B6\u09C7\u09AC\u09BE \u09B8\u09BE\u09B0\u09CD\u09AD\u09BE\u09B0 \u098F\u09B0\u09B0: ${shebaErrMsg}`
+      });
+    }
+    const isShebaSuccess = shebaResponse && shebaResponse.status >= 200 && shebaResponse.status < 300 && shebaResponse.data?.success !== false;
+    if (!isShebaSuccess) {
+      return res.status(502).json({
+        success: false,
+        error: shebaResponse?.data?.error || shebaResponse?.data?.message || "\u09B6\u09C7\u09AC\u09BE \u09B8\u09BE\u09B0\u09CD\u09AD\u09BE\u09B0 \u09B0\u09BF\u0995\u09CB\u09DF\u09C7\u09B8\u09CD\u099F \u09AA\u09CD\u09B0\u09A4\u09CD\u09AF\u09BE\u0996\u09CD\u09AF\u09BE\u09A8 \u0995\u09B0\u09C7\u099B\u09C7\u0964"
+      });
+    }
+    if (db_admin) {
+      const walletRef = db_admin.collection("wallets").doc(effectiveUserId);
+      const txRef = db_admin.collection("transactions").doc();
+      const notifRef = db_admin.collection("notifications").doc();
+      await db_admin.runTransaction(async (transaction) => {
+        const wDoc = await transaction.get(walletRef);
+        const bal = (wDoc.exists ? wDoc.data()?.balance : 0) || 0;
+        if (bal < numAmount) {
+          throw new Error("Insufficient balance during atomic deduction");
+        }
+        transaction.update(walletRef, {
+          balance: bal - numAmount,
+          updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+        });
+        transaction.set(txRef, {
+          userId: effectiveUserId,
+          amount: numAmount,
+          type: "withdrawal",
+          status: "success",
+          method: "sheba",
+          phoneNumber: effectiveNumber,
+          idempotencyKey,
+          details: `Withdrawn to Sheba: ${effectiveNumber}`,
+          createdAt: (/* @__PURE__ */ new Date()).toISOString()
+        });
+        transaction.set(notifRef, {
+          userId: effectiveUserId,
+          title: "\u0989\u09A4\u09CD\u09A4\u09CB\u09B2\u09A8 \u09B8\u09AB\u09B2 \u09B9\u09DF\u09C7\u099B\u09C7",
+          message: `\u09F3${numAmount} \u099F\u09BE\u0995\u09BE \u09B8\u09AB\u09B2\u09AD\u09BE\u09AC\u09C7 \u09B8\u09C7\u09AC\u09BE (${effectiveNumber}) \u0985\u09CD\u09AF\u09BE\u0995\u09BE\u0989\u09A8\u09CD\u099F\u09C7 \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u09B9\u09DF\u09C7\u099B\u09C7\u0964`,
+          type: "wallet",
+          read: false,
+          createdAt: (/* @__PURE__ */ new Date()).toISOString()
+        });
+      });
+    }
+    console.log(`[SHUSTO WITHDRAWAL] Withdrawal completed atomically for user ${effectiveUserId}, amount \u09F3${numAmount}`);
+    return res.status(200).json({
+      success: true,
+      message: shebaResponse.data?.message || "\u0986\u09AA\u09A8\u09BE\u09B0 \u099F\u09BE\u0995\u09BE \u09B8\u09AB\u09B2\u09AD\u09BE\u09AC\u09C7 \u09B6\u09C7\u09AC\u09BE \u0985\u09CD\u09AF\u09BE\u0995\u09BE\u0989\u09A8\u09CD\u099F\u09C7 \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u09B9\u09DF\u09C7\u099B\u09C7\u0964",
+      idempotencyKey,
+      shebaData: shebaResponse.data
+    });
+  } catch (error) {
+    console.error("[SHUSTO WITHDRAWAL] Fatal Error:", error);
+    return res.status(500).json({
+      success: false,
+      error: `\u0989\u09A4\u09CD\u09A4\u09CB\u09B2\u09A8 \u09B8\u09AE\u09CD\u09AA\u09A8\u09CD\u09A8 \u0995\u09B0\u09A4\u09C7 \u09B8\u09AE\u09B8\u09CD\u09AF\u09BE \u09B9\u09DF\u09C7\u099B\u09C7: ${error.message}`
+    });
+  }
+});
 app.use((req, res, next) => {
-  const forwardedPath = req.headers["x-vercel-forwarded-path"] || req.headers["x-forwarded-path"] || req.headers["x-original-url"];
+  const forwardedPath = req.headers["x-matched-path"] || req.headers["x-vercel-forwarded-path"] || req.headers["x-forwarded-path"] || req.headers["x-original-url"] || req.headers["x-invoke-path"] || req.headers["x-forwarded-uri"];
   if (forwardedPath && (forwardedPath.startsWith("/api/") || forwardedPath.startsWith("/direct-api/"))) {
     const queryIndex = req.url.indexOf("?");
     const queryString = queryIndex !== -1 ? req.url.substring(queryIndex) : "";
@@ -123,6 +537,10 @@ app.use((req, res, next) => {
     const newUrl = `${cleanForwardedPath}${queryString}`;
     console.log(`[ROUTER MIDDLEWARE] Recovered original URL on cloud proxy: ${req.url} -> ${newUrl}`);
     req.url = newUrl;
+  } else if ((req.url.startsWith("/api/index") || req.url === "/api" || req.url === "/api/") && req.query?.path) {
+    const p = Array.isArray(req.query.path) ? req.query.path.join("/") : req.query.path;
+    req.url = `/api/${p}`;
+    console.log(`[ROUTER MIDDLEWARE] Recovered original URL from query.path: -> ${req.url}`);
   }
   console.log(`[REQUEST LOGGER] ${req.method} ${req.path || req.url}`);
   if (req.body !== void 0) {
@@ -132,6 +550,60 @@ app.use((req, res, next) => {
 });
 app.use(import_express.default.json());
 app.use(import_express.default.urlencoded({ extended: true }));
+app.post("/api/youtube/subscribe", async (req, res) => {
+  const { accessToken } = req.body;
+  if (!accessToken) return res.status(400).json({ error: "Access token required" });
+  try {
+    const handle = "@SiamTheBin";
+    console.log(`[YOUTUBE_SUB] Processing subscription for ${handle}`);
+    const channelResp = await import_axios.default.get(`https://www.googleapis.com/youtube/v3/channels`, {
+      params: {
+        forHandle: handle,
+        part: "id",
+        key: process.env.YOUTUBE_API_KEY
+        // Optional if using user token for everything
+      },
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
+    if (!channelResp.data.items || channelResp.data.items.length === 0) {
+      console.error("[YOUTUBE_SUB] Channel not found for handle:", handle);
+      return res.status(404).json({ error: "YouTube channel not found" });
+    }
+    const channelId = channelResp.data.items[0].id;
+    console.log(`[YOUTUBE_SUB] Resolved channel ID: ${channelId}`);
+    try {
+      const subResp = await import_axios.default.post(`https://www.googleapis.com/youtube/v3/subscriptions?part=snippet`, {
+        snippet: {
+          resourceId: {
+            kind: "youtube#channel",
+            channelId
+          }
+        }
+      }, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json"
+        }
+      });
+      console.log("[YOUTUBE_SUB] Subscription successful!");
+      res.json({ success: true, message: "Subscribed successfully" });
+    } catch (subErr) {
+      if (subErr.response?.status === 403 && subErr.response?.data?.error?.errors?.[0]?.reason === "subscriptionDuplicate") {
+        console.log("[YOUTUBE_SUB] User already subscribed.");
+        return res.json({ success: true, message: "Already subscribed" });
+      }
+      throw subErr;
+    }
+  } catch (error) {
+    console.error("[YOUTUBE_SUB] Error:", error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      error: "YouTube subscription failed",
+      details: error.response?.data || error.message
+    });
+  }
+});
 app.get(["/api/test", "/direct-api/test", "/test"], (req, res) => {
   res.json({ status: "ok", env: process.env.NODE_ENV || "development", vercel: !!process.env.VERCEL });
 });
@@ -185,7 +657,7 @@ function getSSLCommerzCredentials() {
   let store_passwd = (process.env.SSL_STORE_PASSWORD || "6A0D6039B299110857").trim();
   store_id = store_id.replace(/^["']|["']$/g, "");
   store_passwd = store_passwd.replace(/^["']|["']$/g, "");
-  if (!store_id || store_id === "YOUR_STORE_ID" || store_id === "demo" || store_id === "" || store_id.includes("YOUR")) {
+  if (!store_id || store_id.includes("6724cf62ca8f6") || store_id === "YOUR_STORE_ID" || store_id === "demo" || store_id === "" || store_id.includes("YOUR")) {
     store_id = "shusto0live";
   }
   if (!store_passwd || store_passwd === "YOUR_STORE_PASSWORD" || store_passwd === "" || store_passwd.includes("YOUR")) {
@@ -197,9 +669,9 @@ app.post(["/api/payment/init", "/direct-api/payment/init", "/payment/init"], asy
   console.log("[PAYMENT_INIT] Received POST to payment/init. Path:", req.path, "Body:", JSON.stringify(req.body));
   const params = req.body || {};
   const { amount, userId, providerId, providerType, userName, userEmail, mock, clientBaseUrl: incomingClientBaseUrl } = params;
-  if (!amount || !userId) {
-    console.error("[PAYMENT_INIT] Missing required fields:", { amount, userId });
-    return res.status(400).json({ error: "Amount and userId are required" });
+  if (!amount || !userId || Number(amount) < 10) {
+    console.error("[PAYMENT_INIT] Missing required fields or amount < 10:", { amount, userId });
+    return res.status(400).json({ error: "SSLCommerz \u0997\u09C7\u099F\u0993\u09DF\u09C7\u09B0 \u09A8\u09BF\u09DF\u09AE \u0985\u09A8\u09C1\u09AF\u09BE\u09DF\u09C0 \u09B8\u09B0\u09CD\u09AC\u09A8\u09BF\u09AE\u09CD\u09A8 \u09E7\u09E6 \u099F\u09BE\u0995\u09BE \u09AF\u09CB\u0997 \u0995\u09B0\u09A4\u09C7 \u09B9\u09AC\u09C7 (Minimum is 10 BDT)" });
   }
   const tran_id = (0, import_uuid.v4)();
   const { store_id, store_passwd } = getSSLCommerzCredentials();
@@ -240,11 +712,6 @@ app.post(["/api/payment/init", "/direct-api/payment/init", "/payment/init"], asy
   try {
     const isSandboxMode = process.env.SSL_MODE === "sandbox" || store_id.includes("test") || store_id === "demo";
     const sslUrl = isSandboxMode ? "https://sandbox.sslcommerz.com/gwprocess/v4/api.php" : "https://securepay.sslcommerz.com/gwprocess/v4/api.php";
-    const isMock = mock === true || mock === "true" || !store_id || store_id === "YOUR_STORE_ID" || store_id === "demo";
-    if (isMock) {
-      console.log("[PAYMENT_INIT] Simulating success (Mock config)");
-      return res.json({ status: "SUCCESS", GatewayPageURL: `${cleanBaseUrl}/api/payment/success?tran_id=${tran_id}&userId=${userId}&mock=true&amount=${amount}&clientBaseUrl=${encodeURIComponent(clientBaseUrl)}` });
-    }
     console.log(`[PAYMENT_INIT] Initiating REAL SSLCommerz request to ${sslUrl}`);
     const formParams = new URLSearchParams();
     Object.keys(data).forEach((key) => {
@@ -252,7 +719,7 @@ app.post(["/api/payment/init", "/direct-api/payment/init", "/payment/init"], asy
     });
     const response = await import_axios.default.post(sslUrl, formParams.toString(), {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      timeout: 5e3
+      timeout: 15e3
     });
     console.log("[PAYMENT_INIT] SSLCommerz response status:", response.status);
     if (response.data && response.data.status === "SUCCESS") {
@@ -473,9 +940,7 @@ app.all(["/api/payment/success/:userId", "/api/payment/success", "/direct-api/pa
         <a class="btn" href="${redirectUrl2}">\u0985\u09CD\u09AF\u09BE\u09AA\u09C7 \u09AB\u09BF\u09B0\u09C7 \u09AF\u09BE\u09A8</a>
     </div>
     <script>
-        setTimeout(() => {
-            window.location.href = ${JSON.stringify(redirectUrl2)};
-        }, 1200);
+        window.location.replace(${JSON.stringify(redirectUrl2)});
     </script>
 </body>
 </html>
@@ -582,9 +1047,7 @@ app.all(["/api/payment/success/:userId", "/api/payment/success", "/direct-api/pa
         <a class="btn" href="${redirectUrl2}">\u0985\u09CD\u09AF\u09BE\u09AA\u09C7 \u09AB\u09BF\u09B0\u09C7 \u09AF\u09BE\u09A8</a>
     </div>
     <script>
-        setTimeout(() => {
-            window.location.href = ${JSON.stringify(redirectUrl2)};
-        }, 1200);
+        window.location.replace(${JSON.stringify(redirectUrl2)});
     </script>
 </body>
 </html>
@@ -692,9 +1155,7 @@ app.all(["/api/payment/success/:userId", "/api/payment/success", "/direct-api/pa
         <a class="btn" href="${redirectUrl2}">\u0985\u09CD\u09AF\u09BE\u09AA\u09C7 \u09AB\u09BF\u09B0\u09C7 \u09AF\u09BE\u09A8</a>
     </div>
     <script>
-        setTimeout(() => {
-            window.location.href = ${JSON.stringify(redirectUrl2)};
-        }, 1200);
+        window.location.replace(${JSON.stringify(redirectUrl2)});
     </script>
 </body>
 </html>
@@ -802,9 +1263,7 @@ app.all(["/api/payment/success/:userId", "/api/payment/success", "/direct-api/pa
         <a class="btn" href="${redirectUrl2}">\u0985\u09CD\u09AF\u09BE\u09AA\u09C7 \u09AB\u09BF\u09B0\u09C7 \u09AF\u09BE\u09A8</a>
     </div>
     <script>
-        setTimeout(() => {
-            window.location.href = ${JSON.stringify(redirectUrl2)};
-        }, 1500);
+        window.location.replace(${JSON.stringify(redirectUrl2)});
     </script>
 </body>
 </html>
@@ -910,9 +1369,7 @@ app.all(["/api/payment/success/:userId", "/api/payment/success", "/direct-api/pa
         <a class="btn" href="${redirectUrl}">\u0985\u09CD\u09AF\u09BE\u09AA\u09C7 \u09AB\u09BF\u09B0\u09C7 \u09AF\u09BE\u09A8</a>
     </div>
     <script>
-        setTimeout(() => {
-            window.location.href = ${JSON.stringify(redirectUrl)};
-        }, 1200);
+        window.location.replace(${JSON.stringify(redirectUrl)});
     </script>
 </body>
 </html>
@@ -1031,9 +1488,7 @@ app.all(["/api/payment/fail/:userId", "/api/payment/fail", "/direct-api/payment/
         <a class="btn" href="${redirectUrl}">\u0985\u09CD\u09AF\u09BE\u09AA\u09C7 \u09AB\u09BF\u09B0\u09C7 \u09AF\u09BE\u09A8</a>
     </div>
     <script>
-        setTimeout(() => {
-            window.location.href = ${JSON.stringify(redirectUrl)};
-        }, 1500);
+        window.location.replace(${JSON.stringify(redirectUrl)});
     </script>
 </body>
 </html>
@@ -1152,9 +1607,7 @@ app.all(["/api/payment/cancel/:userId", "/api/payment/cancel", "/direct-api/paym
         <a class="btn" href="${redirectUrl}">\u0985\u09CD\u09AF\u09BE\u09AA\u09C7 \u09AB\u09BF\u09B0\u09C7 \u09AF\u09BE\u09A8</a>
     </div>
     <script>
-        setTimeout(() => {
-            window.location.href = ${JSON.stringify(redirectUrl)};
-        }, 1500);
+        window.location.replace(${JSON.stringify(redirectUrl)});
     </script>
 </body>
 </html>
@@ -1211,25 +1664,29 @@ app.all(["/api/payment/ipn", "/direct-api/payment/ipn", "/payment/ipn"], async (
   if (isIPNValid && userId && paidAmount > 0 && tran_id) {
     if (db_admin) {
       try {
-        const transRef = db_admin.collection("transactions").where("tran_id", "==", tran_id).where("status", "==", "success");
-        const snap = await transRef.get();
-        if (snap.empty) {
+        const txRef = db_admin.collection("transactions").doc(tran_id);
+        const txSnap = await txRef.get();
+        if (!txSnap.exists) {
           await db_admin.runTransaction(async (t) => {
             const walletRef = db_admin.collection("wallets").doc(userId);
-            const txRef = db_admin.collection("transactions").doc();
+            const targetTxRef = db_admin.collection("transactions").doc(tran_id);
             t.set(walletRef, {
+              uid: userId,
               balance: FieldValue.increment(paidAmount),
               updatedAt: (/* @__PURE__ */ new Date()).toISOString()
             }, { merge: true });
-            t.set(txRef, {
+            t.set(targetTxRef, {
               tran_id,
               userId,
               amount: paidAmount,
+              type: "add_money",
               status: "success",
               createdAt: (/* @__PURE__ */ new Date()).toISOString()
             });
           });
           console.log(`[SSLCOMMERZ IPN] Automatically Added \u09F3${paidAmount} to wallet of user ${userId}`);
+        } else {
+          console.log(`[SSLCOMMERZ IPN] Transaction ${tran_id} already exists, skipping.`);
         }
       } catch (e) {
         console.error("[SSLCOMMERZ IPN] Firebase Update Failed:", e.message);

@@ -17,6 +17,7 @@ import {
   useSensors,
   DragEndEvent
 } from '@dnd-kit/core';
+import { AdMobBanner } from './AdMobBanner';
 import {
   arrayMove,
   SortableContext,
@@ -500,6 +501,9 @@ export function MedicineStore() {
           </button>
         </div>
       </div>
+
+      {/* Google AdMob Sponsored Banner */}
+      <AdMobBanner />
 
       {loading && medicines.length === 0 ? (
         <div className="p-12 text-center flex flex-col items-center gap-4">
