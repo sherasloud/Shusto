@@ -14,7 +14,9 @@ const app = initializeApp({
 console.log("Firebase App initialized with authDomain:", activeAuthDomain);
 export const auth = getAuth(app);
 // Set persistence early to ensure session survives cross-origin navigation if possible
-setPersistence(auth, browserLocalPersistence).catch(console.error);
+setPersistence(auth, browserLocalPersistence).catch((err) => {
+  console.warn("Auth persistence fallback:", err?.message || err);
+});
 
 export const db = (firebaseConfig as any).firestoreDatabaseId
   ? getFirestore(app, (firebaseConfig as any).firestoreDatabaseId)

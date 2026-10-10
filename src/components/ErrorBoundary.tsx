@@ -24,6 +24,24 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error('Uncaught error in ErrorBoundary:', error, errorInfo);
   }
 
+  private getReadableErrorMessage(): string {
+    const err = this.state.error;
+    if (!err) return 'একটি অপ্রত্যাশিত ত্রুটি দেখা দিয়েছে।';
+    const msg = err.message || '';
+    if (msg.trim().startsWith('{') && msg.trim().endsWith('}')) {
+      try {
+        const parsed = JSON.parse(msg);
+        if (parsed.error) return String(parsed.error);
+      } catch (e) {
+        // ignore
+      }
+    }
+    if (msg.includes('client is offline') || msg.toLowerCase().includes('offline')) {
+      return 'ইন্টারনেট সংযোগ বা সার্ভার যোগাযোগে সাময়িক সমস্যা হয়েছে। অনুগ্রহ করে ইন্টারনেট কানেকশন চেক করুন।';
+    }
+    return msg;
+  }
+
   public render() {
     if (this.state.hasError) {
       return (
@@ -33,19 +51,32 @@ export class ErrorBoundary extends Component<Props, State> {
               <AlertTriangle size={32} />
             </div>
             <h2 className="text-xl font-bold text-slate-900 mb-2">সাময়িক ত্রুটি ঘটেছে</h2>
-            <p className="text-slate-500 text-sm mb-6">
-              {this.state.error?.message || 'একটি অপ্রত্যাশিত ত্রুটি দেখা দিয়েছে।'}
+            <p className="text-slate-500 text-sm mb-6 leading-relaxed">
+              {this.getReadableErrorMessage()}
             </p>
-            <button
-              onClick={() => {
-                this.setState({ hasError: false, error: null });
-                window.location.reload();
-              }}
-              className="w-full py-3 bg-sky-500 text-white font-semibold rounded-2xl flex items-center justify-center gap-2 hover:bg-sky-600 transition"
-            >
-              <RefreshCw size={18} />
-              পেজ রিফ্রেশ করুন
-            </button>
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  this.setState({ hasError: false, error: null });
+                  window.location.reload();
+                }}
+                className="w-full py-3.5 bg-sky-500 text-white font-semibold rounded-2xl flex items-center justify-center gap-2 hover:bg-sky-600 transition shadow-lg shadow-sky-500/20"
+              >
+                <RefreshCw size={18} />
+                পেজ রিফ্রেশ করুন
+              </button>
+              <button
+                onClick={() => {
+                  this.setState({ hasError: false, error: null });
+                  if (window.location.pathname !== '/') {
+                    window.location.href = '/';
+                  }
+                }}
+                className="w-full py-3 bg-slate-100 text-slate-700 font-semibold rounded-2xl flex items-center justify-center gap-2 hover:bg-slate-200 transition text-sm"
+              >
+                হোম পেইজে ফিরে যান
+              </button>
+            </div>
           </div>
         </div>
       );

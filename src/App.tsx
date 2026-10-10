@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './AuthContext';
+import { LanguageProvider } from './LanguageContext';
 import { APIProvider } from '@vis.gl/react-google-maps';
 import { Login } from './components/Login';
 import { Sidebar } from './components/Sidebar';
@@ -567,9 +568,11 @@ export default function App() {
   }, []);
 
   const content = (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </LanguageProvider>
   );
 
   if (API_KEY) {

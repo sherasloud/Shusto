@@ -381,36 +381,6 @@ export function Profile({ onOpenAbout, onOpenSettings }: ProfileProps = {}) {
               </div>
             )}
 
-            {/* Founder & Shusto Story Card */}
-            {onOpenAbout && (
-              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-sky-500/10 border border-emerald-200/60 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl overflow-hidden ring-2 ring-emerald-400 shrink-0 bg-white">
-                    <img 
-                      src="https://i.postimg.cc/FKT9skQV/Image-1.jpg" 
-                      alt="Siam" 
-                      className="w-full h-full object-cover object-top" 
-                      referrerPolicy="no-referrer"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "/siam.jpg";
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900">আমাদের গল্প ও সিইও (Siam)</h4>
-                    <p className="text-xs text-slate-500 mt-0.5">চতুর্থ শ্রেণি থেকে ২০২৬: Shusto তৈরির অনুপ্রেরণাদায়ক পথচলা</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={onOpenAbout}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-600/20 transition-all shrink-0"
-                >
-                  পড়ুন →
-                </button>
-              </div>
-            )}
-
             {/* Google Play Policy Required: Account Deletion Section */}
             <div className="pt-8 mt-8 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div>

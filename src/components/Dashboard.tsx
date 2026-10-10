@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../AuthContext';
+import { useLanguage } from '../LanguageContext';
 import { 
   Bell, 
   ArrowUpRight, 
@@ -46,6 +47,7 @@ interface DoctorCardData {
 
 export function Dashboard() {
   const { user } = useAuth();
+  const { t, lang } = useLanguage();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [upcomingAppointments, setUpcomingAppointments] = useState<any[]>([]);
   const [loadingAppts, setLoadingAppts] = useState(true);
@@ -204,9 +206,11 @@ export function Dashboard() {
               <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-400 leading-tight">Good Morning!</p>
+              <p className="text-xs font-semibold text-slate-400 leading-tight">
+                {t('শুভ সকাল!', 'Good Morning!')}
+              </p>
               <h2 className="text-base font-extrabold text-slate-900 tracking-tight">
-                {user?.displayName || (user as any)?.name || 'Alex Morgan'}
+                {user?.displayName || (user as any)?.name || 'User'}
               </h2>
             </div>
           </div>
@@ -215,14 +219,14 @@ export function Dashboard() {
             <button 
               onClick={() => window.dispatchEvent(new CustomEvent('switchTab', { detail: 'doctors' }))}
               className="w-10 h-10 bg-white hover:bg-slate-50 border border-slate-200/70 rounded-2xl flex items-center justify-center text-slate-700 shadow-xs transition-all"
-              title="Search Doctors"
+              title={t('ডাক্তার খুঁজুন', 'Search Doctors')}
             >
               <Search size={18} />
             </button>
             <button 
-              onClick={() => alert("আপাতত কোনো নতুন নোটিফিকেশন নেই।")}
+              onClick={() => alert(t('আপাতত কোনো নতুন নোটিফিকেশন নেই।', 'No new notifications right now.'))}
               className="w-10 h-10 bg-white hover:bg-slate-50 border border-slate-200/70 rounded-2xl flex items-center justify-center text-slate-700 shadow-xs transition-all relative"
-              title="Notifications"
+              title={t('নোটিফিকেশন', 'Notifications')}
             >
               <Bell size={18} />
               <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full" />
@@ -233,10 +237,10 @@ export function Dashboard() {
         {/* Display Hero Title: "Make an Appointment" */}
         <div className="pt-2">
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-normal text-slate-800 tracking-tight leading-none">
-            Make an
+            {lang === 'bn' ? 'ডাক্তার' : 'Make an'}
           </h1>
           <span className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-950 tracking-tight block mt-1">
-            Appointment
+            {lang === 'bn' ? 'অ্যাপয়েন্টমেন্ট নিন' : 'Appointment'}
           </span>
         </div>
 

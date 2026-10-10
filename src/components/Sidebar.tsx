@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAuth } from '../AuthContext';
+import { useLanguage } from '../LanguageContext';
 import { 
   LayoutDashboard, 
   Pill, 
@@ -38,52 +39,53 @@ interface SidebarProps {
 
 export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarProps) {
   const { user, logout, forceSync } = useAuth();
+  const { t } = useLanguage();
 
   const getMenuItems = () => {
     const commonItems = [
-      { id: 'profile', label: 'প্রোফাইল', icon: UserIcon },
-      { id: 'messages', label: 'মেসেজ', icon: MessageCircle },
-      { id: 'orders', label: 'আমার অর্ডার', icon: Package },
-      { id: 'wallet', label: 'ওয়ালেট', icon: Wallet },
-      { id: 'new-shop', label: 'শপ (Shop)', icon: Store },
-      { id: 'medicine', label: 'ঔষধ স্টোর', icon: Pill },
-      { id: 'prescriptions', label: 'প্রেসক্রিপশন', icon: FileText },
-      { id: 'doctors', label: 'ডাক্তার', icon: Stethoscope },
-      { id: 'lab', label: 'ল্যাব টেস্ট', icon: TestTube },
-      { id: 'physio', label: 'ফিজিওথেরাপি', icon: Activity },
-      { id: 'hospital', label: 'হাসপাতাল', icon: Building },
-      { id: 'ambulance', label: 'অ্যাম্বুলেন্স', icon: Truck },
-      { id: 'nursing', label: 'নার্সিং সার্ভিস', icon: Heart },
-      { id: 'nutritionist', label: 'পুষ্টিবিদ (Nutritionist)', icon: Apple },
-      { id: 'about', label: 'আমাদের গল্প ও সিইও', icon: Sparkles },
-      { id: 'settings', label: 'সেটিংস', icon: SettingsIcon },
-      { id: 'privacy', label: 'গোপনীয়তা ও শর্তাবলী', icon: Shield },
+      { id: 'profile', label: t('profile'), icon: UserIcon },
+      { id: 'messages', label: t('messages'), icon: MessageCircle },
+      { id: 'orders', label: t('my_orders'), icon: Package },
+      { id: 'wallet', label: t('wallet'), icon: Wallet },
+      { id: 'new-shop', label: t('shop'), icon: Store },
+      { id: 'medicine', label: t('medicine_store'), icon: Pill },
+      { id: 'prescriptions', label: t('prescriptions'), icon: FileText },
+      { id: 'doctors', label: t('doctors'), icon: Stethoscope },
+      { id: 'lab', label: t('lab_tests'), icon: TestTube },
+      { id: 'physio', label: t('physio'), icon: Activity },
+      { id: 'hospital', label: t('hospital'), icon: Building },
+      { id: 'ambulance', label: t('ambulance'), icon: Truck },
+      { id: 'nursing', label: t('nursing'), icon: Heart },
+      { id: 'nutritionist', label: t('nutritionist'), icon: Apple },
+      { id: 'about', label: t('about_us'), icon: Sparkles },
+      { id: 'settings', label: t('settings'), icon: SettingsIcon },
+      { id: 'privacy', label: t('privacy_policy'), icon: Shield },
     ];
 
-    let dashboardItem = { id: 'dashboard', label: 'ড্যাশবোর্ড', icon: LayoutDashboard };
+    let dashboardItem = { id: 'dashboard', label: t('dashboard'), icon: LayoutDashboard };
 
     if (user?.role === 'admin') {
-      dashboardItem = { id: 'dashboard', label: 'অ্যাডমিন প্যানেল', icon: Shield };
+      dashboardItem = { id: 'dashboard', label: t('অ্যাডমিন প্যানেল', 'Admin Panel'), icon: Shield };
     } else if (user?.role === 'investor') {
-      dashboardItem = { id: 'dashboard', label: 'ইনভেস্টর প্যানেল', icon: DollarSign };
+      dashboardItem = { id: 'dashboard', label: t('ইনভেস্টর প্যানেল', 'Investor Panel'), icon: DollarSign };
     } else if (user?.role === 'manager') {
-      dashboardItem = { id: 'dashboard', label: 'ম্যানেজার প্যানেল', icon: Shield };
+      dashboardItem = { id: 'dashboard', label: t('ম্যানেজার প্যানেল', 'Manager Panel'), icon: Shield };
     } else if (user?.role === 'doctor') {
-      dashboardItem = { id: 'dashboard', label: 'ডাক্তার প্যানেল', icon: Stethoscope };
+      dashboardItem = { id: 'dashboard', label: t('ডাক্তার প্যানেল', 'Doctor Panel'), icon: Stethoscope };
     } else if (user?.role === 'pharmacy') {
-      dashboardItem = { id: 'dashboard', label: 'স্টেট প্যানেল (State)', icon: Pill };
+      dashboardItem = { id: 'dashboard', label: t('স্টেট প্যানেল (State)', 'State Panel'), icon: Pill };
     } else if (user?.role === 'physio') {
-      dashboardItem = { id: 'dashboard', label: 'ফিজিওথেরাপি প্যানেল', icon: Activity };
+      dashboardItem = { id: 'dashboard', label: t('ফিজিওথেরাপি প্যানেল', 'Physiotherapy Panel'), icon: Activity };
     } else if (user?.role === 'hospital') {
-      dashboardItem = { id: 'dashboard', label: 'হাসপাতাল প্যানেল', icon: Building };
+      dashboardItem = { id: 'dashboard', label: t('হাসপাতাল প্যানেল', 'Hospital Panel'), icon: Building };
     } else if (user?.role === 'ambulance') {
-      dashboardItem = { id: 'dashboard', label: 'অ্যাম্বুলেন্স প্যানেল', icon: Truck };
+      dashboardItem = { id: 'dashboard', label: t('অ্যাম্বুলেন্স প্যানেল', 'Ambulance Panel'), icon: Truck };
     } else if (user?.role === 'lab') {
-      dashboardItem = { id: 'dashboard', label: 'ল্যাব প্যানেল', icon: FlaskConical };
+      dashboardItem = { id: 'dashboard', label: t('ল্যাব প্যানেল', 'Lab Panel'), icon: FlaskConical };
     } else if (user?.role === 'nursing') {
-      dashboardItem = { id: 'dashboard', label: 'নার্সিং প্যানেল', icon: Heart };
+      dashboardItem = { id: 'dashboard', label: t('নার্সিং প্যানেল', 'Nursing Panel'), icon: Heart };
     } else if (user?.role === 'nutritionist') {
-      dashboardItem = { id: 'dashboard', label: 'পুষ্টিবিদ প্যানেল', icon: Apple };
+      dashboardItem = { id: 'dashboard', label: t('পুষ্টিবিদ প্যানেল', 'Nutritionist Panel'), icon: Apple };
     }
 
     return [dashboardItem, ...commonItems];
@@ -179,7 +181,7 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
               className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-red-500 hover:bg-red-50 transition-all"
             >
               <LogOut size={20} />
-              লগআউট
+              {t('logout')}
             </button>
           </div>
         </div>

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../AuthContext';
+import { useLanguage } from '../LanguageContext';
 
 interface BottomNavProps {
   activeTab: string;
@@ -26,6 +27,7 @@ interface BottomNavProps {
 
 export function BottomNav({ activeTab, setActiveTab, onMenuClick }: BottomNavProps) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   
   const getDashboardIcon = () => {
     if (user?.role === 'admin') return Shield;
@@ -37,10 +39,10 @@ export function BottomNav({ activeTab, setActiveTab, onMenuClick }: BottomNavPro
   const DashIcon = getDashboardIcon();
 
   const navItems = [
-    { id: 'dashboard', icon: DashIcon, label: 'Home' },
-    { id: 'doctors', icon: Search, label: 'Search' },
-    { id: 'prescriptions', icon: Calendar, label: 'Schedule' },
-    { id: 'profile', icon: User, label: 'Profile' },
+    { id: 'dashboard', icon: DashIcon, label: t('home') },
+    { id: 'doctors', icon: Search, label: t('search') },
+    { id: 'prescriptions', icon: Calendar, label: t('schedule') },
+    { id: 'profile', icon: User, label: t('profile') },
   ];
 
   return (
