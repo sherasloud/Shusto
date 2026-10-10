@@ -121,6 +121,20 @@ export function Login() {
             Terms of Service & Privacy Policy
           </a>.
         </p>
+
+        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-center">
+          <a 
+            href="/about" 
+            onClick={(e) => {
+              e.preventDefault();
+              window.history.pushState({}, '', '/about');
+              window.dispatchEvent(new PopStateEvent('popstate'));
+            }}
+            className="text-emerald-700 hover:text-emerald-800 text-xs font-bold hover:underline flex items-center gap-1 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200/60 transition-all"
+          >
+            <span>আমাদের গল্প ও সিইও (About Us & Founder)</span>
+          </a>
+        </div>
       </div>
     </div>
   );

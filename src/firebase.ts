@@ -16,23 +16,11 @@ export const auth = getAuth(app);
 // Set persistence early to ensure session survives cross-origin navigation if possible
 setPersistence(auth, browserLocalPersistence).catch(console.error);
 
-export const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId);
-console.log("Using Database ID:", (firebaseConfig as any).firestoreDatabaseId);
-console.log("Firebase Services initialized");
+export const db = (firebaseConfig as any).firestoreDatabaseId
+  ? getFirestore(app, (firebaseConfig as any).firestoreDatabaseId)
+  : getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
-
-// Connection test
-async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
-    }
-  }
-}
-testConnection();
 
 export enum OperationType {
   CREATE = 'create',

@@ -23,7 +23,8 @@ import {
   DollarSign,
   Store,
   Heart,
-  Apple
+  Apple,
+  Sparkles
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -53,6 +54,7 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
       { id: 'ambulance', label: 'অ্যাম্বুলেন্স', icon: Truck },
       { id: 'nursing', label: 'নার্সিং সার্ভিস', icon: Heart },
       { id: 'nutritionist', label: 'পুষ্টিবিদ (Nutritionist)', icon: Apple },
+      { id: 'about', label: 'আমাদের গল্প ও সিইও', icon: Sparkles },
       { id: 'privacy', label: 'গোপনীয়তা ও শর্তাবলী', icon: Shield },
     ];
 

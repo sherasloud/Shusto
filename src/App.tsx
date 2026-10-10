@@ -23,6 +23,7 @@ import { GenericProviderDashboard } from './components/GenericProviderDashboard'
 import { Wallet } from './components/Wallet';
 import { Profile } from './components/Profile';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
+import { AboutUs } from './components/AboutUs';
 import { VideoCall } from './components/VideoCall';
 import { MyOrders } from './components/MyOrders';
 import { Messages } from './components/Messages';
@@ -57,9 +58,24 @@ function AppContent() {
     );
   };
 
+  const isAboutPath = () => {
+    const path = window.location.pathname.toLowerCase();
+    const params = new URLSearchParams(window.location.search);
+    return (
+      path.includes('about') || 
+      path.includes('founder') || 
+      path.includes('ceo') || 
+      params.get('tab') === 'about' || 
+      params.get('about') === 'true'
+    );
+  };
+
   const [activeTab, setActiveTab] = useState(() => {
     if (isPrivacyPath()) {
       return 'privacy';
+    }
+    if (isAboutPath()) {
+      return 'about';
     }
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment')) {
@@ -72,6 +88,8 @@ function AppContent() {
     const handleLocationChange = () => {
       if (isPrivacyPath()) {
         setActiveTab('privacy');
+      } else if (isAboutPath()) {
+        setActiveTab('about');
       }
     };
     window.addEventListener('popstate', handleLocationChange);
@@ -343,6 +361,13 @@ function AppContent() {
         </div>
       );
     }
+    if (activeTab === 'about' || isAboutPath()) {
+      return (
+        <div className="min-h-screen bg-slate-50">
+          <AboutUs onBack={() => { window.location.href = '/'; }} />
+        </div>
+      );
+    }
     return <Login />;
   }
 
@@ -371,7 +396,8 @@ function AppContent() {
     // If not on dashboard, show the selected tab for everyone
     if (activeTab !== 'dashboard') {
       switch (activeTab) {
-        case 'profile': return <Profile />;
+        case 'profile': return <Profile onOpenAbout={() => setActiveTab('about')} />;
+        case 'about': return <AboutUs onBack={() => setActiveTab('dashboard')} />;
         case 'messages': return <Messages />;
         case 'orders': return <MyOrders />;
         case 'new-shop': return <ShopRegistration />;
