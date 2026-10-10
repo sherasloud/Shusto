@@ -24,6 +24,7 @@ import { Wallet } from './components/Wallet';
 import { Profile } from './components/Profile';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { AboutUs } from './components/AboutUs';
+import { Settings } from './components/Settings';
 import { VideoCall } from './components/VideoCall';
 import { MyOrders } from './components/MyOrders';
 import { Messages } from './components/Messages';
@@ -70,12 +71,24 @@ function AppContent() {
     );
   };
 
+  const isSettingsPath = () => {
+    const path = window.location.pathname.toLowerCase();
+    const params = new URLSearchParams(window.location.search);
+    return (
+      path.includes('settings') || 
+      params.get('tab') === 'settings'
+    );
+  };
+
   const [activeTab, setActiveTab] = useState(() => {
     if (isPrivacyPath()) {
       return 'privacy';
     }
     if (isAboutPath()) {
       return 'about';
+    }
+    if (isSettingsPath()) {
+      return 'settings';
     }
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment')) {
@@ -90,6 +103,8 @@ function AppContent() {
         setActiveTab('privacy');
       } else if (isAboutPath()) {
         setActiveTab('about');
+      } else if (isSettingsPath()) {
+        setActiveTab('settings');
       }
     };
     window.addEventListener('popstate', handleLocationChange);
@@ -396,7 +411,8 @@ function AppContent() {
     // If not on dashboard, show the selected tab for everyone
     if (activeTab !== 'dashboard') {
       switch (activeTab) {
-        case 'profile': return <Profile onOpenAbout={() => setActiveTab('about')} />;
+        case 'profile': return <Profile onOpenAbout={() => setActiveTab('about')} onOpenSettings={() => setActiveTab('settings')} />;
+        case 'settings': return <Settings onBack={() => setActiveTab('dashboard')} onNavigate={(tab) => setActiveTab(tab)} />;
         case 'about': return <AboutUs onBack={() => setActiveTab('dashboard')} />;
         case 'messages': return <Messages />;
         case 'orders': return <MyOrders />;

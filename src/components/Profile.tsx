@@ -2,15 +2,16 @@ import React, { useState } from 'react';
 import { useAuth } from '../AuthContext';
 import { db } from '../firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { User, MapPin, Camera, Save, X, Loader2, RefreshCcw, LogOut } from 'lucide-react';
+import { User, MapPin, Camera, Save, X, Loader2, RefreshCcw, LogOut, Settings } from 'lucide-react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { BANGLADESH_LOCATIONS } from '../constants/locations';
 
 interface ProfileProps {
   onOpenAbout?: () => void;
+  onOpenSettings?: () => void;
 }
 
-export function Profile({ onOpenAbout }: ProfileProps = {}) {
+export function Profile({ onOpenAbout, onOpenSettings }: ProfileProps = {}) {
   const { user, logout } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -181,6 +182,15 @@ export function Profile({ onOpenAbout }: ProfileProps = {}) {
               >
                 প্রোফাইল এডিট করুন
               </button>
+              {onOpenSettings && (
+                <button 
+                  onClick={onOpenSettings}
+                  className="p-2 bg-slate-100 text-slate-700 hover:text-slate-900 rounded-xl hover:bg-slate-200 transition-all flex items-center justify-center"
+                  title="সেটিংস"
+                >
+                  <Settings size={20} />
+                </button>
+              )}
               <button 
                 onClick={logout}
                 className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-all flex items-center justify-center"

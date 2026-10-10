@@ -24,7 +24,8 @@ import {
   Store,
   Heart,
   Apple,
-  Sparkles
+  Sparkles,
+  Settings as SettingsIcon
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -55,6 +56,7 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
       { id: 'nursing', label: 'নার্সিং সার্ভিস', icon: Heart },
       { id: 'nutritionist', label: 'পুষ্টিবিদ (Nutritionist)', icon: Apple },
       { id: 'about', label: 'আমাদের গল্প ও সিইও', icon: Sparkles },
+      { id: 'settings', label: 'সেটিংস', icon: SettingsIcon },
       { id: 'privacy', label: 'গোপনীয়তা ও শর্তাবলী', icon: Shield },
     ];
 
