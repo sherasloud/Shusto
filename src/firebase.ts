@@ -4,8 +4,8 @@ import { getFirestore, doc, getDoc, setDoc, collection, query, where, onSnapshot
 import firebaseConfig from '../firebase-applet-config.json';
 
 console.log("Initializing Firebase with project:", firebaseConfig.projectId);
-// Support dynamic authDomain: Use custom domain auth.shusto.com with automatic fallback
-const activeAuthDomain = "shusto.com";
+// Use standard Firebase authDomain to match Google OAuth authorized redirect URI
+const activeAuthDomain = (firebaseConfig as any).authDomain || `${firebaseConfig.projectId}.firebaseapp.com`;
 
 const app = initializeApp({
   ...firebaseConfig,
