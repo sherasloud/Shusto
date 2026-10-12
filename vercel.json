@@ -1,20 +1,15 @@
 {
-  "functions": {
-    "api/**/*.ts": {
-      "maxDuration": 30
-    }
-  },
+  "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
   "rewrites": [
     {
       "source": "/__/auth/(.*)",
-      "destination": "https://shustoorg.firebaseapp.com/__/auth/$1"
+      "destination": "https://ai-studio-applet-webapp-3b366.firebaseapp.com/__/auth/$1"
     },
     {
-      "source": "/direct-api/(.*)",
-      "destination": "/api/$1"
-    },
-    {
-      "source": "/((?!api/|direct-api/|__/auth/).*)",
+      "source": "/((?!api/|__/).*)",
       "destination": "/index.html"
     }
   ]

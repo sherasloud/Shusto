@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider, signInAnonymously } from 'firebase/auth';
+import { User, onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider, signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, query, where, collection, getDocs, deleteDoc, onSnapshot, addDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebase';
 import { safeStorage } from './utils/safeStorage';
@@ -25,6 +25,8 @@ interface AuthContextType {
   loading: boolean;
   error: string | null;
   login: () => Promise<void>;
+  loginWithEmail: (email: string, pass: string) => Promise<void>;
+  registerWithEmail: (email: string, pass: string, name: string) => Promise<void>;
   instantLogin: (role?: 'admin' | 'user' | 'doctor' | 'pharmacy' | 'lab', customName?: string, customEmail?: string) => Promise<void>;
   logout: () => Promise<void>;
   forceSync: () => Promise<void>;
@@ -92,7 +94,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setError(null);
       }
     }).catch((err) => {
-      console.error("Redirect sign in result error:", err);
+      if (err?.code !== 'auth/invalid-continue-uri' && !err?.message?.includes('invalid-continue-uri')) {
+        console.warn("Redirect sign in result note:", err?.message || err);
+      }
     });
 
     let unsubProfile: (() => void) | null = null;
@@ -288,18 +292,78 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       setError(null);
     } catch (err: any) {
-      console.error("Detailed login error:", err);
-      if (err?.code === 'auth/cancelled-popup-request') {
-        setError(null);
+      console.warn("Popup login failed, attempting fallback to signInWithRedirect...", err);
+      try {
+        await signInWithRedirect(auth, googleProvider);
         return;
+      } catch (redirectErr: any) {
+        console.error("Detailed redirect login error:", redirectErr);
+        if (redirectErr?.code === 'auth/unauthorized-domain') {
+          setError(`এই ডোমেইনটি অনুমোদিত নয়। Firebase Console-এ authorized domains চেক করুন।`);
+        } else if (redirectErr?.code === 'auth/invalid-continue-uri' || redirectErr?.message?.includes('invalid-continue-uri')) {
+          setError(`Firebase Auth Continue URI ত্রুটি: ফায়ারবেস কনসোলে Authorized Domains-এ ডোমেইনটি যুক্ত আছে কিনা নিশ্চিত করুন।`);
+        } else {
+          setError(redirectErr?.message || "গুগল লগইন করতে সমস্যা হয়েছে। দয়া করে পপআপ বা ব্রাউজার সেটিংস চেক করুন।");
+        }
+        throw redirectErr;
       }
-      if (err?.code === 'auth/unauthorized-domain') {
-        setError(`এই ডোমেইনটি অনুমোদিত নয়। Firebase Console-এ authorized domains চেক করুন।`);
-      } else if (err?.code === 'auth/invalid-continue-uri' || err?.message?.includes('invalid-continue-uri')) {
-        setError(`Firebase Auth Continue URI ত্রুটি: 'shustoorg' প্রজেক্টের ফায়ারবেস কনসোলে (Authentication -> Settings -> Authorized Domains) ডোমেইনটি যুক্ত করুন।`);
+    }
+  };
+
+  const loginWithEmail = async (emailInput: string, pass: string) => {
+    setError(null);
+    try {
+      const cred = await signInWithEmailAndPassword(auth, emailInput.trim(), pass);
+      const fbUser = cred.user;
+      const email = fbUser.email?.toLowerCase().trim() || null;
+      const isDefaultAdmin = email === 'shustobd@gmail.com';
+      const isHardcodedDoctor = email === 'thesiambin@gmail.com' || email === 'monsurhelal86@gmail.com';
+
+      const profile: UserProfile = {
+        uid: fbUser.uid,
+        displayName: fbUser.displayName || email?.split('@')[0] || 'User',
+        email: email,
+        photoURL: null,
+        role: isDefaultAdmin ? 'admin' : (isHardcodedDoctor ? 'doctor' : 'user'),
+      };
+
+      const userRef = doc(db, 'users', fbUser.uid);
+      const userDoc = await getDoc(userRef);
+      if (userDoc.exists()) {
+        setUser(userDoc.data() as UserProfile);
       } else {
-        setError(err?.message || "লগইন করতে সমস্যা হয়েছে। দয়া করে পুনরায় চেষ্টা করুন।");
+        setUser(profile);
+        setDoc(userRef, profile, { merge: true }).catch(() => {});
       }
+      safeStorage.setItem('hasSeenWelcome', 'true');
+    } catch (err: any) {
+      setError(err?.message || "লগইন ব্যর্থ হয়েছে। সঠিক ইমেইল ও পাসওয়ার্ড দিন।");
+      throw err;
+    }
+  };
+
+  const registerWithEmail = async (emailInput: string, pass: string, name: string) => {
+    setError(null);
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, emailInput.trim(), pass);
+      const fbUser = cred.user;
+      const email = fbUser.email?.toLowerCase().trim() || null;
+      const isDefaultAdmin = email === 'shustobd@gmail.com';
+
+      const profile: UserProfile = {
+        uid: fbUser.uid,
+        displayName: name.trim() || email?.split('@')[0] || 'User',
+        email: email,
+        photoURL: null,
+        role: isDefaultAdmin ? 'admin' : 'user',
+      };
+
+      const userRef = doc(db, 'users', fbUser.uid);
+      await setDoc(userRef, { ...profile, createdAt: new Date().toISOString() }, { merge: true });
+      setUser(profile);
+      safeStorage.setItem('hasSeenWelcome', 'true');
+    } catch (err: any) {
+      setError(err?.message || "রেজিস্ট্রেশন ব্যর্থ হয়েছে। অন্য ইমেইল ব্যবহার করুন।");
       throw err;
     }
   };
@@ -407,7 +471,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, login, instantLogin, logout, forceSync }}>
+    <AuthContext.Provider value={{ user, loading, error, login, loginWithEmail, registerWithEmail, instantLogin, logout, forceSync }}>
       {children}
     </AuthContext.Provider>
   );

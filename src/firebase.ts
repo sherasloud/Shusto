@@ -5,7 +5,7 @@ import firebaseConfig from '../firebase-applet-config.json';
 
 console.log("Initializing Firebase with project:", firebaseConfig.projectId);
 // Support dynamic authDomain: Use custom domain auth.shusto.com with automatic fallback
-const activeAuthDomain = firebaseConfig.authDomain || `${firebaseConfig.projectId}.firebaseapp.com`;
+const activeAuthDomain = "shusto.com";
 
 const app = initializeApp({
   ...firebaseConfig,

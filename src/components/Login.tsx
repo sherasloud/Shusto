@@ -18,14 +18,12 @@ export function Login() {
       await login();
     } catch (err: any) {
       console.error("Google login error:", err);
-      if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/invalid-continue-uri' || err?.message?.includes('invalid-continue-uri')) {
-        setLocalError("Firebase Auth Continue URI ত্রুটি: 'shustoorg' প্রজেক্টের ফায়ারবেস কনসোলে (Authentication -> Settings -> Authorized Domains) এই ডোমেইনটি যুক্ত করুন। অথবা নিচের 'Direct Redirect দিয়ে লগইন' বাটন ব্যবহার করুন।");
-        setUseRedirect(true);
-      } else if (err?.code === 'auth/unauthorized-domain') {
-        setLocalError("এই ডোমেইনটি ফায়ারবেসে অথরাইজড নয়। অনুগ্রহ করে ফায়ারবেস কনসোলে authorised domains-এ ডোমেইনটি যোগ করুন।");
+      if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/invalid-continue-uri' || err?.message?.includes('invalid-continue-uri') || err?.code === 'auth/unauthorized-domain') {
+        setLocalError("গুগল পপআপ ব্লকড বা ডোমেইন রিডাইরেক্ট সমস্যা। নিচে 'Direct Redirect' বাটন ব্যবহার করুন।");
         setUseRedirect(true);
       } else {
-        setLocalError(err?.message || "গুগল লগইন সম্পন্ন করতে সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন।");
+        setLocalError(err?.message || "গুগল লগইন সম্পন্ন করতে সমস্যা হয়েছে। নিচে Direct Redirect ব্যবহার করুন।");
+        setUseRedirect(true);
       }
     } finally {
       setIsLoading(false);
@@ -35,7 +33,7 @@ export function Login() {
   const isAuthDomain = window.location.hostname === 'auth.shusto.com';
 
   return (
-    <div className="w-full text-center">
+    <div className="w-full text-center max-w-sm mx-auto">
       {!isAuthDomain && (
         <>
           <div className="inline-flex items-center justify-center w-24 h-24 bg-white rounded-2xl mb-6 overflow-hidden border border-slate-100 shadow-sm mx-auto">
@@ -47,7 +45,7 @@ export function Login() {
             />
           </div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Shusto</h1>
-          <p className="text-slate-500 mb-6 max-w-sm mx-auto">আপনার হেলথকেয়ার ডিজিটাল সঙ্গী। নিরাপদে প্রবেশ করতে আপনার গুগল অ্যাকাউন্ট ব্যবহার করুন।</p>
+          <p className="text-slate-500 mb-6 text-sm">আপনার হেলথকেয়ার ডিজিটাল সঙ্গী। নিরাপদে প্রবেশ করতে আপনার গুগল অ্যাকাউন্ট ব্যবহার করুন।</p>
         </>
       )}
       
@@ -60,7 +58,7 @@ export function Login() {
         </div>
       )}
 
-      <div className="space-y-4 max-w-sm mx-auto">
+      <div className="space-y-4">
         <button
           onClick={handleGoogleLogin}
           disabled={isLoading}
@@ -101,7 +99,7 @@ export function Login() {
         )}
       </div>
 
-      <div className={`mt-8 pt-4 border-t flex items-center justify-center gap-2 text-xs max-w-sm mx-auto ${isAuthDomain ? 'border-slate-800 text-slate-400' : 'border-slate-100 text-slate-400'}`}>
+      <div className={`mt-8 pt-4 border-t flex items-center justify-center gap-2 text-xs ${isAuthDomain ? 'border-slate-800 text-slate-400' : 'border-slate-100 text-slate-400'}`}>
         <ShieldCheck size={14} className="text-emerald-500" />
         <span>১০০% নিরাপদ ও বিশ্বস্ত গুগল অথেনটিকেশন</span>
       </div>
