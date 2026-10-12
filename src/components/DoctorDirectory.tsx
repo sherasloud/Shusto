@@ -40,16 +40,7 @@ interface Doctor {
 
 export function DoctorDirectory() {
   const { user } = useAuth();
-  const [doctors, setDoctors] = useState<Doctor[]>(() => {
-    try {
-      const cachedRaw = localStorage.getItem('admin_cached_doctors') || localStorage.getItem('cached_doctors');
-      if (cachedRaw) {
-        const parsed = JSON.parse(cachedRaw);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {}
-    return [];
-  });
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState('All Specialty');
@@ -167,17 +158,6 @@ export function DoctorDirectory() {
       setLoading(false);
     }, (error: any) => {
       console.error("Doctors fetch error:", error);
-      const cached = localStorage.getItem('cached_doctors') || localStorage.getItem('admin_cached_doctors');
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setDoctors(parsed);
-            setLoading(false);
-            return;
-          }
-        } catch (e) {}
-      }
       setDoctors([]);
       setLoading(false);
     });

@@ -139,7 +139,7 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
   const [ambulanceDistance, setAmbulanceDistance] = useState(0);
   const [ambulanceToll, setAmbulanceToll] = useState(0);
   const [ambulanceTollDetails, setAmbulanceTollDetails] = useState('');
-  const [ambulanceBaseFare, setAmbulanceBaseFare] = useState(500);
+  const [ambulanceBaseFare, setAmbulanceBaseFare] = useState(600);
   const [ambulanceFarePart, setAmbulanceFarePart] = useState(0);
 
   const directionsLib = useMapsLibrary('routes');
@@ -222,10 +222,10 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
             const finalKm = Number(distanceKm.toFixed(1));
             setAmbulanceDistance(finalKm);
             
-            const perKmFare = Math.round(finalKm * 49);
+            const perKmFare = Math.round(finalKm * 39);
             setAmbulanceFarePart(perKmFare);
             
-            const baseFare = 500;
+            const baseFare = 600;
             setAmbulanceBaseFare(baseFare);
             const total = baseFare + perKmFare + ambulanceToll;
             setAmbulancePrice(total > 0 ? total : 0);
@@ -330,8 +330,8 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
   const getAmbulancePriceDetails = () => {
     // Priority: Use Real-Time Google Maps Distance (Mandatory for accuracy)
     if (ambulanceDistance > 0) {
-      const perKmFare = Math.round(ambulanceDistance * 49);
-      const baseFare = 500; // Shusto standard base
+      const perKmFare = Math.round(ambulanceDistance * 39);
+      const baseFare = 600; // Shusto standard base
       return {
         distance: ambulanceDistance,
         fare: perKmFare,
@@ -359,7 +359,7 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
           fare: match.fare,
           toll: match.toll,
           tollDetails: match.tollDetails,
-          baseFare: 500,
+          baseFare: 600,
           total: match.total,
           isEstimate: true
         };
@@ -368,21 +368,21 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
       // Logical default fallback if no DB match
       const isSameDistrict = normPickup === normDest;
       const distance = isSameDistrict ? 25 : 150;
-      const fare = Math.round(distance * 49);
-      const total = 500 + fare;
+      const fare = Math.round(distance * 39);
+      const total = 600 + fare;
 
       return { 
         distance, 
         fare, 
         toll: 0, 
         tollDetails: '', 
-        baseFare: 500, 
+        baseFare: 600, 
         total,
         isEstimate: true
       };
     }
 
-    return { distance: 0, fare: 0, toll: 0, tollDetails: '', baseFare: 500, total: 0, isEstimate: false };
+    return { distance: 0, fare: 0, toll: 0, tollDetails: '', baseFare: 600, total: 0, isEstimate: false };
   };
 
   const getAmbulancePrice = () => {
@@ -472,30 +472,11 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
         });
         
         let fetchedProviders = Array.from(map.values());
-        if (fetchedProviders.length === 0) {
-          const cached = localStorage.getItem(`cached_providers_${type}`);
-          if (cached) {
-            try {
-              const parsed = JSON.parse(cached);
-              if (Array.isArray(parsed) && parsed.length > 0) fetchedProviders = parsed;
-            } catch (e) {}
-          }
-        } else {
-          try { localStorage.setItem(`cached_providers_${type}`, JSON.stringify(fetchedProviders)); } catch (e) {}
-        }
         setProviders(fetchedProviders);
         setLoading(false);
       } catch (error: any) {
         console.error("Provider fetch error:", error);
-        let fallback: ServiceProvider[] = [];
-        const cached = localStorage.getItem(`cached_providers_${type}`);
-        if (cached) {
-          try {
-            const parsed = JSON.parse(cached);
-            if (Array.isArray(parsed) && parsed.length > 0) fallback = parsed;
-          } catch (e) {}
-        }
-        setProviders(fallback);
+        setProviders([]);
         setLoading(false);
       }
     };
@@ -549,30 +530,14 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
       getDocs(qGlobal).then((snapshot) => {
         let services = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         
-        // If Firestore is empty, use presets as fallback (only for Lab and Physio)
-        if (services.length === 0) {
-          if (type === 'lab' || type === 'physio') {
-            const presets = type === 'lab' ? LAB_SERVICES_PRESETS : PHYSIO_SERVICES_PRESETS;
-            services = presets.map((p, idx) => ({ 
-              id: `preset_${idx}`, 
-              ...p,
-              isPreset: true
-            }));
-          }
-        }
+        // No preset fallback - strictly Firestore
         
         setGlobalServices(services);
         localStorage.setItem(`cached_global_${type}`, JSON.stringify(services));
         setLoading(false);
       }).catch((error) => {
         console.error("Global services fetch error (falling back to presets):", error);
-        // Fallback on error only for Lab and Physio
-        if (type === 'lab' || type === 'physio') {
-          const presets = type === 'lab' ? LAB_SERVICES_PRESETS : PHYSIO_SERVICES_PRESETS;
-          setGlobalServices(presets.map((p, idx) => ({ id: `preset_err_${idx}`, ...p, isPreset: true })));
-        } else {
-          setGlobalServices([]);
-        }
+        setGlobalServices([]);
         setLoading(false);
       });
     }
@@ -1161,7 +1126,7 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
                     </h4>
                     
                     <div className="p-4 bg-slate-950/60 rounded-2xl border border-slate-700/60 mb-6 font-mono text-center text-sm md:text-base text-sky-300">
-                      <span className="text-slate-400">সমীকরণ:</span> <span className="font-bold text-white">মোট ভাড়া = বেস ভাড়া ({toBengaliNumber(ambulanceBaseFare)}৳) + (দূরত্ব × ৪৯৳/কিমি) + টোল</span>
+                      <span className="text-slate-400">সমীকরণ:</span> <span className="font-bold text-white">মোট ভাড়া = বেস ভাড়া ({toBengaliNumber(ambulanceBaseFare)}৳) + (দূরত্ব × ৩৯৳/কিমি) + টোল</span>
                     </div>
 
                     <div className="space-y-3 mb-6">

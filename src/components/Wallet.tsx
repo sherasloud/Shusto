@@ -49,7 +49,7 @@ export function Wallet() {
       const cached = localStorage.getItem(`cached_wallet_balance_${user.uid}`);
       if (cached !== null && cached !== undefined && !isNaN(Number(cached))) return Number(cached);
     } catch (e) {}
-    return null;
+    return 0;
   });
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     if (!user) return [];
@@ -201,7 +201,7 @@ export function Wallet() {
       try { localStorage.setItem(`cached_wallet_balance_${user.uid}`, String(newBal)); } catch (e) {}
       setWalletLoaded(true);
     }, (error) => {
-      console.error("Wallet DB Error:", error);
+      console.error("Wallet DB Error / Quota:", error);
       setWalletLoaded(true); // Don't block UI indefinitely on error
     });
 

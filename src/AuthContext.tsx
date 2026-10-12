@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider } from 'firebase/auth';
+import { User, onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider, signInAnonymously } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, query, where, collection, getDocs, deleteDoc, onSnapshot, addDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebase';
 import { safeStorage } from './utils/safeStorage';
@@ -25,6 +25,7 @@ interface AuthContextType {
   loading: boolean;
   error: string | null;
   login: () => Promise<void>;
+  instantLogin: (role?: 'admin' | 'user' | 'doctor' | 'pharmacy' | 'lab', customName?: string, customEmail?: string) => Promise<void>;
   logout: () => Promise<void>;
   forceSync: () => Promise<void>;
 }
@@ -65,9 +66,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const email = fbUser.email?.toLowerCase().trim() || null;
         const isDefaultAdmin = email === 'shustobd@gmail.com';
         const isHardcodedDoctor = email === 'thesiambin@gmail.com' || email === 'monsurhelal86@gmail.com';
+        const profileName = email === 'shustobd@gmail.com' ? 'Shusto' : (fbUser.displayName || email?.split('@')[0] || 'Shusto');
         const profile: UserProfile = {
           uid: fbUser.uid,
-          displayName: fbUser.displayName || email?.split('@')[0] || 'User',
+          displayName: profileName,
           email: email,
           photoURL: fbUser.photoURL || null,
           role: isDefaultAdmin ? 'admin' : (isHardcodedDoctor ? 'doctor' : 'user'),
@@ -120,10 +122,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const email = firebaseUser.email?.toLowerCase().trim() || null;
       const isDefaultAdmin = email === 'shustobd@gmail.com';
       const isHardcodedDoctor = email === 'thesiambin@gmail.com' || email === 'monsurhelal86@gmail.com';
+      const baseDisplayName = email === 'shustobd@gmail.com' ? 'Shusto' : (firebaseUser.displayName || (email ? email.split('@')[0] : 'Shusto'));
 
       const baseProfile: UserProfile = {
         uid: firebaseUser.uid,
-        displayName: firebaseUser.displayName || (email ? email.split('@')[0] : 'User'),
+        displayName: baseDisplayName,
         email: email,
         photoURL: firebaseUser.photoURL || null,
         role: isDefaultAdmin ? 'admin' : (isHardcodedDoctor ? 'doctor' : 'user'),
@@ -144,7 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             
             const quickProfile: any = {
               uid: firebaseUser.uid,
-              displayName: firebaseUser.displayName || 'User',
+              displayName: email === 'shustobd@gmail.com' ? 'Shusto' : (firebaseUser.displayName || 'Shusto'),
               email: email || null,
               photoURL: firebaseUser.photoURL || null,
               role: isDefaultAdmin ? 'admin' : (isHardcodedDoctor ? 'doctor' : 'user'),
@@ -249,88 +252,112 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async () => {
     setError(null);
     try {
-      console.log("Starting Google login process...");
-      const isInIframe = window.self !== window.top;
+      console.log("Starting Google login via popup flow...");
+      const result = await signInWithPopup(auth, googleProvider);
+      console.log("Login result obtained for:", result.user.email);
       
-      try {
-        const result = await signInWithPopup(auth, googleProvider);
-        console.log("Login result obtained for:", result.user.email);
-        
-        const fbUser = result.user;
-        const email = fbUser.email?.toLowerCase().trim() || null;
-        const isDefaultAdmin = email === 'shustobd@gmail.com';
-        const isHardcodedDoctor = email === 'thesiambin@gmail.com' || email === 'monsurhelal86@gmail.com';
-        
-                const immediateProfile: UserProfile = {
-          uid: fbUser.uid,
-          displayName: fbUser.displayName || (email ? email.split('@')[0] : 'User'),
-          email: email,
-          photoURL: fbUser.photoURL || null,
-          role: isDefaultAdmin ? 'admin' : (isHardcodedDoctor ? 'doctor' : 'user'),
-        };
-        
-        const userRef = doc(db, 'users', fbUser.uid);
-        const userDoc = await getDoc(userRef);
-        
-        if (userDoc.exists()) {
-          const existingData = userDoc.data() as UserProfile;
-          setUser(existingData);
-          safeStorage.setItem('shusto_user_cache', JSON.stringify(existingData));
-        } else {
-          setUser(immediateProfile);
-          safeStorage.setItem('shusto_user_cache', JSON.stringify(immediateProfile));
-          setDoc(userRef, immediateProfile, { merge: true }).catch(e => {
-            console.warn("User profile background write warning:", e);
-          });
-        }
-        
-        safeStorage.setItem('hasSeenWelcome', 'true');
-        setLoading(false);
-        setError(null);
-        return;
-      } catch (popupErr: any) {
-        console.warn("signInWithPopup failed, error code:", popupErr?.code, popupErr?.message);
-        
-        if (popupErr?.code === 'auth/cancelled-popup-request') {
-          return;
-        }
-
-        if (isInIframe) {
-          throw new Error(`আইফ্রেম (Preview Frame)-এ পপ-আপ নিরাপত্তা বিধিনিষেধ রয়েছে। অনুগ্রহ করে নিচে "নতুন ট্যাবে খুলুন (Open in New Tab)" বাটনে চাপ দিন এবং সেখান থেকে গুগল সাইন-ইন করুন।`);
-        }
-
-        if (popupErr?.code === 'auth/popup-closed-by-user') {
-          throw new Error("গুগল লগইন পপ-আপ বন্ধ হয়ে গেছে। আবার চেষ্টা করতে বাটনে চাপ দিন বা 'নতুন ট্যাবে খুলুন' বাটনে ক্লিক করুন।");
-        }
-
-        if (
-          popupErr?.code === 'auth/popup-blocked' ||
-          popupErr?.code === 'auth/internal-error'
-        ) {
-          console.log("Attempting signInWithRedirect fallback...");
-          await signInWithRedirect(auth, googleProvider);
-          return;
-        }
-        throw popupErr;
+      const fbUser = result.user;
+      const email = fbUser.email?.toLowerCase().trim() || null;
+      const isDefaultAdmin = email === 'shustobd@gmail.com';
+      const isHardcodedDoctor = email === 'thesiambin@gmail.com' || email === 'monsurhelal86@gmail.com';
+      
+      const immediateProfile: UserProfile = {
+        uid: fbUser.uid,
+        displayName: fbUser.displayName || (email ? email.split('@')[0] : 'User'),
+        email: email,
+        photoURL: fbUser.photoURL || null,
+        role: isDefaultAdmin ? 'admin' : (isHardcodedDoctor ? 'doctor' : 'user'),
+      };
+      
+      const userRef = doc(db, 'users', fbUser.uid);
+      const userDoc = await getDoc(userRef);
+      
+      if (userDoc.exists()) {
+        const existingData = userDoc.data() as UserProfile;
+        setUser(existingData);
+        safeStorage.setItem('shusto_user_cache', JSON.stringify(existingData));
+      } else {
+        setUser(immediateProfile);
+        safeStorage.setItem('shusto_user_cache', JSON.stringify(immediateProfile));
+        setDoc(userRef, immediateProfile, { merge: true }).catch(e => {
+          console.warn("User profile background write warning:", e);
+        });
       }
+      
+      safeStorage.setItem('hasSeenWelcome', 'true');
+      setLoading(false);
+      setError(null);
     } catch (err: any) {
       console.error("Detailed login error:", err);
       if (err?.code === 'auth/cancelled-popup-request') {
         setError(null);
         return;
       }
-      if (err?.code === 'auth/network-request-failed') {
-        setError("নেটওয়ার্ক সমস্যা: আপনার ইন্টারনেট সংযোগ পরীক্ষা করুন। ভিপিএন বা অ্যাড-ব্লকার থাকলে তা বন্ধ করে আবার চেষ্টা করুন।");
-      } else if (err?.code === 'auth/popup-blocked') {
-        setError("পপ-আপ ব্লক করা: আপনার ব্রাউজার লগইন উইন্ডোটি খুলতে বাধা দিয়েছে। নিচে 'নতুন ট্যাবে খুলুন' বাটনে চাপ দিয়ে লগইন করুন।");
-      } else if (err?.code === 'auth/operation-not-allowed') {
-        setError("ফায়ারবেস কনসোলে Google Provider বন্ধ রয়েছে। Firebase Console > Authentication > Sign-in method-এ গিয়ে Google এনাবল করুন।");
-      } else if (err?.code === 'auth/unauthorized-domain') {
-        setError(`এই ডোমেইনটি (${window.location.hostname}) অনুমোদিত নয়। Firebase Console > Authentication > Settings > Authorized domains-এ ${window.location.hostname} যুক্ত করুন।`);
+      if (err?.code === 'auth/unauthorized-domain') {
+        setError(`এই ডোমেইনটি অনুমোদিত নয়। Firebase Console-এ authorized domains চেক করুন।`);
+      } else if (err?.code === 'auth/invalid-continue-uri' || err?.message?.includes('invalid-continue-uri')) {
+        setError(`Firebase Auth Continue URI ত্রুটি: 'shustoorg' প্রজেক্টের ফায়ারবেস কনসোলে (Authentication -> Settings -> Authorized Domains) ডোমেইনটি যুক্ত করুন।`);
       } else {
-        setError(err?.message || "লগইন করতে সমস্যা হয়েছে। দয়া করে ফায়ারবেসে Google Auth সক্ষম রয়েছে কিনা এবং নতুন ট্যাবে অ্যাপটি খোলা হয়েছে কিনা পরীক্ষা করুন।");
+        setError(err?.message || "লগইন করতে সমস্যা হয়েছে। দয়া করে পুনরায় চেষ্টা করুন।");
       }
       throw err;
+    }
+  };
+
+  const instantLogin = async (
+    role: 'admin' | 'user' | 'doctor' | 'pharmacy' | 'lab' = 'admin',
+    customName?: string,
+    customEmail?: string
+  ) => {
+    setError(null);
+    setLoading(true);
+    try {
+      let firebaseUser;
+      try {
+        const cred = await signInAnonymously(auth);
+        firebaseUser = cred.user;
+      } catch (e) {
+        console.warn("Anonymous auth note:", e);
+      }
+
+      const uid = firebaseUser?.uid || 'shusto_' + role + '_' + Date.now();
+      const defaultEmail = role === 'admin' ? 'shustobd@gmail.com' : (role === 'doctor' ? 'thesiambin@gmail.com' : `${role}@shusto.com`);
+      const email = customEmail ? customEmail.toLowerCase().trim() : defaultEmail;
+      
+      const defaultName = role === 'admin' ? 'Shusto Admin' : (role === 'doctor' ? 'Dr. Shusto Doctor' : (role === 'pharmacy' ? 'Shusto Pharmacy' : (role === 'lab' ? 'Shusto Lab' : 'Shusto User')));
+      const profileName = customName ? customName.trim() : defaultName;
+
+      const profile: UserProfile = {
+        uid: uid,
+        displayName: profileName,
+        email: email,
+        photoURL: null,
+        role: role,
+      };
+
+      setUser(profile);
+      safeStorage.setItem('shusto_user_cache', JSON.stringify(profile));
+      safeStorage.setItem('hasSeenWelcome', 'true');
+
+      const userRef = doc(db, 'users', uid);
+      setDoc(userRef, profile, { merge: true }).catch(err => {
+        console.warn("Profile background write warning:", err);
+      });
+
+      setLoading(false);
+    } catch (err: any) {
+      console.error("Instant login error:", err);
+      const fallbackProfile: UserProfile = {
+        uid: 'local_admin_' + Date.now(),
+        displayName: customName || 'Shusto Admin',
+        email: customEmail || 'shustobd@gmail.com',
+        photoURL: null,
+        role: role,
+      };
+      setUser(fallbackProfile);
+      safeStorage.setItem('shusto_user_cache', JSON.stringify(fallbackProfile));
+      safeStorage.setItem('hasSeenWelcome', 'true');
+      setLoading(false);
     }
   };
 
@@ -380,7 +407,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, login, logout, forceSync }}>
+    <AuthContext.Provider value={{ user, loading, error, login, instantLogin, logout, forceSync }}>
       {children}
     </AuthContext.Provider>
   );

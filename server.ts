@@ -1757,5 +1757,22 @@ if (!(global as any).__IS_SERVERLESS && !process.env.VERCEL) {
   startViteOrStaticServer().catch(console.error);
 }
 
+
+const distPath = path.join(process.cwd(), "dist");
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+}
+
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api/") || req.path.startsWith("/direct-api/")) {
+    return next();
+  }
+  const indexPath = path.join(process.cwd(), "dist", "index.html");
+  if (fs.existsSync(indexPath)) {
+    return res.sendFile(indexPath);
+  }
+  return res.send('<!DOCTYPE html><html><head><title>Shusto</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>');
+});
+
 export { app };
 export default app;

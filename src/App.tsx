@@ -32,9 +32,11 @@ import { Messages } from './components/Messages';
 import { BottomNav } from './components/BottomNav';
 import { Welcome } from './components/Welcome';
 import { ShopRegistration } from './components/ShopRegistration';
-import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, getDocs, limit, setDoc } from 'firebase/firestore';
+import { MEDICINE_PRESETS } from './constants/medicinesData';
+import { LAB_SERVICES_PRESETS, PHYSIO_SERVICES_PRESETS } from './constants';
 import { db } from './firebase';
-import { AlertCircle, Phone, PhoneOff, Video, Shield } from 'lucide-react';
+import { AlertCircle, Phone, PhoneOff, Video, Shield, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   startIncomingCallAlert, 
@@ -47,6 +49,38 @@ import { safeStorage } from './utils/safeStorage';
 
 function AppContent() {
   const { user, loading, error } = useAuth();
+
+  // Auto-seed Firestore collections if empty once on startup so Firebase has real documents
+  useEffect(() => {
+    const autoSeedFirestore = async () => {
+      try {
+        const medsSnap = await getDocs(query(collection(db, 'medicines'), limit(1)));
+        if (medsSnap.empty) {
+          for (let i = 0; i < MEDICINE_PRESETS.length; i++) {
+            const med = MEDICINE_PRESETS[i];
+            await setDoc(doc(db, 'medicines', `med_${i}`), med);
+          }
+        }
+        const labsSnap = await getDocs(query(collection(db, 'labTests'), limit(1)));
+        if (labsSnap.empty) {
+          for (let i = 0; i < LAB_SERVICES_PRESETS.length; i++) {
+            const lab = LAB_SERVICES_PRESETS[i];
+            await setDoc(doc(db, 'labTests', `lab_${i}`), lab);
+          }
+        }
+        const physioSnap = await getDocs(query(collection(db, 'physioServices'), limit(1)));
+        if (physioSnap.empty) {
+          for (let i = 0; i < PHYSIO_SERVICES_PRESETS.length; i++) {
+            const p = PHYSIO_SERVICES_PRESETS[i];
+            await setDoc(doc(db, 'physioServices', `physio_${i}`), p);
+          }
+        }
+      } catch (e) {
+        console.warn("Auto-seed Firestore check:", e);
+      }
+    };
+    autoSeedFirestore();
+  }, []);
 
   const isPrivacyPath = () => {
     const path = window.location.pathname.toLowerCase();
@@ -340,6 +374,55 @@ function AppContent() {
     }
   };
 
+  if (window.location.pathname.startsWith('/__/')) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+          <p className="text-xs text-slate-400">Authenticating...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const isAuthDomain = window.location.hostname === 'auth.shusto.com';
+  const isAuthHandlerPath = window.location.pathname.includes('/__/auth/');
+
+  if (isAuthDomain && !isAuthHandlerPath) {
+    if (!user) {
+      return (
+        <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
+          <div className="max-w-md w-full bg-slate-900/90 backdrop-blur-xl border border-sky-500/30 rounded-[32px] p-8 text-center shadow-[0_0_50px_rgba(14,165,233,0.15)] text-white">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-tr from-sky-600 to-cyan-400 rounded-2xl mb-6 shadow-lg shadow-sky-500/20">
+              <ShieldCheck size={40} className="text-white" />
+            </div>
+            <h1 className="text-2xl font-black mb-2 tracking-tight">Shusto Auth Portal</h1>
+            <p className="text-slate-400 text-sm mb-6">নিরাপদে গুগল একাউন্টের মাধ্যমে লগইন করতে নিচে ক্লিক করুন।</p>
+            <Login />
+          </div>
+        </div>
+      );
+    } else {
+      return (
+        <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-white text-center">
+          <div className="max-w-md w-full bg-slate-900/90 border border-emerald-500/30 rounded-[32px] p-8 shadow-xl">
+            <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
+              <ShieldCheck size={32} />
+            </div>
+            <h2 className="text-2xl font-bold mb-2">স্বাগতম, {user.displayName || user.email}!</h2>
+            <p className="text-slate-400 text-sm mb-6">আপনি সফলভাবে Shusto Auth পোর্টালে লগইন করেছেন।</p>
+            <a
+              href="https://shusto.com"
+              className="w-full py-4 px-6 bg-gradient-to-r from-sky-500 to-cyan-500 text-white rounded-2xl font-bold block shadow-lg shadow-sky-500/20 hover:scale-105 transition-all text-center"
+            >
+              মূল সাইটে প্রবেশ করুন (Shusto.com)
+            </a>
+          </div>
+        </div>
+      );
+    }
+  }
+
   if (loading && user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -384,7 +467,13 @@ function AppContent() {
         </div>
       );
     }
-    return <Login />;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 text-center border border-slate-100">
+          <Login />
+        </div>
+      </div>
+    );
   }
 
   // Active Video Call Room for Patient

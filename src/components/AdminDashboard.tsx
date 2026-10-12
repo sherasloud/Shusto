@@ -5,6 +5,7 @@ import { getApiUrl } from '../utils/api';
 import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit, Store, Heart, TrendingUp, Pin, AlertTriangle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { AdMobBanner } from './AdMobBanner';
 import { TransactionsPanel } from './TransactionsPanel';
 import { MerchantPanel } from './MerchantPanel';
 import { ProfitsPanel } from './ProfitsPanel';
@@ -1504,6 +1505,9 @@ export function AdminDashboard() {
 
   return (
     <div className="space-y-8">
+      {/* Google AdMob Sponsored Banner */}
+      <AdMobBanner />
+
       {/* Quota Notice Banner */}
       {fetchError && (
         <div className="bg-sky-50 border border-sky-100 p-5 rounded-3xl flex items-center justify-between gap-4">
