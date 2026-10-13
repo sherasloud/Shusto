@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider, signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, query, where, collection, getDocs, deleteDoc, onSnapshot, addDoc } from 'firebase/firestore';
-import { auth, db, googleProvider } from './firebase';
+import { auth, db, googleProvider, twitterProvider, appleProvider } from './firebase';
 import { safeStorage } from './utils/safeStorage';
 
 interface UserProfile {
@@ -25,6 +25,8 @@ interface AuthContextType {
   loading: boolean;
   error: string | null;
   login: () => Promise<void>;
+  loginWithTwitter: () => Promise<void>;
+  loginWithApple: () => Promise<void>;
   loginWithEmail: (email: string, pass: string) => Promise<void>;
   registerWithEmail: (email: string, pass: string, name: string) => Promise<void>;
   instantLogin: (role?: 'admin' | 'user' | 'doctor' | 'pharmacy' | 'lab', customName?: string, customEmail?: string) => Promise<void>;
@@ -310,6 +312,116 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const loginWithTwitter = async () => {
+    setError(null);
+    try {
+      console.log("Starting Twitter / X login via popup flow...");
+      const result = await signInWithPopup(auth, twitterProvider);
+      console.log("Twitter login result obtained for:", result.user.email || result.user.displayName);
+      
+      const fbUser = result.user;
+      const email = fbUser.email?.toLowerCase().trim() || null;
+      const isDefaultAdmin = email === 'shustobd@gmail.com';
+      const isHardcodedDoctor = email === 'thesiambin@gmail.com' || email === 'monsurhelal86@gmail.com';
+      
+      const immediateProfile: UserProfile = {
+        uid: fbUser.uid,
+        displayName: fbUser.displayName || (email ? email.split('@')[0] : 'User'),
+        email: email,
+        photoURL: fbUser.photoURL || null,
+        role: isDefaultAdmin ? 'admin' : (isHardcodedDoctor ? 'doctor' : 'user'),
+      };
+      
+      const userRef = doc(db, 'users', fbUser.uid);
+      const userDoc = await getDoc(userRef);
+      
+      if (userDoc.exists()) {
+        const existingData = userDoc.data() as UserProfile;
+        setUser(existingData);
+        safeStorage.setItem('shusto_user_cache', JSON.stringify(existingData));
+      } else {
+        setUser(immediateProfile);
+        safeStorage.setItem('shusto_user_cache', JSON.stringify(immediateProfile));
+        setDoc(userRef, immediateProfile, { merge: true }).catch(e => {
+          console.warn("User profile background write warning:", e);
+        });
+      }
+      
+      safeStorage.setItem('hasSeenWelcome', 'true');
+      setLoading(false);
+      setError(null);
+    } catch (err: any) {
+      console.warn("Twitter popup login failed, fallback to redirect...", err);
+      try {
+        await signInWithRedirect(auth, twitterProvider);
+        return;
+      } catch (redirectErr: any) {
+        console.error("Twitter redirect login error:", redirectErr);
+        if (redirectErr?.code === 'auth/unauthorized-domain') {
+          setError(`এই ডোমেইনটি অনুমোদিত নয়। Firebase Console-এ authorized domains চেক করুন।`);
+        } else {
+          setError(redirectErr?.message || "টুইটার / X দিয়ে লগইন করতে সমস্যা হয়েছে। দয়া করে ব্রাউজার সেটিংস চেক করুন।");
+        }
+        throw redirectErr;
+      }
+    }
+  };
+
+  const loginWithApple = async () => {
+    setError(null);
+    try {
+      console.log("Starting Apple login via popup flow...");
+      const result = await signInWithPopup(auth, appleProvider);
+      console.log("Apple login result obtained for:", result.user.email || result.user.displayName);
+      
+      const fbUser = result.user;
+      const email = fbUser.email?.toLowerCase().trim() || null;
+      const isDefaultAdmin = email === 'shustobd@gmail.com';
+      const isHardcodedDoctor = email === 'thesiambin@gmail.com' || email === 'monsurhelal86@gmail.com';
+      
+      const immediateProfile: UserProfile = {
+        uid: fbUser.uid,
+        displayName: fbUser.displayName || (email ? email.split('@')[0] : 'User'),
+        email: email,
+        photoURL: fbUser.photoURL || null,
+        role: isDefaultAdmin ? 'admin' : (isHardcodedDoctor ? 'doctor' : 'user'),
+      };
+      
+      const userRef = doc(db, 'users', fbUser.uid);
+      const userDoc = await getDoc(userRef);
+      
+      if (userDoc.exists()) {
+        const existingData = userDoc.data() as UserProfile;
+        setUser(existingData);
+        safeStorage.setItem('shusto_user_cache', JSON.stringify(existingData));
+      } else {
+        setUser(immediateProfile);
+        safeStorage.setItem('shusto_user_cache', JSON.stringify(immediateProfile));
+        setDoc(userRef, immediateProfile, { merge: true }).catch(e => {
+          console.warn("User profile background write warning:", e);
+        });
+      }
+      
+      safeStorage.setItem('hasSeenWelcome', 'true');
+      setLoading(false);
+      setError(null);
+    } catch (err: any) {
+      console.warn("Apple popup login failed, fallback to redirect...", err);
+      try {
+        await signInWithRedirect(auth, appleProvider);
+        return;
+      } catch (redirectErr: any) {
+        console.error("Apple redirect login error:", redirectErr);
+        if (redirectErr?.code === 'auth/unauthorized-domain') {
+          setError(`এই ডোমেইনটি অনুমোদিত নয়। Firebase Console-এ authorized domains চেক করুন।`);
+        } else {
+          setError(redirectErr?.message || "অ্যাপল দিয়ে লগইন করতে সমস্যা হয়েছে। দয়া করে ব্রাউজার সেটিংস চেক করুন।");
+        }
+        throw redirectErr;
+      }
+    }
+  };
+
   const loginWithEmail = async (emailInput: string, pass: string) => {
     setError(null);
     try {
@@ -471,7 +583,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, login, loginWithEmail, registerWithEmail, instantLogin, logout, forceSync }}>
+    <AuthContext.Provider value={{ user, loading, error, login, loginWithTwitter, loginWithApple, loginWithEmail, registerWithEmail, instantLogin, logout, forceSync }}>
       {children}
     </AuthContext.Provider>
   );
