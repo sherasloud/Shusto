@@ -100,14 +100,18 @@ export function ProfitsPanel({ adminBalance, adminUid }: ProfitsPanelProps) {
       }
     });
 
+    const safeAdminBalance = (adminBalance && adminBalance !== 100000) ? adminBalance : 0;
+
     return {
       todayProfit: today,
       weekProfit: week,
       monthProfit: month,
-      totalProfit: total > 0 ? total : adminBalance,
+      totalProfit: total > 0 ? total : safeAdminBalance,
       incomeList: incomes
     };
   }, [transactions, adminUid, adminBalance]);
+
+  const safeDisplayBalance = (adminBalance && adminBalance !== 100000) ? adminBalance : 0;
 
   const filteredDisplayList = useMemo(() => {
     if (!search.trim()) return incomeList;
@@ -150,7 +154,7 @@ export function ProfitsPanel({ adminBalance, adminUid }: ProfitsPanelProps) {
 
           <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-6 rounded-3xl text-right">
             <p className="text-xs font-bold text-slate-300 uppercase tracking-wider">বর্তমান মোট অর্জিত লভ্যাংশ</p>
-            <h2 className="text-4xl lg:text-5xl font-black text-sky-400 mt-1">৳{adminBalance.toLocaleString()}</h2>
+            <h2 className="text-4xl lg:text-5xl font-black text-sky-400 mt-1">৳{safeDisplayBalance.toLocaleString()}</h2>
           </div>
         </div>
       </div>

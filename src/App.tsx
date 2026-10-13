@@ -80,6 +80,25 @@ function AppContent() {
       }
     };
     autoSeedFirestore();
+
+    // One-time purge of any stale 100,000 fake balance in browser localStorage
+    try {
+      const adminBal = localStorage.getItem('shusto_admin_balance_cache');
+      if (adminBal === '100000' || Number(adminBal) === 100000) {
+        localStorage.removeItem('shusto_admin_balance_cache');
+      }
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('cached_wallet_balance_') || key.includes('balance'))) {
+          const val = localStorage.getItem(key);
+          if (val === '100000' || Number(val) === 100000) {
+            keysToRemove.push(key);
+          }
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+    } catch (e) {}
   }, []);
 
   const isPrivacyPath = () => {

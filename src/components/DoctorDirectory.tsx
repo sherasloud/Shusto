@@ -136,12 +136,44 @@ export function DoctorDirectory() {
     setLoading(true);
     // Fetch directly from 'doctors' collection in Firestore
     const qDoctors = query(collection(db, 'doctors'), limit(100));
-    const unsubDoctors = onSnapshot(qDoctors, (snapshot) => {
+    const unsubDoctors = onSnapshot(qDoctors, async (snapshot) => {
       const docs = snapshot.docs
         .map(doc => ({
           id: doc.id,
           ...doc.data()
         })) as Doctor[];
+
+      // Also merge any users registered with role 'doctor' in Firestore
+      try {
+        const uSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'doctor')));
+        const docEmails = new Set(docs.map(d => d.email?.toLowerCase().trim()).filter(Boolean));
+        const docIds = new Set(docs.map(d => d.id));
+
+        uSnap.docs.forEach(uDoc => {
+          const uData = uDoc.data();
+          const email = uData.email?.toLowerCase().trim();
+          if (!docIds.has(uDoc.id) && (!email || !docEmails.has(email))) {
+            docs.push({
+              id: uDoc.id,
+              userId: uDoc.id,
+              name: uData.displayName || uData.name || 'Doctor',
+              email: uData.email || '',
+              specialty: uData.specialty || 'General Physician',
+              fee: uData.fee || 500,
+              experience: uData.experience || '5 years',
+              degree: uData.degree || 'MBBS',
+              bmdcNumber: uData.bmdcNumber || 'Verified',
+              rating: 4.8,
+              isOnline: true,
+              division: uData.division || 'ঢাকা',
+              district: uData.district || 'ঢাকা',
+              image: uData.image || uData.photoURL || `https://picsum.photos/seed/${uDoc.id}/200/200`
+            } as any);
+          }
+        });
+      } catch (e) {
+        console.warn("Doctors user fetch note:", e);
+      }
       
       const validDocs = docs.filter(d => d.name && d.name.trim() !== '');
       

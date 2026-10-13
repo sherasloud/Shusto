@@ -554,7 +554,14 @@ export function GenericProviderDashboard({ type, title, description }: GenericPr
     if (!user) return null;
     try {
       const cached = localStorage.getItem(`cached_wallet_balance_${user.uid}`);
-      if (cached !== null && cached !== undefined && !isNaN(Number(cached))) return Number(cached);
+      if (cached !== null && cached !== undefined && !isNaN(Number(cached))) {
+        const num = Number(cached);
+        if (num === 100000) {
+          localStorage.removeItem(`cached_wallet_balance_${user.uid}`);
+          return 0;
+        }
+        return num;
+      }
     } catch (e) {}
     return null;
   });

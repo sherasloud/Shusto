@@ -163,9 +163,16 @@ export function AdminDashboard() {
   const [adminBalance, setAdminBalance] = useState<number | null>(() => {
     try {
       const cached = localStorage.getItem('shusto_admin_balance_cache');
-      if (cached !== null && cached !== undefined && !isNaN(Number(cached))) return Number(cached);
+      if (cached !== null && cached !== undefined && !isNaN(Number(cached))) {
+        const num = Number(cached);
+        if (num === 100000) {
+          localStorage.removeItem('shusto_admin_balance_cache');
+          return 0;
+        }
+        return num;
+      }
     } catch (e) {}
-    return null;
+    return 0;
   });
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -316,26 +323,12 @@ export function AdminDashboard() {
           const snapshot = await getDocs(collection(db, 'users'));
           let allUsers = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
           
-          // Deduplicate by email
-          const emailMap = new Map<string, UserProfile>();
+          // Ensure all real user accounts are preserved by their unique UID
+          const userMap = new Map<string, UserProfile>();
           allUsers.forEach(u => {
-            if (!u.email) {
-              emailMap.set(u.uid, u);
-              return;
-            }
-            const emailLower = u.email.toLowerCase();
-            const existing = emailMap.get(emailLower);
-            if (!existing) {
-              emailMap.set(emailLower, u);
-            } else {
-              const dateA = u.createdAt ? new Date(u.createdAt).getTime() : 0;
-              const dateB = existing.createdAt ? new Date(existing.createdAt).getTime() : 0;
-              if (dateA > dateB) {
-                emailMap.set(emailLower, u);
-              }
-            }
+            if (u.uid) userMap.set(u.uid, u);
           });
-          allUsers = Array.from(emailMap.values());
+          allUsers = Array.from(userMap.values());
 
           allUsers.sort((a, b) => {
             const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -470,7 +463,15 @@ export function AdminDashboard() {
       console.warn("Admin wallet snapshot error:", err);
       const cached = localStorage.getItem('shusto_admin_balance_cache');
       if (cached && !isNaN(Number(cached))) {
-        setAdminBalance(Number(cached));
+        const num = Number(cached);
+        if (num === 100000) {
+          localStorage.removeItem('shusto_admin_balance_cache');
+          setAdminBalance(0);
+        } else {
+          setAdminBalance(num);
+        }
+      } else {
+        setAdminBalance(0);
       }
     });
 
