@@ -389,6 +389,25 @@ export function Settings({ onBack, onNavigate }: SettingsProps) {
               </div>
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </button>
+            <button
+              onClick={() => onNavigate && onNavigate('mysql-migration')}
+              className="w-full mt-3 flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-indigo-50 via-purple-50 to-blue-50 hover:from-indigo-100 hover:to-blue-100 border border-indigo-200/70 transition-all text-left shadow-sm"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-sm">
+                  <Database className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="block text-sm font-bold text-slate-900">
+                    {lang === 'bn' ? 'ফায়ারবেস থেকে MySQL-এ ডাটা শিফট করুন (Shift to MySQL)' : 'Shift All Data from Firebase to MySQL'}
+                  </span>
+                  <span className="block text-xs text-indigo-700 font-medium">
+                    {lang === 'bn' ? 'সকল কালেকশন, ইউজার, ওয়ালেট ও অ্যাপ ডেটা মাইগ্রেশন করুন' : 'Export SQL dumps, JSON backups & migrate directly'}
+                  </span>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-indigo-600" />
+            </button>
           </div>
         </div>
 

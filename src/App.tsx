@@ -26,6 +26,7 @@ import { Profile } from './components/Profile';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { AboutUs } from './components/AboutUs';
 import { Settings } from './components/Settings';
+import { MySQLMigrationHub } from './components/MySQLMigrationHub';
 import { VideoCall } from './components/VideoCall';
 import { MyOrders } from './components/MyOrders';
 import { Messages } from './components/Messages';
@@ -504,6 +505,7 @@ function AppContent() {
       switch (activeTab) {
         case 'profile': return <Profile onOpenAbout={() => setActiveTab('about')} onOpenSettings={() => setActiveTab('settings')} />;
         case 'settings': return <Settings onBack={() => setActiveTab('dashboard')} onNavigate={(tab) => setActiveTab(tab)} />;
+        case 'mysql-migration': return <MySQLMigrationHub onClose={() => setActiveTab('settings')} />;
         case 'about': return <AboutUs onBack={() => setActiveTab('dashboard')} />;
         case 'messages': return <Messages />;
         case 'orders': return <MyOrders />;

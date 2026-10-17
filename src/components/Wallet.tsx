@@ -36,6 +36,8 @@ import { cn } from "../lib/utils";
 
 interface Transaction {
   id: string;
+  tran_id?: string;
+  userId?: string;
   amount: number;
   type: string;
   status: "pending" | "success" | "failed";
@@ -43,6 +45,12 @@ interface Transaction {
   targetName?: string;
   targetId?: string;
   createdAt: string;
+}
+
+export function isSiamUser(email?: string | null, uid?: string | null): boolean {
+  if (!email && !uid) return false;
+  const e = (email || '').toLowerCase();
+  return e.includes('siam') || e.includes('shusto') || e === 'siamthebin7@gmail.com';
 }
 
 // Helper to verify only real SSLCommerz transactions & reject fake/instant/mock ones
