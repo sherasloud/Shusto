@@ -1579,7 +1579,7 @@ export function AdminDashboard() {
               </button>
               <button 
                 onClick={() => setActiveTab('profits')}
-                className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-emerald-500/20"
+                className="px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white rounded-2xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-sky-500/20"
               >
                 <Building size={18} /> Bank থেকে তুলে নিব
               </button>
@@ -1712,7 +1712,7 @@ export function AdminDashboard() {
             <>
               <button 
                 onClick={() => setIsAddingMedicine(true)}
-                className="flex items-center gap-2 px-6 py-3 bg-emerald-500 text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all text-sm shadow-lg shadow-emerald-500/20"
+                className="flex items-center gap-2 px-6 py-3 bg-sky-500 text-white font-bold rounded-2xl hover:bg-sky-600 transition-all text-sm shadow-lg shadow-sky-500/20"
               >
                 <Plus size={18} />
                 নতুন ঔষধ যোগ করুন
@@ -1730,7 +1730,7 @@ export function AdminDashboard() {
           {activeTab === 'services' && (
             <button 
               onClick={() => setIsAddingService(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-emerald-500 text-white font-bold rounded-2xl hover:bg-emerald-600 transition-all text-sm shadow-lg shadow-emerald-500/20"
+              className="flex items-center gap-2 px-6 py-3 bg-sky-500 text-white font-bold rounded-2xl hover:bg-sky-600 transition-all text-sm shadow-lg shadow-sky-500/20"
             >
               <Plus size={18} />
               নতুন সার্ভিস যোগ করুন
@@ -2680,7 +2680,7 @@ export function AdminDashboard() {
                           user.role === 'doctor' ? "bg-sky-50 text-sky-600 border border-sky-100" :
                           user.role === 'investor' ? "bg-purple-50 text-purple-600 border border-purple-100" :
                           user.role === 'manager' ? "bg-indigo-50 text-indigo-600 border border-indigo-100" :
-                          user.role === 'state' ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
+                          user.role === 'state' ? "bg-sky-50 text-sky-600 border border-sky-100" :
                           user.role === 'user' ? "bg-blue-50 text-blue-600 border border-blue-100" :
                           "bg-slate-100 text-slate-600 border border-slate-200"
                         )}>
@@ -2827,14 +2827,14 @@ export function AdminDashboard() {
                       </span>
                       <button 
                         onClick={() => adjustMedicinePrice(med, 1)}
-                        className="w-7 h-7 flex items-center justify-center bg-white text-emerald-600 hover:text-white hover:bg-emerald-600 rounded-lg transition-all font-bold text-xs shadow-sm border border-slate-100"
+                        className="w-7 h-7 flex items-center justify-center bg-white text-sky-600 hover:text-white hover:bg-sky-600 rounded-lg transition-all font-bold text-xs shadow-sm border border-slate-100"
                         title="৳১ বাড়ান"
                       >
                         +১
                       </button>
                       <button 
                         onClick={() => adjustMedicinePrice(med, 5)}
-                        className="w-7 h-7 flex items-center justify-center bg-white text-emerald-600 hover:text-white hover:bg-emerald-600 rounded-lg transition-all font-bold text-xs shadow-sm border border-slate-100"
+                        className="w-7 h-7 flex items-center justify-center bg-white text-sky-600 hover:text-white hover:bg-sky-600 rounded-lg transition-all font-bold text-xs shadow-sm border border-slate-100"
                         title="৳৫ বাড়ান"
                       >
                         +৫
@@ -3373,7 +3373,7 @@ export function AdminDashboard() {
                       <td className="px-6 py-4">
                         <span className={cn(
                           "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                          req.status === 'approved' ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
+                          req.status === 'approved' ? "bg-sky-50 text-sky-600 border border-sky-100" :
                           req.status === 'rejected' ? "bg-rose-50 text-rose-600 border border-rose-100" :
                           "bg-amber-50 text-amber-600 border border-amber-100"
                         )}>

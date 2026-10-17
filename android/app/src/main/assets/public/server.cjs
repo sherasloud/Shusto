@@ -1713,10 +1713,10 @@ async function startViteOrStaticServer() {
         console.warn("Vite server failed to load dynamically:", viteLoadErr.message);
       }
     } else {
-      const distPath = import_path.default.join(process.cwd(), "dist");
-      app.use(import_express.default.static(distPath));
+      const distPath2 = import_path.default.join(process.cwd(), "dist");
+      app.use(import_express.default.static(distPath2));
       app.get("*", (req, res) => {
-        res.sendFile(import_path.default.join(distPath, "index.html"));
+        res.sendFile(import_path.default.join(distPath2, "index.html"));
       });
     }
     app.listen(PORT, "0.0.0.0", () => {
@@ -1727,6 +1727,20 @@ async function startViteOrStaticServer() {
 if (!global.__IS_SERVERLESS && !process.env.VERCEL) {
   startViteOrStaticServer().catch(console.error);
 }
+var distPath = import_path.default.join(process.cwd(), "dist");
+if (import_fs.default.existsSync(distPath)) {
+  app.use(import_express.default.static(distPath));
+}
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api/") || req.path.startsWith("/direct-api/")) {
+    return next();
+  }
+  const indexPath = import_path.default.join(process.cwd(), "dist", "index.html");
+  if (import_fs.default.existsSync(indexPath)) {
+    return res.sendFile(indexPath);
+  }
+  return res.send('<!DOCTYPE html><html><head><title>Shusto</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>');
+});
 var server_default = app;
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {

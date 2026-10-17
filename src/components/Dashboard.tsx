@@ -203,7 +203,7 @@ export function Dashboard() {
                 className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
                 referrerPolicy="no-referrer"
               />
-              <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full" />
+              <span className="absolute bottom-0 right-0 w-3 h-3 bg-sky-500 border-2 border-white rounded-full" />
             </div>
             <div>
               <p className="text-xs font-semibold text-slate-400 leading-tight">
@@ -396,7 +396,7 @@ export function Dashboard() {
                   <div className="flex items-center gap-2 self-end sm:self-center">
                     <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
                       appt.status === 'confirmed' 
-                        ? 'bg-emerald-100 text-emerald-700' 
+                        ? 'bg-sky-100 text-sky-700' 
                         : 'bg-amber-100 text-amber-700 animate-pulse'
                     }`}>
                       {appt.status === 'confirmed' ? 'নিশ্চিত' : 'অনুমোদন বাকি'}

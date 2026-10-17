@@ -104,7 +104,7 @@ export function ShopRegistration() {
             <p className="text-slate-500 font-medium">{shop.category} • {shop.address}</p>
           </div>
         </div>
-        <div className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-full text-xs font-bold uppercase tracking-wider border border-emerald-100">
+        <div className="px-4 py-2 bg-sky-50 text-sky-600 rounded-full text-xs font-bold uppercase tracking-wider border border-sky-100">
           Active Shop
         </div>
       </div>

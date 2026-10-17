@@ -91,13 +91,13 @@ export function StateDashboard() {
 
         <div className="bg-white rounded-[40px] p-8 border border-slate-100 shadow-sm flex flex-col justify-between">
           <div>
-            <div className="w-14 h-14 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center mb-6">
+            <div className="w-14 h-14 bg-sky-50 text-sky-500 rounded-2xl flex items-center justify-center mb-6">
               <Wallet size={28} />
             </div>
             <p className="text-slate-400 font-bold uppercase tracking-widest text-xs mb-1">মোট ব্যালেন্স</p>
             <h3 className="text-4xl font-black text-slate-900">{balance === null ? <span className="animate-pulse opacity-70">৳---</span> : `৳${balance.toLocaleString()}`}</h3>
           </div>
-          <div className="mt-6 flex items-center gap-2 text-emerald-600 font-bold text-sm">
+          <div className="mt-6 flex items-center gap-2 text-sky-600 font-bold text-sm">
             <TrendingUp size={16} />
             <span>প্রতি ট্রানজেকশনে ১০% কমিশন</span>
           </div>
@@ -145,7 +145,7 @@ export function StateDashboard() {
                       {p.createdAt ? new Date(p.createdAt).toLocaleDateString() : 'N/A'}
                     </td>
                     <td className="px-8 py-4">
-                      <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase rounded-full border border-emerald-100">
+                      <span className="px-3 py-1 bg-sky-50 text-sky-600 text-[10px] font-bold uppercase rounded-full border border-sky-100">
                         সক্রিয়
                       </span>
                     </td>

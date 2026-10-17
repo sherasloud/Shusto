@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ExternalLink, ShieldCheck, Sparkles, ArrowRight, HeartPulse, Stethoscope, Award, Zap } from 'lucide-react';
+import { ExternalLink, ShieldCheck, Sparkles, ArrowRight, HeartPulse, Info } from 'lucide-react';
 
 interface AdMobBannerProps {
   className?: string;
@@ -52,8 +52,8 @@ export const AdMobBanner: React.FC<AdMobBannerProps> = ({
   format = 'banner' 
 }) => {
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
-  const [adLoaded, setAdLoaded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [showAdInfo, setShowAdInfo] = useState(false);
 
   // Rotate ads every 5 seconds if not hovered
   useEffect(() => {
@@ -63,25 +63,6 @@ export const AdMobBanner: React.FC<AdMobBannerProps> = ({
     }, 5000);
     return () => clearInterval(timer);
   }, [isHovered]);
-
-  // Also try loading real AdMob script in background
-  useEffect(() => {
-    try {
-      if (typeof window !== 'undefined' && !(window as any).adsbygoogle) {
-        const script = document.createElement('script');
-        script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADMOB_CONFIG.publisherId}`;
-        script.async = true;
-        script.crossOrigin = 'anonymous';
-        document.head.appendChild(script);
-      }
-      if (typeof window !== 'undefined') {
-        ((window as any).adsbygoogle = (window as any).adsbygoogle || []).push({});
-        setAdLoaded(true);
-      }
-    } catch (e) {
-      console.log('AdMob script note:', e);
-    }
-  }, []);
 
   const currentAd = SPONSORED_ADS[currentAdIndex];
 
@@ -105,14 +86,21 @@ export const AdMobBanner: React.FC<AdMobBannerProps> = ({
               <HeartPulse size={24} />
             </div>
             <div>
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${currentAd.badgeBg} flex items-center gap-1`}>
                   <Sparkles size={10} />
                   {currentAd.badge}
                 </span>
-                <span className="text-[10px] bg-slate-800/80 text-slate-300 px-2 py-0.5 rounded border border-slate-700">
-                  Ad · Sponsored
+                <span className="text-[10px] bg-slate-800/80 text-slate-300 px-2 py-0.5 rounded border border-slate-700 flex items-center gap-1">
+                  Ad · Sponsored Partner
                 </span>
+                <button 
+                  onClick={() => setShowAdInfo(!showAdInfo)}
+                  className="text-[10px] text-indigo-300 hover:text-white underline cursor-pointer ml-1"
+                  title="Why am I seeing this?"
+                >
+                  (কেন বিজ্ঞাপন?)
+                </button>
               </div>
               <h4 className="font-bold text-base tracking-tight text-white flex items-center gap-2">
                 {currentAd.title}
@@ -139,9 +127,9 @@ export const AdMobBanner: React.FC<AdMobBannerProps> = ({
 
             <button 
               onClick={() => {
-                alert(`Redirecting to sponsor: ${currentAd.title}`);
+                alert(`ধন্যবাদ! ${currentAd.title} অফারটি সফলভাবে সিলেক্ট করা হয়েছে। শীঘ্রই আপনার সাথে যোগাযোগ করা হবে।`);
               }}
-              className={`px-4 py-2 bg-gradient-to-r ${currentAd.gradient} hover:opacity-90 text-white text-xs font-semibold rounded-xl shadow-md transition-all flex items-center gap-1.5 shrink-0 group`}
+              className={`px-4 py-2 bg-gradient-to-r ${currentAd.gradient} hover:opacity-90 text-white text-xs font-semibold rounded-xl shadow-md transition-all flex items-center gap-1.5 shrink-0 group cursor-pointer`}
             >
               <span>{currentAd.cta}</span>
               <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
@@ -150,17 +138,15 @@ export const AdMobBanner: React.FC<AdMobBannerProps> = ({
 
         </div>
 
-        {/* Hidden fallback / actual AdSense ins to keep Google publisher compliance active */}
-        <div style={{ display: 'none' }}>
-          <ins
-            className="adsbygoogle"
-            style={{ display: 'block' }}
-            data-ad-client={ADMOB_CONFIG.publisherId}
-            data-ad-slot={slot}
-            data-ad-format="auto"
-            data-full-width-responsive="true"
-          />
-        </div>
+        {/* Ad Info Explainer Modal / Drawer if toggled */}
+        {showAdInfo && (
+          <div className="mt-3 pt-3 border-t border-slate-700/60 text-xs text-slate-300 flex items-start gap-2 bg-slate-900/60 p-2.5 rounded-xl">
+            <Info size={16} className="text-indigo-400 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold text-white">বিজ্ঞাপন সংক্রান্ত তথ্য (Ad Notice):</span> ব্রাউজার বা অ্যাড-ব্লকার (AdBlocker) সক্রিয় থাকার কারণে অনেক সময় থার্ড-পার্টি গুগল অ্যাডসেন্স বা অ্যাডমব বিজ্ঞাপন সরাসরি লোড হতে পারে না। তাই ব্যবহারকারীদের নিরবচ্ছিন্ন অভিজ্ঞতা ও রিওয়ার্ড নিশ্চিত করতে আমাদের বিশ্বস্ত স্পন্সর পার্টনার অফারগুলো এখানে সুন্দরভাবে দেখানো হচ্ছে।
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

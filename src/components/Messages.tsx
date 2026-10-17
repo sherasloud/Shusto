@@ -245,13 +245,13 @@ export function Messages() {
                   <div className={cn(
                     "w-12 h-12 rounded-2xl flex items-center justify-center relative",
                     conv.type === 'appointment' ? "bg-indigo-50 text-indigo-500" :
-                    conv.type === 'order' ? "bg-emerald-50 text-emerald-500" :
+                    conv.type === 'order' ? "bg-sky-50 text-sky-500" :
                     conv.type === 'lab' ? "bg-purple-50 text-purple-500" : "bg-sky-50 text-sky-500"
                   )}>
                     {getIcon(conv.type)}
                     <span className={cn(
                       "absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white",
-                      conv.status === 'confirmed' ? "bg-emerald-500" : "bg-slate-300"
+                      conv.status === 'confirmed' ? "bg-sky-500" : "bg-slate-300"
                     )} />
                   </div>
                   <div className="flex-1 min-w-0">

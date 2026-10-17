@@ -170,7 +170,7 @@ export function ManagerDashboard() {
                   </td>
                   <td className="px-8 py-4 text-sm text-slate-500">{(s as any).location || 'N/A'}</td>
                   <td className="px-8 py-4">
-                    <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase rounded-full border border-emerald-100">Active</span>
+                    <span className="px-3 py-1 bg-sky-50 text-sky-600 text-[10px] font-bold uppercase rounded-full border border-sky-100">Active</span>
                   </td>
                 </tr>
               ))}

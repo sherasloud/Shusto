@@ -162,18 +162,18 @@ export function ProfitsPanel({ adminBalance, adminUid }: ProfitsPanelProps) {
       {/* Profits Breakdown Grid (Daily, Weekly, Monthly, Total) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Today Profit */}
-        <div className="bg-white rounded-[32px] p-6 border border-slate-100 shadow-xl shadow-slate-100/50 hover:shadow-2xl hover:border-emerald-200 transition-all group">
+        <div className="bg-white rounded-[32px] p-6 border border-slate-100 shadow-xl shadow-slate-100/50 hover:shadow-2xl hover:border-sky-200 transition-all group">
           <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <div className="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center group-hover:scale-110 transition-transform">
               <TrendingUp size={24} />
             </div>
-            <span className="text-xs font-bold px-3 py-1 bg-emerald-100/60 text-emerald-700 rounded-full">
+            <span className="text-xs font-bold px-3 py-1 bg-sky-100/60 text-sky-700 rounded-full">
               আজকে
             </span>
           </div>
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">আজকের লভ্যাংশ (Daily)</p>
           <h3 className="text-3xl font-black text-slate-900 mt-1">৳{todayProfit.toLocaleString()}</h3>
-          <p className="text-[11px] text-emerald-600 font-medium mt-2 flex items-center gap-1">
+          <p className="text-[11px] text-sky-600 font-medium mt-2 flex items-center gap-1">
             <CheckCircle2 size={12} /> আজকের অর্জিত প্রফিট
           </p>
         </div>

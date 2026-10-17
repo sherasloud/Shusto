@@ -404,7 +404,7 @@ export function MyOrders() {
               <div key={p.id} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center shadow-inner">
+                    <div className="w-12 h-12 bg-sky-50 text-sky-500 rounded-2xl flex items-center justify-center shadow-inner">
                       <Package size={24} />
                     </div>
                     <div>
@@ -414,8 +414,8 @@ export function MyOrders() {
                   </div>
                   <span className={cn(
                     "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border",
-                    p.status === 'confirmed' ? "bg-emerald-50 text-emerald-600 border-emerald-100" : 
-                    p.status === 'completed' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+                    p.status === 'confirmed' ? "bg-sky-50 text-sky-600 border-sky-100" : 
+                    p.status === 'completed' ? "bg-sky-50 text-sky-600 border-sky-100" :
                     p.status === 'cancelled' || p.status === 'declined' ? "bg-rose-50 text-rose-600 border-rose-100" : 
                     "bg-amber-50 text-amber-600 border-amber-100 animate-pulse"
                   )}>
@@ -425,7 +425,7 @@ export function MyOrders() {
 
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-6 flex flex-col gap-3">
                   <div className="font-medium text-slate-800 text-sm mb-1 leading-relaxed border-b border-slate-200 pb-2">
-                     <span className="font-bold text-emerald-600 block mb-1">Items:</span>
+                     <span className="font-bold text-sky-600 block mb-1">Items:</span>
                      <ul className="list-disc pl-4 space-y-1 text-xs text-slate-600">
                         {p.items?.map((item: string, i: number) => <li key={i}>{item}</li>)}
                      </ul>
@@ -445,7 +445,7 @@ export function MyOrders() {
                    </div>
                    <button 
                      onClick={() => setActiveChat({ id: p.id, name: 'Pharmacy Support' })}
-                     className="flex items-center gap-2 px-4 py-3 bg-white border-2 border-slate-100 text-slate-700 font-bold rounded-2xl hover:border-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all shadow-sm"
+                     className="flex items-center gap-2 px-4 py-3 bg-white border-2 border-slate-100 text-slate-700 font-bold rounded-2xl hover:border-sky-500 hover:text-sky-600 hover:bg-sky-50 transition-all shadow-sm"
                    >
                      <MessageCircle size={18} />
                      চ্যাট

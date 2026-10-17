@@ -94,12 +94,12 @@ export function MerchantPanel() {
         <div>
           <h2 className="text-3xl font-bold text-slate-900">SSLCommerz মার্চেন্ট ড্যাশবোর্ড</h2>
           <div className="flex items-center gap-2 mt-1">
-            <Shield size={14} className="text-emerald-500" />
+            <Shield size={14} className="text-sky-500" />
             <p className="text-slate-500 font-medium">Shusto-র রিয়েল-টাইম ট্রানজেকশন ডাটা প্রদর্শিত হচ্ছে।</p>
           </div>
         </div>
-        <div className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-100 flex items-center gap-2 text-sm font-bold shadow-sm">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+        <div className="px-4 py-2 bg-sky-50 text-sky-600 rounded-2xl border border-sky-100 flex items-center gap-2 text-sm font-bold shadow-sm">
+          <div className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
           Gateway Status: LIVE
         </div>
       </div>
@@ -115,8 +115,8 @@ export function MerchantPanel() {
         <StatCard 
           label="সফল পেমেন্ট (Success)" 
           value={stats.successCount} 
-          icon={<CheckCircle2 className="text-emerald-500" />}
-          color="emerald"
+          icon={<CheckCircle2 className="text-sky-500" />}
+          color="sky"
         />
         <StatCard 
           label="সফলতার হার (Success Rate)" 
@@ -183,23 +183,23 @@ export function MerchantPanel() {
 
           <div className="bg-white rounded-[32px] border border-slate-100 p-6 shadow-sm">
              <div className="flex items-center gap-3 mb-6">
-               <div className="p-2 bg-emerald-50 rounded-xl">
-                 <Server size={20} className="text-emerald-500" />
+               <div className="p-2 bg-sky-50 rounded-xl">
+                 <Server size={20} className="text-sky-500" />
                </div>
                <h3 className="font-bold text-slate-900 text-lg">System Health</h3>
              </div>
              <div className="space-y-4">
                <div className="flex items-center justify-between">
                  <span className="text-slate-500 text-sm">IPN Verification</span>
-                 <span className="text-emerald-600 text-[10px] font-black bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">LIVE</span>
+                 <span className="text-sky-600 text-[10px] font-black bg-sky-50 px-2 py-0.5 rounded border border-sky-100">LIVE</span>
                </div>
                <div className="flex items-center justify-between">
                  <span className="text-slate-500 text-sm">Callback Link</span>
-                 <span className="text-emerald-600 text-[10px] font-black bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">ACTIVE</span>
+                 <span className="text-sky-600 text-[10px] font-black bg-sky-50 px-2 py-0.5 rounded border border-sky-100">ACTIVE</span>
                </div>
                <div className="flex items-center justify-between">
                  <span className="text-slate-500 text-sm">Auto Settlement</span>
-                 <span className="text-emerald-600 text-[10px] font-black bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">ON</span>
+                 <span className="text-sky-600 text-[10px] font-black bg-sky-50 px-2 py-0.5 rounded border border-sky-100">ON</span>
                </div>
              </div>
           </div>
@@ -238,7 +238,7 @@ export function MerchantPanel() {
                       <td className="px-6 py-4">
                         <span className={cn(
                           "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                          p.status === 'success' ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
+                          p.status === 'success' ? "bg-sky-50 text-sky-600 border border-sky-100" :
                           p.status === 'failed' ? "bg-rose-50 text-rose-600 border border-rose-100" :
                           "bg-amber-50 text-amber-600 border border-amber-100"
                         )}>

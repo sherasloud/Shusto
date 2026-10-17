@@ -1,7 +1,6 @@
 import type { CapacitorConfig } from '@capacitor/cli';
-
 const config: CapacitorConfig = {
-  appId: 'com.shusto.app',
+  appId: 'org.shusto.app',
 
   appName: 'Shusto',
 

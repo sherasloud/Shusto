@@ -62,7 +62,7 @@ export function PrivacyPolicy({ onBack, defaultTab = 'privacy' }: { onBack: () =
               </div>
             </div>
 
-            <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3.5 py-1.5 rounded-full text-xs font-semibold border border-emerald-200/60 self-start md:self-auto">
+            <div className="flex items-center gap-2 bg-sky-50 text-sky-700 px-3.5 py-1.5 rounded-full text-xs font-semibold border border-sky-200/60 self-start md:self-auto">
               <CheckCircle2 size={15} />
               <span>সর্বশেষ আপডেট: সেপ্টেম্বর ২০২৬</span>
             </div>
@@ -186,15 +186,15 @@ export function PrivacyPolicy({ onBack, defaultTab = 'privacy' }: { onBack: () =
                 </h3>
                 <ul className="space-y-2 list-none">
                   <li className="flex items-start gap-2 text-sm">
-                    <CheckCircle2 size={16} className="text-emerald-500 shrink-0 mt-0.5" />
+                    <CheckCircle2 size={16} className="text-sky-500 shrink-0 mt-0.5" />
                     <span><strong>চিকিৎসা সেবা প্রদান:</strong> বিশেষজ্ঞ ডাক্তারের সাথে ভিডিও/অডিও পরামর্শ ও সঠিক প্রেসক্রিপশন প্রস্তুতি।</span>
                   </li>
                   <li className="flex items-start gap-2 text-sm">
-                    <CheckCircle2 size={16} className="text-emerald-500 shrink-0 mt-0.5" />
+                    <CheckCircle2 size={16} className="text-sky-500 shrink-0 mt-0.5" />
                     <span><strong>ওষুধ ও ল্যাব সার্ভিস ডেলিভারি:</strong> আপনার নির্ধারিত ঠিকানায় দ্রুত ঔষধ ডেলিভারি ও হোম স্যাম্পল কালেকশন নিশ্চিতকরণ।</span>
                   </li>
                   <li className="flex items-start gap-2 text-sm">
-                    <CheckCircle2 size={16} className="text-emerald-500 shrink-0 mt-0.5" />
+                    <CheckCircle2 size={16} className="text-sky-500 shrink-0 mt-0.5" />
                     <span><strong>জরুরি সহায়তা ও বিজ্ঞপ্তি:</strong> অ্যাপয়েন্টমেন্ট শিডিউল, পেমেন্ট রিসিট ও জরুরি স্বাস্থ্য আপডেট প্রদান।</span>
                   </li>
                 </ul>
@@ -314,7 +314,7 @@ export function PrivacyPolicy({ onBack, defaultTab = 'privacy' }: { onBack: () =
         {(activeTab === 'refund' || activeTab === 'all') && (
           <div className="bg-white rounded-3xl p-6 md:p-10 shadow-sm border border-slate-100 space-y-6 animate-in fade-in duration-300">
             <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
-              <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
+              <div className="p-2.5 bg-sky-50 text-sky-600 rounded-xl">
                 <RotateCcw size={24} />
               </div>
               <div>
@@ -341,11 +341,11 @@ export function PrivacyPolicy({ onBack, defaultTab = 'privacy' }: { onBack: () =
                   </div>
                   <ul className="text-xs text-slate-600 space-y-2">
                     <li className="flex items-start gap-1.5">
-                      <span className="text-emerald-600 font-bold">✓</span>
+                      <span className="text-sky-600 font-bold">✓</span>
                       <span><strong>ডাক্তারের অনুপস্থিতি:</strong> চিকিৎসক নির্ধারিত সময়ে উপস্থিত হতে ব্যর্থ হলে বা কল সংযোগ না হলে <strong>১০০% রিফান্ড</strong> প্রযোজ্য।</span>
                     </li>
                     <li className="flex items-start gap-1.5">
-                      <span className="text-emerald-600 font-bold">✓</span>
+                      <span className="text-sky-600 font-bold">✓</span>
                       <span><strong>ব্যবহারকারী কর্তৃক বাতিল:</strong> অ্যাপয়েন্টমেন্ট সময়ের অন্তত ১ ঘণ্টা পূর্বে বাতিল করলে সম্পূর্ণ ফি কোনো কর্তন ছাড়াই রিফান্ড হবে।</span>
                     </li>
                     <li className="flex items-start gap-1.5">
@@ -357,17 +357,17 @@ export function PrivacyPolicy({ onBack, defaultTab = 'privacy' }: { onBack: () =
 
                 {/* Medicine & Store Refund */}
                 <div className="p-5 rounded-2xl bg-slate-50/80 border border-slate-200/80 space-y-3">
-                  <div className="flex items-center gap-2 text-emerald-700 font-bold text-sm">
+                  <div className="flex items-center gap-2 text-sky-700 font-bold text-sm">
                     <Pill size={18} />
                     <span>২. ওষুধ ও প্রোডাক্ট রিটার্ন / রিফান্ড</span>
                   </div>
                   <ul className="text-xs text-slate-600 space-y-2">
                     <li className="flex items-start gap-1.5">
-                      <span className="text-emerald-600 font-bold">✓</span>
+                      <span className="text-sky-600 font-bold">✓</span>
                       <span><strong>ভুল বা ক্ষতিগ্রস্ত ওষুধ:</strong> ডেলিভারির সময় ভুল পণ্য, মেয়াদোত্তীর্ণ বা সিল ভাঙা পেলে অবিলম্বে ফেরত দিয়ে <strong>সম্পূর্ণ রিফান্ড বা রিপ্লেসমেন্ট</strong> নেওয়া যাবে।</span>
                     </li>
                     <li className="flex items-start gap-1.5">
-                      <span className="text-emerald-600 font-bold">✓</span>
+                      <span className="text-sky-600 font-bold">✓</span>
                       <span>ডেলিভারি পাওয়ার ২৪ ঘণ্টার মধ্যে কাস্টমার কেয়ার বা ইন-অ্যাপ সাপোর্টে ছবিসহ অভিযোগ জানাতে হবে।</span>
                     </li>
                     <li className="flex items-start gap-1.5">
@@ -381,7 +381,7 @@ export function PrivacyPolicy({ onBack, defaultTab = 'privacy' }: { onBack: () =
               {/* Refund Timeline Table */}
               <div>
                 <h3 className="text-base font-bold text-slate-900 mb-3 flex items-center gap-2">
-                  <Clock size={18} className="text-emerald-600" />
+                  <Clock size={18} className="text-sky-600" />
                   রিফান্ড প্রসেসিং সময়সীমা (Processing Timeline)
                 </h3>
                 <div className="overflow-x-auto border border-slate-100 rounded-2xl">
@@ -398,7 +398,7 @@ export function PrivacyPolicy({ onBack, defaultTab = 'privacy' }: { onBack: () =
                         <td className="p-3 font-medium text-slate-900 flex items-center gap-1.5">
                           <CreditCard size={14} className="text-sky-600" /> Shusto Wallet
                         </td>
-                        <td className="p-3 text-emerald-600 font-bold">তাৎক্ষণিক (Instant)</td>
+                        <td className="p-3 text-sky-600 font-bold">তাৎক্ষণিক (Instant)</td>
                         <td className="p-3 text-slate-500">বিনামূল্যে (০%)</td>
                       </tr>
                       <tr>

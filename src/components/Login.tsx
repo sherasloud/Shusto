@@ -153,7 +153,7 @@ export function Login() {
               }
             }}
             disabled={isAnyLoading}
-            className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow transition-all flex items-center justify-center gap-2"
+            className="w-full py-3 px-4 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-semibold shadow transition-all flex items-center justify-center gap-2"
           >
             <ExternalLink size={14} />
             <span>Direct Redirect দিয়ে লগইন করুন</span>
@@ -162,7 +162,7 @@ export function Login() {
       </div>
 
       <div className={`mt-8 pt-4 border-t flex items-center justify-center gap-2 text-xs ${isAuthDomain ? 'border-slate-800 text-slate-400' : 'border-slate-100 text-slate-400'}`}>
-        <ShieldCheck size={14} className="text-emerald-500" />
+        <ShieldCheck size={14} className="text-sky-500" />
         <span>১০০% নিরাপদ ও বিশ্বস্ত গুগল অথেনটিকেশন</span>
       </div>
       <p className={`mt-4 text-[11px] ${isAuthDomain ? 'text-slate-400' : 'text-slate-400'}`}>

@@ -536,19 +536,19 @@ export function Wallet() {
 
       {/* On-Screen Success Banner */}
       {withdrawSuccessDetails && (
-        <div className="bg-emerald-50 border-2 border-emerald-200 rounded-[32px] p-6 text-emerald-900 shadow-xl shadow-emerald-500/5 animate-in slide-in-from-top-4 duration-300 flex items-center justify-between">
+        <div className="bg-sky-50 border-2 border-sky-200 rounded-[32px] p-6 text-sky-900 shadow-xl shadow-sky-500/5 animate-in slide-in-from-top-4 duration-300 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-sky-100 flex items-center justify-center text-sky-600 shrink-0">
               <CheckCircle2 size={28} />
             </div>
             <div>
-              <h3 className="text-lg font-black text-emerald-950">উত্তোলন সফল হয়েছে!</h3>
-              <p className="text-sm font-semibold text-emerald-800">{withdrawSuccessDetails}</p>
+              <h3 className="text-lg font-black text-sky-950">উত্তোলন সফল হয়েছে!</h3>
+              <p className="text-sm font-semibold text-sky-800">{withdrawSuccessDetails}</p>
             </div>
           </div>
           <button
             onClick={() => setWithdrawSuccessDetails(null)}
-            className="p-2 text-emerald-500 hover:text-emerald-800 rounded-xl hover:bg-emerald-100 transition-all"
+            className="p-2 text-sky-500 hover:text-sky-800 rounded-xl hover:bg-sky-100 transition-all"
           >
             ✕
           </button>
@@ -931,7 +931,7 @@ export function Wallet() {
       {creditSuccessMsg && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-2xl border border-slate-50 text-center relative overflow-hidden">
-            <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
+            <div className="w-16 h-16 bg-sky-50 text-sky-500 rounded-full flex items-center justify-center mx-auto mb-6">
               <svg
                 className="w-8 h-8"
                 fill="none"

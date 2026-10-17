@@ -424,8 +424,8 @@ function AppContent() {
     } else {
       return (
         <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 text-white text-center">
-          <div className="max-w-md w-full bg-slate-900/90 border border-emerald-500/30 rounded-[32px] p-8 shadow-xl">
-            <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
+          <div className="max-w-md w-full bg-slate-900/90 border border-sky-500/30 rounded-[32px] p-8 shadow-xl">
+            <div className="w-16 h-16 bg-sky-500/20 text-sky-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-sky-500/30">
               <ShieldCheck size={32} />
             </div>
             <h2 className="text-2xl font-bold mb-2">স্বাগতম, {user.displayName || user.email}!</h2>
@@ -589,7 +589,7 @@ function AppContent() {
             >
               {/* Background ambient pulse circles */}
               <div className="absolute -top-24 -left-24 w-48 h-48 bg-sky-500/20 rounded-full blur-3xl pointer-events-none animate-pulse" />
-              <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none animate-pulse" />
+              <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-sky-500/20 rounded-full blur-3xl pointer-events-none animate-pulse" />
 
               <div className="flex flex-col items-center text-center relative z-10">
                 {/* Pulsing Avatar with Waves */}
@@ -599,7 +599,7 @@ function AppContent() {
                   <div className="w-24 h-24 bg-gradient-to-tr from-sky-600 to-cyan-400 rounded-full flex items-center justify-center shadow-xl relative z-10 border-4 border-slate-900">
                     <Video size={42} className="text-white animate-pulse" />
                   </div>
-                  <div className="absolute bottom-0 right-0 w-6 h-6 bg-emerald-500 border-2 border-slate-900 rounded-full z-20" />
+                  <div className="absolute bottom-0 right-0 w-6 h-6 bg-sky-500 border-2 border-slate-900 rounded-full z-20" />
                 </div>
 
                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-sky-500/10 border border-sky-500/30 rounded-full mb-3">
@@ -632,12 +632,12 @@ function AppContent() {
                   <div className="flex flex-col items-center gap-2">
                     <button 
                       onClick={handleAcceptCall}
-                      className="w-16 h-16 bg-emerald-500 hover:bg-emerald-400 text-white rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/40 hover:scale-110 active:scale-95 transition-all animate-bounce"
+                      className="w-16 h-16 bg-sky-500 hover:bg-sky-400 text-white rounded-full flex items-center justify-center shadow-lg shadow-sky-500/40 hover:scale-110 active:scale-95 transition-all animate-bounce"
                       title="কল ধরুন"
                     >
                       <Phone size={28} className="animate-pulse" />
                     </button>
-                    <span className="text-xs font-bold text-emerald-400">কল রিসিভ করুন</span>
+                    <span className="text-xs font-bold text-sky-400">কল রিসিভ করুন</span>
                   </div>
                 </div>
               </div>

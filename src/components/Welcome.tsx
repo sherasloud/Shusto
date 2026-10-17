@@ -15,13 +15,13 @@ export function Welcome({ onFinish }: WelcomeProps) {
       image: "https://i.postimg.cc/HWMYLkGG/Image.jpg",
       title: "সহজ স্বাস্থ্যসেবা",
       description: "আপনার দোরগোড়ায় সম্পূর্ণ ডিজিটাল চিকিৎসাসেবা ও পরামর্শ পৌঁছে দিতে Shusto সদা প্রস্তুত।",
-      bg: "bg-gradient-to-br from-emerald-500/10 via-sky-500/10 to-teal-500/10"
+      bg: "bg-gradient-to-br from-sky-500/10 via-sky-500/10 to-teal-500/10"
     },
     {
       image: "https://i.postimg.cc/HWMYLkGG/Image.jpg",
       title: "অভিজ্ঞ ডাক্তার ও পরামর্শ",
       description: "বাংলাদেশর যেকোনো প্রান্ত থেকে অভিজ্ঞ ডাক্তারদের সাথে সরাসরি ভিডিও কলে কনসালটেশন নিন ও ডিজিটাল প্রেসক্রিপশন পান।",
-      bg: "bg-gradient-to-br from-teal-500/10 via-emerald-500/10 to-sky-500/10"
+      bg: "bg-gradient-to-br from-teal-500/10 via-sky-500/10 to-sky-500/10"
     }
   ];
 
@@ -83,8 +83,8 @@ export function Welcome({ onFinish }: WelcomeProps) {
             {/* Onboarding Image Container */}
             <div className="relative w-full aspect-[4/3] rounded-3xl overflow-hidden shadow-xl border border-white bg-slate-50 flex items-center justify-center">
               {/* Fallback Loader Graphic */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-emerald-50 via-teal-50 to-sky-50 p-6 text-center">
-                <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-sky-50 via-teal-50 to-sky-50 p-6 text-center">
+                <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mb-4" />
                 <p className="text-slate-400 text-xs font-medium">ছবি লোড হচ্ছে...</p>
               </div>
 
@@ -122,7 +122,7 @@ export function Welcome({ onFinish }: WelcomeProps) {
           {SLIDES.map((_, idx) => (
             <div 
               key={idx} 
-              className={`h-2 rounded-full transition-all duration-300 ${idx === currentSlide ? 'w-6 bg-emerald-500' : 'w-2 bg-slate-200'}`}
+              className={`h-2 rounded-full transition-all duration-300 ${idx === currentSlide ? 'w-6 bg-sky-500' : 'w-2 bg-slate-200'}`}
             />
           ))}
         </div>
@@ -135,7 +135,7 @@ export function Welcome({ onFinish }: WelcomeProps) {
           
           <button 
             onClick={handleNext}
-            className="w-full sm:w-auto ml-auto px-6 py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all"
+            className="w-full sm:w-auto ml-auto px-6 py-4 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-sky-500/20 active:scale-[0.98] transition-all"
           >
             {currentSlide === SLIDES.length - 1 ? (
               <>

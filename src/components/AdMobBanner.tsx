@@ -49,7 +49,7 @@ export const AdMobBanner: React.FC<AdMobBannerProps> = ({
             <span>Google AdMob Partner</span>
           </div>
           <span className="text-[10px] text-slate-400 flex items-center gap-1">
-            <ShieldCheck size={11} className="text-emerald-500" />
+            <ShieldCheck size={11} className="text-sky-500" />
             Verified
           </span>
         </div>

@@ -170,8 +170,8 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <LogIn size={10} className="text-emerald-500" />
-                  <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Logged In</p>
+                  <LogIn size={10} className="text-sky-500" />
+                  <p className="text-[10px] font-bold text-sky-600 uppercase tracking-widest">Logged In</p>
                 </div>
                 <p className="text-sm font-semibold text-slate-900 truncate">{(user as any)?.name || user?.displayName}</p>
               </div>

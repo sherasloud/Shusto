@@ -482,9 +482,9 @@ export function DoctorDirectory() {
             ) : (
               <>
                 {isTestAccount && (
-                  <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3.5 rounded-2xl text-xs font-bold mb-4 flex items-center justify-between">
+                  <div className="bg-sky-50 border border-sky-200 text-sky-800 p-3.5 rounded-2xl text-xs font-bold mb-4 flex items-center justify-between">
                     <span className="truncate">🧪 Test Account ({user?.email})</span>
-                    <span className="bg-emerald-600 text-white px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0">Free Booking (৳0)</span>
+                    <span className="bg-sky-600 text-white px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0">Free Booking (৳0)</span>
                   </div>
                 )}
 
@@ -530,7 +530,7 @@ export function DoctorDirectory() {
                             </div>
                             <span className={cn(
                               "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase",
-                              slot.status === 'available' ? "bg-emerald-100 text-emerald-700" :
+                              slot.status === 'available' ? "bg-sky-100 text-sky-700" :
                               slot.status === 'booked' ? "bg-amber-100 text-amber-700" :
                               slot.status === 'completed' ? "bg-sky-100 text-sky-700" :
                               "bg-slate-200 text-slate-600"
@@ -560,7 +560,7 @@ export function DoctorDirectory() {
                     </span>
                   </div>
                   {isTestAccount && (
-                    <div className="flex justify-between text-sm text-emerald-600 font-bold">
+                    <div className="flex justify-between text-sm text-sky-600 font-bold">
                       <span>Test Discount</span>
                       <span>-৳{parsedDoctorFee}</span>
                     </div>
@@ -698,7 +698,7 @@ export function DoctorDirectory() {
                         </div>
                         <span className={cn(
                           "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase",
-                          app.status === 'confirmed' ? "bg-emerald-100 text-emerald-700" : 
+                          app.status === 'confirmed' ? "bg-sky-100 text-sky-700" : 
                           app.status === 'cancelled' ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-700"
                         )}>
                           {app.status === 'confirmed' ? 'অনুমোদিত' : app.status === 'cancelled' ? 'বাতিল' : 'অপেক্ষমান'}

@@ -696,7 +696,7 @@ export function DoctorDashboard() {
                         "p-4 rounded-2xl border flex items-center justify-between transition-all",
                         isAvailable ? "bg-sky-50/50 border-sky-100" :
                         isBooked ? "bg-amber-50/50 border-amber-100" :
-                        isCompleted ? "bg-emerald-50/50 border-emerald-100" :
+                        isCompleted ? "bg-sky-50/50 border-sky-100" :
                         "bg-slate-50 border-slate-200 opacity-70"
                       )}
                     >
@@ -705,7 +705,7 @@ export function DoctorDashboard() {
                           <span className="text-xs font-bold text-slate-900">{slot.date}</span>
                           <span className={cn(
                             "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase",
-                            isAvailable ? "bg-emerald-100 text-emerald-700" :
+                            isAvailable ? "bg-sky-100 text-sky-700" :
                             isBooked ? "bg-amber-100 text-amber-700" :
                             isCompleted ? "bg-sky-100 text-sky-700" :
                             "bg-slate-200 text-slate-600"
