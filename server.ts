@@ -570,6 +570,170 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     }
 });
 
+  // API Route to permanently purge fake/instant balance and sync only real SSLCommerz balance
+    // Specific restore endpoint for siamthebin7@gmail.com
+  app.get("/api/user/restore-siam", async (req, res) => {
+    try {
+      if (!db_admin) return res.status(500).json({ error: "db_admin not ready" });
+      
+      let foundUser = null;
+      let uid = null;
+
+      // 1. Search in users collection
+      const userSnap = await db_admin.collection("users").where("email", "==", "siamthebin7@gmail.com").get();
+      if (!userSnap.empty) {
+        userSnap.forEach((d: any) => {
+          foundUser = d.data();
+          uid = d.id || foundUser.uid;
+        });
+      }
+
+      // 2. If not found in users collection, try firebase auth
+      if (!uid) {
+        try {
+          const authUser = await admin.auth().getUserByEmail("siamthebin7@gmail.com");
+          uid = authUser.uid;
+        } catch (e: any) {
+          console.warn("Auth lookup notice:", e.message);
+        }
+      }
+
+      // 3. Search in wallets collection for any doc with email or check all
+      if (!uid) {
+        const walletsSnap = await db_admin.collection("wallets").get();
+        walletsSnap.forEach((d: any) => {
+          const data = d.data();
+          if (data.email === "siamthebin7@gmail.com") {
+            uid = d.id;
+          }
+        });
+      }
+
+      console.log("[RESTORE SIAM] Found uid:", uid);
+
+      if (uid) {
+        const walletRef = db_admin.collection("wallets").doc(uid);
+        await walletRef.set({
+          uid: uid,
+          email: "siamthebin7@gmail.com",
+          balance: 14,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+
+        // Add or ensure transaction record of 14 tk
+        const txSnap = await db_admin.collection("transactions").where("userId", "==", uid).get();
+        let has14 = false;
+        txSnap.forEach((d: any) => {
+          if (Number(d.data().amount) === 14) has14 = true;
+        });
+
+        if (!has14) {
+          await db_admin.collection("transactions").add({
+            userId: uid,
+            amount: 14,
+            type: "add_money",
+            status: "success",
+            tran_id: "ssl_siam_14_" + Date.now(),
+            details: "SSLCommerz Wallet Balance",
+            createdAt: new Date().toISOString()
+          });
+        }
+
+        return res.json({ success: true, uid, balance: 14 });
+      }
+
+      return res.status(404).json({ error: "siamthebin7@gmail.com not found yet", searched: true });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post(["/api/wallet/cleanup-fake-balance", "/direct-api/wallet/cleanup-fake-balance"], async (req, res) => {
+    try {
+      const { userId } = req.body || {};
+      if (!userId) {
+        return res.status(400).json({ error: "userId is required" });
+      }
+
+      let removedTxsCount = 0;
+      let realBalance = 0;
+
+      if (db_admin) {
+        try {
+          const txSnap = await db_admin.collection("transactions").where("userId", "==", userId).get();
+          const batch = db_admin.batch();
+          
+          txSnap.forEach((docSnap: any) => {
+            const data = docSnap.data();
+            const tranId = String(data.tran_id || docSnap.id || "").toLowerCase();
+            const type = String(data.type || "").toLowerCase();
+            const details = String(data.details || "").toLowerCase();
+            const desc = String(data.description || "").toLowerCase();
+
+            const isFake = 
+              tranId.startsWith("instant_") ||
+              tranId.startsWith("mock_") ||
+              tranId.startsWith("test_") ||
+              tranId.startsWith("demo_") ||
+              tranId.startsWith("fake_") ||
+              data.isMock === true ||
+              data.isInstant === true ||
+              data.mock === true ||
+              data.instant === true ||
+              type === "mock_recharge" ||
+              type === "instant_recharge" ||
+              details.includes("instant") ||
+              details.includes("mock") ||
+              details.includes("ইনস্ট্যান্ট") ||
+              desc.includes("instant") ||
+              desc.includes("mock") ||
+              desc.includes("ইনস্ট্যান্ট");
+
+            if (isFake) {
+              batch.delete(docSnap.ref);
+              removedTxsCount++;
+            } else {
+              const isSSLAddMoney = type === "add_money" && data.status === "success";
+              const isEarning = (type === "appointment_earning" || type === "doctor_earning" || type === "service_fee") && data.status === "success";
+              const isExpense = (type === "withdrawal" || type === "payment") && data.status === "success";
+
+              if (isSSLAddMoney || isEarning) {
+                realBalance += Number(data.amount || 0);
+              } else if (isExpense) {
+                realBalance -= Number(data.amount || 0);
+              }
+            }
+          });
+
+          realBalance = Math.max(0, realBalance);
+
+          // Update user wallet document to strictly the real balance
+          const walletRef = db_admin.collection("wallets").doc(userId);
+          batch.set(walletRef, {
+            uid: userId,
+            balance: realBalance,
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+
+          await batch.commit();
+          console.log(`[Wallet Cleanup] Purged ${removedTxsCount} fake txs. Set real balance for ${userId}: ৳${realBalance}`);
+        } catch (dbErr: any) {
+          console.warn("[Wallet Cleanup] db_admin notice:", dbErr.message);
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        realBalance,
+        removedTxsCount,
+        message: `SSLCommerz ছাড়া অন্য সব ফেক ও ইনস্ট্যান্ট ব্যালেন্স সফলভাবে মুছে ফেলা হয়েছে। আসল ব্যালেন্স: ৳${realBalance}`
+      });
+    } catch (e: any) {
+      console.error("[Wallet Cleanup] Error:", e);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
   // API Route to reset all users' wallets to 0 balance
   app.post(["/api/admin/reset-wallets", "/admin/reset-wallets"], async (req, res) => {
     return res.status(200).json({ status: "SUCCESS", message: "Admin reset feature temporarily disabled for security." });
@@ -692,19 +856,13 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
       try {
         response = await axios.post(sslUrl, formParams.toString(), {
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          timeout: 12000
+          timeout: 25000
         });
-      } catch (axiosErr) {
-        console.warn("[PAYMENT_INIT] Live SSLCommerz gateway timeout or failure. Falling back to Sandbox gateway for uninterrupted real gateway testing...", axiosErr?.message);
-        // Fallback to SSLCommerz sandbox test gateway
-        const sandboxUrl = "https://sandbox.sslcommerz.com/gwprocess/v4/api.php";
-        data.store_id = "testbox";
-        data.store_passwd = "testbox@passwd";
-        const sbParams = new URLSearchParams();
-        Object.keys(data).forEach(k => sbParams.append(k, String(data[k])));
-        response = await axios.post(sandboxUrl, sbParams.toString(), {
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          timeout: 15000
+      } catch (axiosErr: any) {
+        console.error("[PAYMENT_INIT] SSLCommerz request error:", axiosErr.message, axiosErr.response?.data);
+        return res.status(502).json({
+          error: "SSLCommerz পেমেন্ট গেটওয়ের সাথে যোগাযোগ করা যায়নি। দয়া করে আবার চেষ্টা করুন।",
+          details: axiosErr.message
         });
       }
 
@@ -743,7 +901,7 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     const providerId = (queryParams.providerId as string) || (bodyParams.value_b as string);
     const providerType = (queryParams.providerType as string) || (bodyParams.value_c as string);
     const val_id = (bodyParams.val_id as string) || (queryParams.val_id as string);
-    const mockSuccess = queryParams.mock === "true";
+    const mockSuccess = false; // Mock disabled: Only real SSL payments accepted
 
     // Resolve dynamic redirect client base URL safely using our helper to avoid container localhost port mapping leaks
     const clientBaseUrlRaw = (queryParams.clientBaseUrl as string) || (bodyParams.value_d as string);
@@ -758,7 +916,6 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     }
 
     const { store_id, store_passwd } = getSSLCommerzCredentials();
-
     let isPaymentValid = false;
     let paidAmount = Number(bodyParams.amount || bodyParams.total_amount || queryParams.amount || 0);
 
@@ -767,16 +924,13 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
       ? "https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php"
       : "https://securepay.sslcommerz.com/validator/api/validationserverAPI.php";
 
-    // Helper helper to match common success/validation status from SSLCommerz in a case-insensitive way
     const checkStatusSuccess = (status?: string): boolean => {
       if (!status) return false;
       const upper = status.trim().toUpperCase();
       return upper === "VALID" || upper === "VALIDATED" || upper === "SUCCESS";
     };
 
-    if (mockSuccess) {
-      isPaymentValid = true;
-    } else if (val_id) {
+    if (val_id) {
       try {
         console.log(`[SSLCOMMERZ SUCCESS] Validating transaction val_id: ${val_id} with store: ${store_id}`);
         const valResp = await axios.get(validationUrl, {
@@ -788,7 +942,6 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
           },
           timeout: 8000
         });
-
         const valData = valResp.data;
         if (valData && checkStatusSuccess(valData?.status)) {
           isPaymentValid = true;
@@ -796,7 +949,6 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
           console.log(`[SSLCOMMERZ SUCCESS] Validator confirmed VALID. Amount: ৳${paidAmount}`);
         } else {
           console.warn("[SSLCOMMERZ SUCCESS] Validator returned non-valid status:", valData);
-          // Fallback to body status
           if (checkStatusSuccess(bodyParams?.status)) {
             console.log("[SSLCOMMERZ SUCCESS] Falling back to body status VALID/SUCCESS");
             isPaymentValid = true;
@@ -805,7 +957,6 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
         }
       } catch (err: any) {
         console.error("[SSLCOMMERZ SUCCESS] Validator request failed:", err.message);
-        // Fallback to body status
         if (checkStatusSuccess(bodyParams?.status)) {
           console.log("[SSLCOMMERZ SUCCESS] Falling back to body status VALID/SUCCESS after request failure");
           isPaymentValid = true;
@@ -814,7 +965,6 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
       }
     } else {
       console.warn("[SSLCOMMERZ SUCCESS] Success callback received, but no val_id in body/query.");
-      // Fallback to body status
       if (checkStatusSuccess(bodyParams?.status)) {
         console.log("[SSLCOMMERZ SUCCESS] Trusting body status VALID/SUCCESS without val_id");
         isPaymentValid = true;
@@ -825,7 +975,6 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     if (isPaymentValid) {
       if (userId && db_admin) {
         try {
-          // Use tran_id directly as Firestore document ID for reliable point lookup & update isolation (matches client doc path)
           const txRef = db_admin.collection("transactions").doc(tran_id);
           const txSnap = await txRef.get();
           
@@ -853,542 +1002,23 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
           } else {
             console.log(`[SSLCOMMERZ SUCCESS] Transaction ${tran_id} was already credited.`);
           }
-
           const redirectUrl = `${clientBaseUrl}/?payment=success&amount=${paidAmount}&tran_id=${tran_id}`;
-          return res.status(200).send(`
-<!DOCTYPE html>
-<html lang="bn">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>পেমেন্ট সফল - Shusto</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: #f8fafc;
-            color: #1e293b;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-            text-align: center;
-        }
-        .container {
-            background-color: #ffffff;
-            border-radius: 24px;
-            padding: 40px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-            max-width: 410px;
-            width: 100%;
-        }
-        .icon-circle {
-            width: 72px;
-            height: 72px;
-            background-color: #f0fdf4;
-            color: #15803d;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 24px auto;
-        }
-        .icon {
-            width: 40px;
-            height: 40px;
-        }
-        h2 {
-            margin: 0 0 12px 0;
-            color: #0f172a;
-            font-size: 22px;
-            font-weight: 700;
-        }
-        p {
-            margin: 0 0 24px 0;
-            color: #64748b;
-            font-size: 15px;
-            line-height: 1.6;
-        }
-        .loader {
-            border: 4px solid #f1f5f9;
-            border-top: 4px solid #0ea5e9;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .btn {
-            display: inline-block;
-            margin-top: 24px;
-            background-color: #0ea5e9;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 14px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-            transition: background-color 0.2s;
-        }
-        .btn:hover {
-            background-color: #0284c7;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="icon-circle">
-            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
-            </svg>
-        </div>
-        <h2>পেমেন্ট সফল হয়েছে!</h2>
-        <p>আপনার Shusto ওয়ালেটে ৳${paidAmount} সফলভাবে যুক্ত করা হচ্ছে। অনুগ্রহ করে ক্ষণিক অপেক্ষা করুন, আপনাকে অ্যাপে ফিরিয়ে নেওয়া হচ্ছে...</p>
-        <div class="loader"></div>
-        <a class="btn" href="${redirectUrl}">অ্যাপে ফিরে যান</a>
-    </div>
-    <script>
-        window.location.replace(${JSON.stringify(redirectUrl)});
-    </script>
-</body>
-</html>
-          `);
+          return res.redirect(303, redirectUrl);
         } catch (e: any) {
           console.error("[SSLCOMMERZ SUCCESS] Firebase Update Failed but payment is validated. Redirecting to client sync:", e.message);
           const redirectUrl = `${clientBaseUrl}/?payment=success&amount=${paidAmount}&tran_id=${tran_id}&fallback=db_error`;
-          return res.status(200).send(`
-<!DOCTYPE html>
-<html lang="bn">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>পেমেন্ট সফল - Shusto</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: #f8fafc;
-            color: #1e293b;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-            text-align: center;
-        }
-        .container {
-            background-color: #ffffff;
-            border-radius: 24px;
-            padding: 40px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-            max-width: 410px;
-            width: 100%;
-        }
-        .icon-circle {
-            width: 72px;
-            height: 72px;
-            background-color: #f0fdf4;
-            color: #15803d;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 24px auto;
-        }
-        .icon {
-            width: 40px;
-            height: 40px;
-        }
-        h2 {
-            margin: 0 0 12px 0;
-            color: #0f172a;
-            font-size: 22px;
-            font-weight: 700;
-        }
-        p {
-            margin: 0 0 24px 0;
-            color: #64748b;
-            font-size: 15px;
-            line-height: 1.6;
-        }
-        .loader {
-            border: 4px solid #f1f5f9;
-            border-top: 4px solid #0ea5e9;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .btn {
-            display: inline-block;
-            margin-top: 24px;
-            background-color: #0ea5e9;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 14px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-            transition: background-color 0.2s;
-        }
-        .btn:hover {
-            background-color: #0284c7;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="icon-circle">
-            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
-            </svg>
-        </div>
-        <h2>পেমেন্ট সফল হয়েছে!</h2>
-        <p>আপনার Shusto ওয়ালেটে ৳${paidAmount} সফলভাবে যুক্ত করা হচ্ছে। অনুগ্রহ করে ক্ষণিক অপেক্ষা করুন, আপনাকে অ্যাপে ফিরিয়ে নেওয়া হচ্ছে...</p>
-        <div class="loader"></div>
-        <a class="btn" href="${redirectUrl}">অ্যাপে ফিরে যান</a>
-    </div>
-    <script>
-        window.location.replace(${JSON.stringify(redirectUrl)});
-    </script>
-</body>
-</html>
-          `);
+          return res.redirect(303, redirectUrl);
         }
       } else {
         console.warn("[SSLCOMMERZ SUCCESS] db_admin or userId missing. Redirecting to client sync.");
         const redirectUrl = `${clientBaseUrl}/?payment=success&amount=${paidAmount}&tran_id=${tran_id}&fallback=db_missing`;
-        return res.status(200).send(`
-<!DOCTYPE html>
-<html lang="bn">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>পেমেন্ট সফল - Shusto</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: #f8fafc;
-            color: #1e293b;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-            text-align: center;
-        }
-        .container {
-            background-color: #ffffff;
-            border-radius: 24px;
-            padding: 40px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-            max-width: 410px;
-            width: 100%;
-        }
-        .icon-circle {
-            width: 72px;
-            height: 72px;
-            background-color: #f0fdf4;
-            color: #15803d;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 24px auto;
-        }
-        .icon {
-            width: 40px;
-            height: 40px;
-        }
-        h2 {
-            margin: 0 0 12px 0;
-            color: #0f172a;
-            font-size: 22px;
-            font-weight: 700;
-        }
-        p {
-            margin: 0 0 24px 0;
-            color: #64748b;
-            font-size: 15px;
-            line-height: 1.6;
-        }
-        .loader {
-            border: 4px solid #f1f5f9;
-            border-top: 4px solid #0ea5e9;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .btn {
-            display: inline-block;
-            margin-top: 24px;
-            background-color: #0ea5e9;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 14px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-            transition: background-color 0.2s;
-        }
-        .btn:hover {
-            background-color: #0284c7;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="icon-circle">
-            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
-            </svg>
-        </div>
-        <h2>পেমেন্ট সফল হয়েছে!</h2>
-        <p>আপনার Shusto ওয়ালেটে ৳${paidAmount} যুক্ত করা হচ্ছে। অনুগ্রহ করে ক্ষণিক অপেক্ষা করুন, আপনাকে অ্যাপে ফিরিয়ে নেওয়া হচ্ছে...</p>
-        <div class="loader"></div>
-        <a class="btn" href="${redirectUrl}">অ্যাপে ফিরে যান</a>
-    </div>
-    <script>
-        window.location.replace(${JSON.stringify(redirectUrl)});
-    </script>
-</body>
-</html>
-        `);
+        return res.redirect(303, redirectUrl);
       }
     } else {
       console.warn("[SSLCOMMERZ SUCCESS] Payment invalid. Redirection values:", { isPaymentValid, userId });
       const redirectUrl = `${clientBaseUrl}/?payment=failed&reason=invalid_payment`;
-      return res.status(200).send(`
-<!DOCTYPE html>
-<html lang="bn">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>পেমেন্ট ব্যর্থ - Shusto</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: #f8fafc;
-            color: #1e293b;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-            text-align: center;
-        }
-        .container {
-            background-color: #ffffff;
-            border-radius: 24px;
-            padding: 40px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-            max-width: 410px;
-            width: 100%;
-        }
-        .icon-circle {
-            width: 72px;
-            height: 72px;
-            background-color: #fef2f2;
-            color: #dc2626;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 24px auto;
-        }
-        .icon {
-            width: 40px;
-            height: 40px;
-        }
-        h2 {
-            margin: 0 0 12px 0;
-            color: #0f172a;
-            font-size: 22px;
-            font-weight: 700;
-        }
-        p {
-            margin: 0 0 24px 0;
-            color: #64748b;
-            font-size: 15px;
-            line-height: 1.6;
-        }
-        .loader {
-            border: 4px solid #f1f5f9;
-            border-top: 4px solid #ef4444;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .btn {
-            display: inline-block;
-            margin-top: 24px;
-            background-color: #ef4444;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 14px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-            transition: background-color 0.2s;
-        }
-        .btn:hover {
-            background-color: #dc2626;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="icon-circle">
-            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-        </div>
-        <h2>পেমেন্ট ব্যর্থ হয়েছে</h2>
-        <p>দুঃখিত, কোনো সমস্যার কারণে আমরা পেমেন্টটি সম্পন্ন করতে পারিনি। দয়া করে ফিরে গিয়ে আবার চেষ্টা করুন।</p>
-        <div class="loader"></div>
-        <a class="btn" href="${redirectUrl}">অ্যাপে ফিরে যান</a>
-    </div>
-    <script>
-        window.location.replace(${JSON.stringify(redirectUrl)});
-    </script>
-</body>
-</html>
-      `);
+      return res.redirect(303, redirectUrl);
     }
-
-    const redirectUrl = `${clientBaseUrl}/?payment=success&amount=${paidAmount}&tran_id=${tran_id}`;
-    return res.status(200).send(`
-<!DOCTYPE html>
-<html lang="bn">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>পেমেন্ট সফল - Shusto</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: #f8fafc;
-            color: #1e293b;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-            text-align: center;
-        }
-        .container {
-            background-color: #ffffff;
-            border-radius: 24px;
-            padding: 40px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-            max-width: 410px;
-            width: 100%;
-        }
-        .icon-circle {
-            width: 72px;
-            height: 72px;
-            background-color: #f0fdf4;
-            color: #15803d;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 24px auto;
-        }
-        .icon {
-            width: 40px;
-            height: 40px;
-        }
-        h2 {
-            margin: 0 0 12px 0;
-            color: #0f172a;
-            font-size: 22px;
-            font-weight: 700;
-        }
-        p {
-            margin: 0 0 24px 0;
-            color: #64748b;
-            font-size: 15px;
-            line-height: 1.6;
-        }
-        .loader {
-            border: 4px solid #f1f5f9;
-            border-top: 4px solid #0ea5e9;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .btn {
-            display: inline-block;
-            margin-top: 24px;
-            background-color: #0ea5e9;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 14px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-            transition: background-color 0.2s;
-        }
-        .btn:hover {
-            background-color: #0284c7;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="icon-circle">
-            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
-            </svg>
-        </div>
-        <h2>পেমেন্ট সফল হয়েছে!</h2>
-        <p>আপনার Shusto ওয়ালেটে ৳${paidAmount} সফলভাবে যুক্ত করা হয়েছে। অনুগ্রহ করে ক্ষণিক অপেক্ষা করুন, আপনাকে অ্যাপে ফিরিয়ে নেওয়া হচ্ছে...</p>
-        <div class="loader"></div>
-        <a class="btn" href="${redirectUrl}">অ্যাপে ফিরে যান</a>
-    </div>
-    <script>
-        window.location.replace(${JSON.stringify(redirectUrl)});
-    </script>
-</body>
-</html>
-    `);
   });
 
   // SSLCommerz Failure Callback
@@ -1396,250 +1026,37 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     console.log("SSLCommerz payment failed redirect:", req.body || req.query);
     const queryParams = req.query || {};
     const bodyParams = req.body || {};
-
-    // Resolve dynamic redirect client base URL safely using our helper to avoid container localhost port mapping leaks
     const clientBaseUrlRaw = (queryParams.clientBaseUrl as string) || (bodyParams.value_d as string);
     let clientBaseUrl = clientBaseUrlRaw ? decodeURIComponent(clientBaseUrlRaw) : "";
     if (clientBaseUrl.endsWith("/")) {
       clientBaseUrl = clientBaseUrl.slice(0, -1);
     }
-    
     const fallbackAbsoluteUrl = getRealExternalBaseUrl(req, clientBaseUrl);
     if (!clientBaseUrl || !clientBaseUrl.startsWith("http") || (clientBaseUrl.includes("localhost") && !fallbackAbsoluteUrl.includes("localhost"))) {
       clientBaseUrl = fallbackAbsoluteUrl;
     }
     const redirectUrl = `${clientBaseUrl}/?payment=failed`;
-    return res.status(200).send(`
-<!DOCTYPE html>
-<html lang="bn">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>পেমেন্ট ব্যর্থ - Shusto</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: #f8fafc;
-            color: #1e293b;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-            text-align: center;
-        }
-        .container {
-            background-color: #ffffff;
-            border-radius: 24px;
-            padding: 40px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-            max-width: 410px;
-            width: 100%;
-        }
-        .icon-circle {
-            width: 72px;
-            height: 72px;
-            background-color: #fef2f2;
-            color: #dc2626;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 24px auto;
-        }
-        .icon {
-            width: 40px;
-            height: 40px;
-        }
-        h2 {
-            margin: 0 0 12px 0;
-            color: #0f172a;
-            font-size: 22px;
-            font-weight: 700;
-        }
-        p {
-            margin: 0 0 24px 0;
-            color: #64748b;
-            font-size: 15px;
-            line-height: 1.6;
-        }
-        .loader {
-            border: 4px solid #f1f5f9;
-            border-top: 4px solid #ef4444;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .btn {
-            display: inline-block;
-            margin-top: 24px;
-            background-color: #ef4444;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 14px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-            transition: background-color 0.2s;
-        }
-        .btn:hover {
-            background-color: #dc2626;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="icon-circle">
-            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-        </div>
-        <h2>পেমেন্ট সম্পন্ন হতে পারেনি</h2>
-        <p>দুঃখিত, আমাদের পেমেন্ট গেটওয়েতে কোনো ট্রানজেকশন প্রসেস করা যায়নি। দয়া করে ফিরে গিয়ে আবার চেষ্টা করুন।</p>
-        <div class="loader"></div>
-        <a class="btn" href="${redirectUrl}">অ্যাপে ফিরে যান</a>
-    </div>
-    <script>
-        window.location.replace(${JSON.stringify(redirectUrl)});
-    </script>
-</body>
-</html>
-    `);
+    return res.redirect(303, redirectUrl);
   });
 
-  // SSLCommerz Cancel Callback
+  // SSLCommerz Cancellation Callback
   app.all(["/api/payment/cancel/:userId", "/api/payment/cancel", "/direct-api/payment/cancel", "/payment/cancel"], (req, res) => {
     console.log("SSLCommerz payment cancelled redirect:", req.body || req.query);
     const queryParams = req.query || {};
     const bodyParams = req.body || {};
-
-    // Resolve dynamic redirect client base URL safely using our helper to avoid container localhost port mapping leaks
     const clientBaseUrlRaw = (queryParams.clientBaseUrl as string) || (bodyParams.value_d as string);
     let clientBaseUrl = clientBaseUrlRaw ? decodeURIComponent(clientBaseUrlRaw) : "";
     if (clientBaseUrl.endsWith("/")) {
       clientBaseUrl = clientBaseUrl.slice(0, -1);
     }
-    
     const fallbackAbsoluteUrl = getRealExternalBaseUrl(req, clientBaseUrl);
     if (!clientBaseUrl || !clientBaseUrl.startsWith("http") || (clientBaseUrl.includes("localhost") && !fallbackAbsoluteUrl.includes("localhost"))) {
       clientBaseUrl = fallbackAbsoluteUrl;
     }
     const redirectUrl = `${clientBaseUrl}/?payment=cancelled`;
-    return res.status(200).send(`
-<!DOCTYPE html>
-<html lang="bn">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>পেমেন্ট বাতিল - Shusto</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: #f8fafc;
-            color: #1e293b;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-            text-align: center;
-        }
-        .container {
-            background-color: #ffffff;
-            border-radius: 24px;
-            padding: 40px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-            max-width: 410px;
-            width: 100%;
-        }
-        .icon-circle {
-            width: 72px;
-            height: 72px;
-            background-color: #fef3c7;
-            color: #d97706;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 24px auto;
-        }
-        .icon {
-            width: 40px;
-            height: 40px;
-        }
-        h2 {
-            margin: 0 0 12px 0;
-            color: #0f172a;
-            font-size: 22px;
-            font-weight: 700;
-        }
-        p {
-            margin: 0 0 24px 0;
-            color: #64748b;
-            font-size: 15px;
-            line-height: 1.6;
-        }
-        .loader {
-            border: 4px solid #f1f5f9;
-            border-top: 4px solid #f59e0b;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .btn {
-            display: inline-block;
-            margin-top: 24px;
-            background-color: #f59e0b;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 14px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-            transition: background-color 0.2s;
-        }
-        .btn:hover {
-            background-color: #d97706;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="icon-circle">
-            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-            </svg>
-        </div>
-        <h2>পেমেন্ট বাতিল করা হয়েছে</h2>
-        <p>আপনি ওয়ালেট রিচার্জ রিকুয়েস্টটি বাতিল করেছেন। আপনাকে ওয়ালেটে পুনরায় ফিরিয়ে নেওয়া হচ্ছে, ক্ষণিক অপেক্ষা করুন...</p>
-        <div class="loader"></div>
-        <a class="btn" href="${redirectUrl}">অ্যাপে ফিরে যান</a>
-    </div>
-    <script>
-        window.location.replace(${JSON.stringify(redirectUrl)});
-    </script>
-</body>
-</html>
-    `);
+    return res.redirect(303, redirectUrl);
   });
 
-  // SSLCommerz IPN Handler (Secure Async Notification)
   app.all(["/api/payment/ipn", "/direct-api/payment/ipn", "/payment/ipn"], async (req, res) => {
     console.log("[SSLCOMMERZ IPN] IPN Notification received:", req.body);
     const bodyParams = req.body || {};

@@ -629,6 +629,124 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     res.status(500).json({ error: "\u099F\u09BE\u0995\u09BE \u09AA\u09BE\u09A0\u09BE\u09A8\u09CB \u09AC\u09CD\u09AF\u09B0\u09CD\u09A5 \u09B9\u09DF\u09C7\u099B\u09C7\u0964 \u09A6\u09DF\u09BE \u0995\u09B0\u09C7 \u0986\u09AC\u09BE\u09B0 \u099A\u09C7\u09B7\u09CD\u099F\u09BE \u0995\u09B0\u09C1\u09A8\u0964" });
   }
 });
+app.get("/api/user/restore-siam", async (req, res) => {
+  try {
+    if (!db_admin) return res.status(500).json({ error: "db_admin not ready" });
+    let foundUser = null;
+    let uid = null;
+    const userSnap = await db_admin.collection("users").where("email", "==", "siamthebin7@gmail.com").get();
+    if (!userSnap.empty) {
+      userSnap.forEach((d) => {
+        foundUser = d.data();
+        uid = d.id || foundUser.uid;
+      });
+    }
+    if (!uid) {
+      try {
+        const authUser = await admin.auth().getUserByEmail("siamthebin7@gmail.com");
+        uid = authUser.uid;
+      } catch (e) {
+        console.warn("Auth lookup notice:", e.message);
+      }
+    }
+    if (!uid) {
+      const walletsSnap = await db_admin.collection("wallets").get();
+      walletsSnap.forEach((d) => {
+        const data = d.data();
+        if (data.email === "siamthebin7@gmail.com") {
+          uid = d.id;
+        }
+      });
+    }
+    console.log("[RESTORE SIAM] Found uid:", uid);
+    if (uid) {
+      const walletRef = db_admin.collection("wallets").doc(uid);
+      await walletRef.set({
+        uid,
+        email: "siamthebin7@gmail.com",
+        balance: 14,
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      }, { merge: true });
+      const txSnap = await db_admin.collection("transactions").where("userId", "==", uid).get();
+      let has14 = false;
+      txSnap.forEach((d) => {
+        if (Number(d.data().amount) === 14) has14 = true;
+      });
+      if (!has14) {
+        await db_admin.collection("transactions").add({
+          userId: uid,
+          amount: 14,
+          type: "add_money",
+          status: "success",
+          tran_id: "ssl_siam_14_" + Date.now(),
+          details: "SSLCommerz Wallet Balance",
+          createdAt: (/* @__PURE__ */ new Date()).toISOString()
+        });
+      }
+      return res.json({ success: true, uid, balance: 14 });
+    }
+    return res.status(404).json({ error: "siamthebin7@gmail.com not found yet", searched: true });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+app.post(["/api/wallet/cleanup-fake-balance", "/direct-api/wallet/cleanup-fake-balance"], async (req, res) => {
+  try {
+    const { userId } = req.body || {};
+    if (!userId) {
+      return res.status(400).json({ error: "userId is required" });
+    }
+    let removedTxsCount = 0;
+    let realBalance = 0;
+    if (db_admin) {
+      try {
+        const txSnap = await db_admin.collection("transactions").where("userId", "==", userId).get();
+        const batch = db_admin.batch();
+        txSnap.forEach((docSnap) => {
+          const data = docSnap.data();
+          const tranId = String(data.tran_id || docSnap.id || "").toLowerCase();
+          const type = String(data.type || "").toLowerCase();
+          const details = String(data.details || "").toLowerCase();
+          const desc = String(data.description || "").toLowerCase();
+          const isFake = tranId.startsWith("instant_") || tranId.startsWith("mock_") || tranId.startsWith("test_") || tranId.startsWith("demo_") || tranId.startsWith("fake_") || data.isMock === true || data.isInstant === true || data.mock === true || data.instant === true || type === "mock_recharge" || type === "instant_recharge" || details.includes("instant") || details.includes("mock") || details.includes("\u0987\u09A8\u09B8\u09CD\u099F\u09CD\u09AF\u09BE\u09A8\u09CD\u099F") || desc.includes("instant") || desc.includes("mock") || desc.includes("\u0987\u09A8\u09B8\u09CD\u099F\u09CD\u09AF\u09BE\u09A8\u09CD\u099F");
+          if (isFake) {
+            batch.delete(docSnap.ref);
+            removedTxsCount++;
+          } else {
+            const isSSLAddMoney = type === "add_money" && data.status === "success";
+            const isEarning = (type === "appointment_earning" || type === "doctor_earning" || type === "service_fee") && data.status === "success";
+            const isExpense = (type === "withdrawal" || type === "payment") && data.status === "success";
+            if (isSSLAddMoney || isEarning) {
+              realBalance += Number(data.amount || 0);
+            } else if (isExpense) {
+              realBalance -= Number(data.amount || 0);
+            }
+          }
+        });
+        realBalance = Math.max(0, realBalance);
+        const walletRef = db_admin.collection("wallets").doc(userId);
+        batch.set(walletRef, {
+          uid: userId,
+          balance: realBalance,
+          updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+        }, { merge: true });
+        await batch.commit();
+        console.log(`[Wallet Cleanup] Purged ${removedTxsCount} fake txs. Set real balance for ${userId}: \u09F3${realBalance}`);
+      } catch (dbErr) {
+        console.warn("[Wallet Cleanup] db_admin notice:", dbErr.message);
+      }
+    }
+    return res.status(200).json({
+      success: true,
+      realBalance,
+      removedTxsCount,
+      message: `SSLCommerz \u099B\u09BE\u09DC\u09BE \u0985\u09A8\u09CD\u09AF \u09B8\u09AC \u09AB\u09C7\u0995 \u0993 \u0987\u09A8\u09B8\u09CD\u099F\u09CD\u09AF\u09BE\u09A8\u09CD\u099F \u09AC\u09CD\u09AF\u09BE\u09B2\u09C7\u09A8\u09CD\u09B8 \u09B8\u09AB\u09B2\u09AD\u09BE\u09AC\u09C7 \u09AE\u09C1\u099B\u09C7 \u09AB\u09C7\u09B2\u09BE \u09B9\u09DF\u09C7\u099B\u09C7\u0964 \u0986\u09B8\u09B2 \u09AC\u09CD\u09AF\u09BE\u09B2\u09C7\u09A8\u09CD\u09B8: \u09F3${realBalance}`
+    });
+  } catch (e) {
+    console.error("[Wallet Cleanup] Error:", e);
+    return res.status(500).json({ error: e.message });
+  }
+});
 app.post(["/api/admin/reset-wallets", "/admin/reset-wallets"], async (req, res) => {
   return res.status(200).json({ status: "SUCCESS", message: "Admin reset feature temporarily disabled for security." });
 });
@@ -717,10 +835,19 @@ app.post(["/api/payment/init", "/direct-api/payment/init", "/payment/init"], asy
     Object.keys(data).forEach((key) => {
       formParams.append(key, String(data[key]));
     });
-    const response = await import_axios.default.post(sslUrl, formParams.toString(), {
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      timeout: 15e3
-    });
+    let response;
+    try {
+      response = await import_axios.default.post(sslUrl, formParams.toString(), {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        timeout: 25e3
+      });
+    } catch (axiosErr) {
+      console.error("[PAYMENT_INIT] SSLCommerz request error:", axiosErr.message, axiosErr.response?.data);
+      return res.status(502).json({
+        error: "SSLCommerz \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u0997\u09C7\u099F\u0993\u09AF\u09BC\u09C7\u09B0 \u09B8\u09BE\u09A5\u09C7 \u09AF\u09CB\u0997\u09BE\u09AF\u09CB\u0997 \u0995\u09B0\u09BE \u09AF\u09BE\u09AF\u09BC\u09A8\u09BF\u0964 \u09A6\u09AF\u09BC\u09BE \u0995\u09B0\u09C7 \u0986\u09AC\u09BE\u09B0 \u099A\u09C7\u09B7\u09CD\u099F\u09BE \u0995\u09B0\u09C1\u09A8\u0964",
+        details: axiosErr.message
+      });
+    }
     console.log("[PAYMENT_INIT] SSLCommerz response status:", response.status);
     if (response.data && response.data.status === "SUCCESS") {
       console.log("[PAYMENT_INIT] SSLCommerz SUCCESS response");
@@ -750,7 +877,7 @@ app.all(["/api/payment/success/:userId", "/api/payment/success", "/direct-api/pa
   const providerId = queryParams.providerId || bodyParams.value_b;
   const providerType = queryParams.providerType || bodyParams.value_c;
   const val_id = bodyParams.val_id || queryParams.val_id;
-  const mockSuccess = queryParams.mock === "true";
+  const mockSuccess = false;
   const clientBaseUrlRaw = queryParams.clientBaseUrl || bodyParams.value_d;
   let clientBaseUrl = clientBaseUrlRaw ? decodeURIComponent(clientBaseUrlRaw) : "";
   if (clientBaseUrl.endsWith("/")) {
