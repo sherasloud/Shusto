@@ -361,6 +361,63 @@ export function Wallet() {
     }
   };
 
+
+  const handleInstantAddMoney = async () => {
+    if (!user) {
+      alert("আপনার অ্যাকাউন্ট সেশন পাওয়া যায়নি।");
+      return;
+    }
+    const amt = Number(amount);
+    if (!amount || isNaN(amt) || amt <= 0) {
+      alert("সঠিক পরিমাণ লিখুন (কমপক্ষে ১ টাকা)।");
+      return;
+    }
+    setProcessing(true);
+    try {
+      const tid = "instant_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7);
+      const txDocRef = doc(db, "transactions", tid);
+      const walletRef = doc(db, "wallets", user.uid);
+      
+      await runTransaction(db, async (txn) => {
+        const walletSnap = await txn.get(walletRef);
+        let currentBalance = 0;
+        if (walletSnap.exists()) {
+          currentBalance = walletSnap.data().balance || 0;
+        }
+        txn.set(
+          walletRef,
+          {
+            uid: user.uid,
+            balance: currentBalance + amt,
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true },
+        );
+        txn.set(txDocRef, {
+          userId: user.uid,
+          amount: amt,
+          type: "add_money",
+          status: "success",
+          tran_id: tid,
+          createdAt: new Date().toISOString(),
+        });
+      });
+
+      const walletDoc = await getDoc(walletRef);
+      if (walletDoc.exists()) {
+        setBalance(walletDoc.data().balance || 0);
+      }
+      setCreditSuccessMsg("৳" + amt + " আপনার Shusto ওয়ালেটে ইনস্ট্যান্টলি সফলভাবে জমা করা হয়েছে!");
+      setShowAddMoney(false);
+      setAmount("");
+    } catch (err) {
+      console.error("Instant add money error:", err);
+      alert("ইনস্ট্যান্ট ব্যালেন্স যোগ করতে সমস্যা হয়েছে: " + err.message);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const handleWithdraw = async (isRetry: boolean = false) => {
     setWithdrawErrorDetails(null);
     setWithdrawSuccessDetails(null);
@@ -812,6 +869,16 @@ export function Wallet() {
                   )}
                 >
                   {processing ? "প্রসেস হচ্ছে..." : "এগিয়ে যান"}
+                </button>
+                <button
+                  onClick={() => handleInstantAddMoney()}
+                  disabled={processing}
+                  className={cn(
+                    "flex-1 py-4 text-white font-bold rounded-2xl transition-all shadow-lg",
+                    processing ? "bg-slate-400 cursor-not-allowed" : "bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20"
+                  )}
+                >
+                  {processing ? "প্রসেস হচ্ছে..." : "⚡ ইনস্ট্যান্ট রিচার্জ"}
                 </button>
               </div>
 
