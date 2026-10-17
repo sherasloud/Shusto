@@ -3,6 +3,29 @@ import mysql from 'mysql2/promise';
 let pool: mysql.Pool | null = null;
 let isConfigured = false;
 
+export function configureMySQLCredentials(config: {
+  host: string;
+  port?: number;
+  user: string;
+  password?: string;
+  database: string;
+}) {
+  if (pool) {
+    try {
+      pool.end();
+    } catch (e) {}
+    pool = null;
+  }
+
+  process.env.MYSQL_HOST = config.host;
+  process.env.MYSQL_USER = config.user;
+  process.env.MYSQL_PASSWORD = config.password || '';
+  process.env.MYSQL_DATABASE = config.database;
+  process.env.MYSQL_PORT = String(config.port || 3306);
+
+  return getMySQLPool();
+}
+
 export function getMySQLPool(): mysql.Pool | null {
   if (pool) return pool;
 
@@ -91,6 +114,6 @@ export function getMySQLStatus() {
     configured: isConfigured || !!(process.env.MYSQL_HOST && process.env.MYSQL_USER && process.env.MYSQL_DATABASE),
     host: process.env.MYSQL_HOST || null,
     database: process.env.MYSQL_DATABASE || null,
-    port: process.env.MYSQL_PORT || 3306,
+    port: process.env.MYSQL_PORT ? parseInt(process.env.MYSQL_PORT, 10) : 3306,
   };
 }

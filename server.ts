@@ -31,6 +31,19 @@ import {
   Transaction as MongoTransaction,
   ServiceRequest as MongoServiceRequest
 } from "./mongo.ts";
+import {
+  getMySQLPool,
+  getMySQLStatus,
+  testMySQLConnection,
+  configureMySQLCredentials,
+  queryMySQL
+} from "./mysql.ts";
+import {
+  extractAllFirebaseData,
+  generateMySQLMigrationScript,
+  runDirectMySQLMigration,
+  registerClientContributedData
+} from "./migration.ts";
 
 dotenv.config();
 
@@ -117,11 +130,13 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-// Database Status Endpoint (MongoDB Atlas + Firebase)
+// Database Status Endpoint (MySQL + MongoDB Atlas + Firebase)
 app.get("/api/db/status", async (req, res) => {
   const mongo = getMongoStatus();
+  const mysqlStatus = getMySQLStatus();
   res.json({
     success: true,
+    mysql: mysqlStatus,
     mongo: {
       ...mongo,
       targetDatabase: "shustodb",
@@ -133,6 +148,91 @@ app.get("/api/db/status", async (req, res) => {
     },
     timestamp: new Date().toISOString(),
   });
+});
+
+// MySQL Status & Testing Endpoints
+app.get("/api/mysql/status", (req, res) => {
+  res.json({ success: true, ...getMySQLStatus() });
+});
+
+app.post("/api/mysql/test", async (req, res) => {
+  try {
+    const result = await testMySQLConnection();
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err?.message || String(err) });
+  }
+});
+
+app.post("/api/mysql/config", async (req, res) => {
+  try {
+    const { host, port, user, password, database } = req.body;
+    if (!host || !user || !database) {
+      return res.status(400).json({ success: false, message: "Host, User, and Database are required." });
+    }
+    configureMySQLCredentials({ host, port: Number(port) || 3306, user, password, database });
+    const testResult = await testMySQLConnection();
+    res.json({
+      success: testResult.success,
+      message: testResult.success
+        ? "MySQL configuration saved and connection verified successfully!"
+        : `Configuration saved, but connection test failed: ${testResult.message}`,
+      status: getMySQLStatus(),
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err?.message || String(err) });
+  }
+});
+
+// Full Firebase to MySQL Migration Endpoints
+app.get("/api/migration/export-sql", async (req, res) => {
+  try {
+    const sqlContent = await generateMySQLMigrationScript(db_admin);
+    res.setHeader("Content-Type", "application/sql");
+    res.setHeader("Content-Disposition", 'attachment; filename="shustobd_full_firebase_migration.sql"');
+    res.send(sqlContent);
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || String(err) });
+  }
+});
+
+app.get("/api/migration/export-json", async (req, res) => {
+  try {
+    const exportResult = await extractAllFirebaseData(db_admin);
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", 'attachment; filename="firebase_all_data_export.json"');
+    res.json({
+      success: true,
+      exportedAt: new Date().toISOString(),
+      source: exportResult.source,
+      errorNotice: exportResult.error,
+      data: exportResult.data,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || String(err) });
+  }
+});
+
+app.post("/api/migration/run-direct", async (req, res) => {
+  try {
+    const result = await runDirectMySQLMigration(db_admin);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err?.message || String(err) });
+  }
+});
+
+app.post("/api/migration/client-push", (req, res) => {
+  try {
+    const { collectionName, items } = req.body;
+    if (collectionName && Array.isArray(items)) {
+      registerClientContributedData(collectionName, items);
+      return res.json({ success: true, count: items.length });
+    }
+    res.status(400).json({ success: false, message: "Invalid payload format" });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || String(err) });
+  }
 });
 
 // Test MongoDB Atlas Ping
