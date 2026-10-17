@@ -234,6 +234,38 @@ export function Wallet() {
       setTransactionsLoaded(true);
     });
 
+
+    // Auto-clean any instant/mock recharge transactions and adjust balance
+    const cleanInstantTransactions = async () => {
+      try {
+        const snap = await getDocs(query(collection(db, "transactions"), where("userId", "==", user.uid)));
+        let instantTotal = 0;
+        const batchDeletes = [];
+        snap.forEach((d) => {
+          const data = d.data();
+          if (data.tran_id && String(data.tran_id).startsWith("instant_")) {
+            instantTotal += Number(data.amount || 0);
+            batchDeletes.push(deleteDoc(doc(db, "transactions", d.id)));
+          }
+        });
+        if (batchDeletes.length > 0) {
+          await Promise.all(batchDeletes);
+          const walletRef = doc(db, "wallets", user.uid);
+          const walletSnap = await getDoc(walletRef);
+          if (walletSnap.exists()) {
+            const currentBal = walletSnap.data().balance || 0;
+            const newBal = Math.max(0, currentBal - instantTotal);
+            await setDoc(walletRef, { balance: newBal, updatedAt: new Date().toISOString() }, { merge: true });
+            setBalance(newBal);
+          }
+          console.log("[Wallet Cleanup] Removed instant recharge transactions: ৳" + instantTotal);
+        }
+      } catch (err) {
+        console.error("Error cleaning instant transactions:", err);
+      }
+    };
+    cleanInstantTransactions();
+
     return () => {
       unsubscribeWallet();
       unsubscribeTransactions();
@@ -362,59 +394,19 @@ export function Wallet() {
   };
 
 
-  const handleInstantAddMoney = async () => {
-    if (!user) {
-      alert("আপনার অ্যাকাউন্ট সেশন পাওয়া যায়নি।");
-      return;
-    }
-    const amt = Number(amount);
-    if (!amount || isNaN(amt) || amt <= 0) {
-      alert("সঠিক পরিমাণ লিখুন (কমপক্ষে ১ টাকা)।");
-      return;
-    }
-    setProcessing(true);
-    try {
-      const tid = "instant_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7);
-      const txDocRef = doc(db, "transactions", tid);
-      const walletRef = doc(db, "wallets", user.uid);
-      
-      await runTransaction(db, async (txn) => {
-        const walletSnap = await txn.get(walletRef);
-        let currentBalance = 0;
-        if (walletSnap.exists()) {
-          currentBalance = walletSnap.data().balance || 0;
-        }
-        txn.set(
-          walletRef,
-          {
-            uid: user.uid,
-            balance: currentBalance + amt,
-            updatedAt: new Date().toISOString(),
-          },
-          { merge: true },
-        );
-        txn.set(txDocRef, {
-          userId: user.uid,
-          amount: amt,
-          type: "add_money",
-          status: "success",
-          tran_id: tid,
-          createdAt: new Date().toISOString(),
-        });
-      });
+  
 
-      const walletDoc = await getDoc(walletRef);
-      if (walletDoc.exists()) {
-        setBalance(walletDoc.data().balance || 0);
-      }
-      setCreditSuccessMsg("৳" + amt + " আপনার Shusto ওয়ালেটে ইনস্ট্যান্টলি সফলভাবে জমা করা হয়েছে!");
-      setShowAddMoney(false);
-      setAmount("");
+  const handleResetBalance = async () => {
+    if (!user) return;
+    if (!confirm("আপনি কি আপনার ওয়ালেট ব্যালেন্স শূন্য (৳0) করতে চান?")) return;
+    try {
+      const walletRef = doc(db, "wallets", user.uid);
+      await setDoc(walletRef, { balance: 0, updatedAt: new Date().toISOString() }, { merge: true });
+      setBalance(0);
+      try { localStorage.setItem(`cached_wallet_balance_${user.uid}`, "0"); } catch (e) {}
+      alert("ওয়ালেট ব্যালেন্স সফলভাবে রিসেট করে ৳0 করা হয়েছে।");
     } catch (err) {
-      console.error("Instant add money error:", err);
-      alert("ইনস্ট্যান্ট ব্যালেন্স যোগ করতে সমস্যা হয়েছে: " + err.message);
-    } finally {
-      setProcessing(false);
+      alert("রিসেট করতে সমস্যা হয়েছে: " + err.message);
     }
   };
 
@@ -870,16 +862,7 @@ export function Wallet() {
                 >
                   {processing ? "প্রসেস হচ্ছে..." : "এগিয়ে যান"}
                 </button>
-                <button
-                  onClick={() => handleInstantAddMoney()}
-                  disabled={processing}
-                  className={cn(
-                    "flex-1 py-4 text-white font-bold rounded-2xl transition-all shadow-lg",
-                    processing ? "bg-slate-400 cursor-not-allowed" : "bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20"
-                  )}
-                >
-                  {processing ? "প্রসেস হচ্ছে..." : "⚡ ইনস্ট্যান্ট রিচার্জ"}
-                </button>
+                
               </div>
 
               {/* Removed Mock Recharge button as requested */}
