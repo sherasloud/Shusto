@@ -866,9 +866,6 @@ export function Wallet() {
                   </button>
                 ))}
               </div>
-              <p className="text-[11px] font-bold text-sky-600">
-                * SSLCommerz গেটওয়ের নিয়ম অনুযায়ী সর্বনিম্ন ১০ টাকা যোগ করতে হবে।
-              </p>
               {gatewayRedirectUrl && (
                 <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-3">
                   <p className="text-xs font-bold text-emerald-800">
@@ -882,15 +879,6 @@ export function Wallet() {
                   >
                     💳 SSLCommerz পেমেন্ট পেজে যান ➔
                   </a>
-                </div>
-              )}
-
-              {typeof window !== 'undefined' && window.self !== window.top && (
-                <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100/50 text-xs text-amber-700 leading-relaxed shadow-sm">
-                  <p className="font-bold flex items-center gap-1.5 mb-1 text-amber-800">
-                    <span>⚠️</span> আপনি প্রিভিউ ফ্রেমের ভেতরে আছেন!
-                  </p>
-                  পেমেন্ট গেটওয়ে রিডাইরেক্ট সাধারণত iframe-এর মধ্যে সিকিউরিটি কারণে ব্লক করা থাকে। দয়া করে অ্যাপটি <strong>"Open in new tab"</strong> বা নতুন ডোমেইনে ব্রাউজ করে ট্রাই করুন, তাহলে পেমেন্ট পেজটি লোড হবে।
                 </div>
               )}
 
