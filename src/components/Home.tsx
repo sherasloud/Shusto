@@ -10,15 +10,15 @@ export function Home() {
     <div className="min-h-screen bg-[#F8FBFF] p-6 pb-24 text-slate-900">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-3">
-          <MapPin className="text-[#1DA1F2]" />
-          <div>
-            <p className="text-[10px] text-slate-400">Current location</p>
-            <p className="text-xs font-bold">Semarang, INA</p>
+        <div>
+          <h1 className="text-2xl font-black text-[#1DA1F2]">Shusto</h1>
+          <div className="flex items-center gap-1 mt-1">
+            <MapPin className="text-[#1DA1F2]" size={14} />
+            <p className="text-xs font-bold text-slate-700">{user?.address || 'Set location'}</p>
           </div>
         </div>
         <img 
-          src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" 
+          src={user?.photoURL || 'https://ui-avatars.com/api/?name=' + (user?.displayName || 'U')} 
           alt="Profile" 
           className="w-10 h-10 rounded-full object-cover" 
         />
@@ -38,25 +38,10 @@ export function Home() {
       <div className="mb-8">
         <div className="flex justify-between items-center mb-4">
           <h2 className="font-bold text-lg">Upcoming Schedule</h2>
-          <span className="text-xs text-[#1DA1F2] font-semibold">See all</span>
         </div>
-        <div className="bg-[#1DA1F2] p-6 rounded-3xl text-white shadow-lg shadow-[#1DA1F2]/30">
-          <div className="flex items-center gap-4 mb-4">
-            <img 
-              src="https://images.unsplash.com/photo-1594824813511-2e6504a9e52e?w=100&auto=format&fit=crop&q=80" 
-              alt="Doctor" 
-              className="w-12 h-12 rounded-full object-cover" 
-            />
-            <div>
-              <p className="font-bold">Dr. Haley Lawrence</p>
-              <p className="text-xs text-white/80">Dermatologists</p>
-            </div>
-            <Video className="ml-auto" />
-          </div>
-          <div className="bg-white/20 px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2">
-            <Calendar size={14} />
-            Sun, Jan 19, 08.00am - 10.00am
-          </div>
+        {/* Real Dynamic Data Integration Needed Here - Placeholder if empty */}
+        <div className="p-6 rounded-3xl bg-white border border-slate-100 text-center text-slate-400 text-sm">
+          No upcoming appointments
         </div>
       </div>
 
