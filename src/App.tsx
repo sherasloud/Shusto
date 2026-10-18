@@ -4,7 +4,7 @@ import { LanguageProvider } from './LanguageContext';
 import { APIProvider } from '@vis.gl/react-google-maps';
 import { Login } from './components/Login';
 import { Sidebar } from './components/Sidebar';
-import { Dashboard } from './components/Dashboard';
+import { Home } from './components/Home';
 import { MedicineStore } from './components/MedicineStore';
 import { Prescriptions } from './components/Prescriptions';
 import { DoctorDirectory } from './components/DoctorDirectory';
@@ -540,7 +540,7 @@ function AppContent() {
     if (user.role === 'state') return <StateDashboard />;
     
     // Default patient dashboard
-    return <Dashboard />;
+    return <Home />;
   };
 
   return (

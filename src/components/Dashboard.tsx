@@ -190,7 +190,7 @@ export function Dashboard() {
   const displayName = ((user as any)?.name || user?.displayName || 'Alex Morgan').split(' ')[0];
 
   return (
-    <div className="min-h-screen bg-[#F4F7FC] -m-4 md:-m-8 lg:-m-12 p-4 md:p-8 lg:p-10 text-slate-900 pb-28">
+    <div className="min-h-screen bg-[#F8FBFF] -m-4 md:-m-8 lg:-m-12 p-4 md:p-8 lg:p-10 text-slate-900 pb-28">
       <div className="max-w-6xl mx-auto space-y-7">
         
         {/* Top Header Bar (Matching Image: Left Profile + Right Bell) */}
@@ -273,44 +273,75 @@ export function Dashboard() {
             <div
                 key={card.id}
                 onClick={() => setSelectedDoctor(card)}
-                className={`rounded-[32px] p-6 relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.01] ${
-                  card.theme === 'blue' 
-                    ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-500/20' 
-                    : 'bg-white border border-slate-100 shadow-sm hover:shadow-md'
-                } flex flex-col justify-between min-h-[220px]`}
+                className={`rounded-[36px] p-6 sm:p-7 relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.01] active:scale-[0.99] flex flex-col justify-between min-h-[260px] ${
+                  card.theme === 'blue'
+                    ? 'bg-gradient-to-br from-[#2563EB] via-[#1D4ED8] to-[#1E40AF] text-white shadow-xl shadow-blue-600/20'
+                    : 'bg-white border border-slate-200/70 text-slate-900 shadow-sm hover:shadow-md'
+                }`}
               >
                 {/* Top Row: Department Badge + Time Slot Pill */}
                 <div className="flex items-center justify-between gap-3 relative z-10">
-                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold ${
+                  <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold backdrop-blur-md ${
                     card.theme === 'blue' 
-                      ? 'bg-white/20 text-white' 
-                      : 'bg-slate-50 text-slate-600 border border-slate-100'
+                      ? 'bg-white/15 text-white border border-white/20' 
+                      : 'bg-slate-100 text-slate-800'
                   }`}>
-                    {card.category === 'Surgeon' ? <Brain size={14} /> : <Heart size={14} />}
+                    {card.category === 'Surgeon' ? <Brain size={15} /> : <Heart size={15} />}
                     <span>{card.specialty.split(' ')[0]}</span>
                   </div>
 
-                  <div className={`px-3 py-1.5 rounded-full text-[10px] font-bold tracking-tight ${
-                    card.theme === 'blue' 
-                      ? 'bg-white/20 text-white' 
-                      : 'bg-slate-50 text-slate-500'
+                  <div className={`px-3 py-1.5 rounded-full text-xs font-bold tracking-tight ${
+                    card.theme === 'blue' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
                   }`}>
                     {card.timeSlot}
                   </div>
                 </div>
 
-                {/* Bottom Row: Doctor Title */}
-                <div className="pt-4 relative z-10">
-                  <h3 className={`text-lg font-black tracking-tight leading-tight ${
-                    card.theme === 'blue' ? 'text-white' : 'text-slate-950'
-                  }`}>
-                    {card.name}
-                  </h3>
-                  <p className={`text-[11px] font-semibold mt-1 ${
-                    card.theme === 'blue' ? 'text-blue-100' : 'text-slate-500'
-                  }`}>
-                    {card.specialty} • ৳{card.fee}
-                  </p>
+                {/* Middle Row: Doctor Avatars Pile + Available Count */}
+                <div className="flex items-center gap-3 my-5 relative z-10">
+                  <div className="flex -space-x-2.5 overflow-hidden">
+                    <img 
+                      className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover" 
+                      src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=120&auto=format&fit=crop&q=80" 
+                      alt="Doc 1" 
+                    />
+                    <img 
+                      className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover" 
+                      src="https://images.unsplash.com/photo-1594824813511-2e6504a9e52e?w=120&auto=format&fit=crop&q=80" 
+                      alt="Doc 2" 
+                    />
+                    <img 
+                      className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover" 
+                      src="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=120&auto=format&fit=crop&q=80" 
+                      alt="Doc 3" 
+                    />
+                  </div>
+                  <span className={`text-xs font-bold ${card.theme === 'blue' ? 'text-blue-100' : 'text-slate-400'}`}>
+                    +{card.availableCount} Doctor available
+                  </span>
+                </div>
+
+                {/* Bottom Row: Doctor Title & Diagonal Arrow Button */}
+                <div className="flex items-end justify-between gap-4 pt-2 relative z-10">
+                  <div>
+                    <h3 className={`text-xl sm:text-2xl font-black tracking-tight leading-tight ${card.theme === 'blue' ? 'text-white' : 'text-slate-900'}`}>
+                      {card.specialty}
+                    </h3>
+                    <p className={`text-xs font-semibold mt-1 ${card.theme === 'blue' ? 'text-blue-100' : 'text-slate-500'}`}>
+                      {card.name} • ৳{card.fee}
+                    </p>
+                  </div>
+
+                  <button
+                    aria-label="View doctor details"
+                    className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 transition-transform hover:scale-105 active:scale-95 shadow-md ${
+                      card.theme === 'blue' 
+                        ? 'bg-white text-slate-900' 
+                        : 'bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-[#1DA1F2] border border-slate-200/80'
+                    }`}
+                  >
+                    <ArrowUpRight size={22} />
+                  </button>
                 </div>
               </div>
             );
@@ -332,7 +363,7 @@ export function Dashboard() {
             <div className="flex items-center gap-2">
               <button 
                 onClick={() => window.dispatchEvent(new CustomEvent('switchTab', { detail: 'doctors' }))}
-                className="w-10 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center shadow-md shadow-blue-600/20 transition-all"
+                className="w-10 h-10 bg-[#1DA1F2] hover:bg-blue-700 text-white rounded-full flex items-center justify-center shadow-md shadow-blue-600/20 transition-all"
                 title="Book New"
               >
                 <Plus size={20} />
@@ -397,7 +428,7 @@ export function Dashboard() {
             <h3 className="text-lg font-black text-slate-900">অন্যান্য স্বাস্থ্যসেবা</h3>
             <button 
               onClick={() => window.dispatchEvent(new CustomEvent('switchTab', { detail: 'medicine' }))}
-              className="text-xs font-bold text-blue-600 hover:underline"
+              className="text-xs font-bold text-[#1DA1F2] hover:underline"
             >
               সব দেখুন
             </button>
@@ -489,7 +520,7 @@ export function Dashboard() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="text-xs font-black text-slate-900 tracking-tight">Claim Status</h4>
-                    <span className="text-[11px] font-bold text-blue-600 cursor-pointer">View All</span>
+                    <span className="text-[11px] font-bold text-[#1DA1F2] cursor-pointer">View All</span>
                   </div>
 
                   <div className="grid grid-cols-3 gap-2.5">
@@ -528,7 +559,7 @@ export function Dashboard() {
                           onClick={() => setSelectedDate(c.date)}
                           className={`flex flex-col items-center py-3 px-2.5 rounded-2xl transition-all ${
                             isSelected 
-                              ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30 scale-105' 
+                              ? 'bg-[#1DA1F2] text-white shadow-md shadow-blue-500/30 scale-105' 
                               : 'bg-slate-100/70 text-slate-600 hover:bg-slate-200/60'
                           }`}
                         >
@@ -551,7 +582,7 @@ export function Dashboard() {
                           onClick={() => setSelectedTimeSlot(time)}
                           className={`py-2 rounded-2xl text-xs font-black transition-all ${
                             isSelected 
-                              ? 'border-2 border-blue-600 text-blue-600 bg-blue-50/50' 
+                              ? 'border-2 border-blue-600 text-[#1DA1F2] bg-blue-50/50' 
                               : 'bg-slate-100/60 text-slate-600 hover:bg-slate-100'
                           }`}
                         >
@@ -567,7 +598,7 @@ export function Dashboard() {
                   <button
                     onClick={handleConfirmBooking}
                     disabled={isBooking || bookingSuccess}
-                    className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-black text-sm shadow-xl shadow-blue-600/30 transition-all flex items-center justify-center gap-2"
+                    className="w-full py-4 rounded-2xl bg-[#1DA1F2] hover:bg-[#1A91DA] active:scale-[0.99] text-white font-black text-sm shadow-xl shadow-blue-600/30 transition-all flex items-center justify-center gap-2"
                   >
                     {isBooking ? (
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

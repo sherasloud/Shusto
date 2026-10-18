@@ -458,6 +458,8 @@ export function DoctorDashboard() {
           setActiveCall(null);
         }
       }
+    }, (err) => {
+      console.warn("Call snapshot error (likely quota):", err);
     });
 
     return () => unsub();
