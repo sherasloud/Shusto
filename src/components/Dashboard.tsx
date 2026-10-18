@@ -273,26 +273,42 @@ export function Dashboard() {
             <div
                 key={card.id}
                 onClick={() => setSelectedDoctor(card)}
-                className="rounded-[32px] p-6 relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.01] bg-white border border-slate-100 shadow-sm hover:shadow-md flex flex-col justify-between min-h-[220px]"
+                className={`rounded-[32px] p-6 relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.01] ${
+                  card.theme === 'blue' 
+                    ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-500/20' 
+                    : 'bg-white border border-slate-100 shadow-sm hover:shadow-md'
+                } flex flex-col justify-between min-h-[220px]`}
               >
                 {/* Top Row: Department Badge + Time Slot Pill */}
                 <div className="flex items-center justify-between gap-3 relative z-10">
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-100">
+                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold ${
+                    card.theme === 'blue' 
+                      ? 'bg-white/20 text-white' 
+                      : 'bg-slate-50 text-slate-600 border border-slate-100'
+                  }`}>
                     {card.category === 'Surgeon' ? <Brain size={14} /> : <Heart size={14} />}
                     <span>{card.specialty.split(' ')[0]}</span>
                   </div>
 
-                  <div className="px-3 py-1.5 rounded-full text-[10px] font-bold tracking-tight bg-slate-50 text-slate-500">
+                  <div className={`px-3 py-1.5 rounded-full text-[10px] font-bold tracking-tight ${
+                    card.theme === 'blue' 
+                      ? 'bg-white/20 text-white' 
+                      : 'bg-slate-50 text-slate-500'
+                  }`}>
                     {card.timeSlot}
                   </div>
                 </div>
 
                 {/* Bottom Row: Doctor Title */}
                 <div className="pt-4 relative z-10">
-                  <h3 className="text-lg font-black text-slate-950 tracking-tight leading-tight">
+                  <h3 className={`text-lg font-black tracking-tight leading-tight ${
+                    card.theme === 'blue' ? 'text-white' : 'text-slate-950'
+                  }`}>
                     {card.name}
                   </h3>
-                  <p className="text-[11px] font-semibold text-slate-500 mt-1">
+                  <p className={`text-[11px] font-semibold mt-1 ${
+                    card.theme === 'blue' ? 'text-blue-100' : 'text-slate-500'
+                  }`}>
                     {card.specialty} • ৳{card.fee}
                   </p>
                 </div>
