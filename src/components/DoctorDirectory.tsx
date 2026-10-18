@@ -175,18 +175,51 @@ export function DoctorDirectory() {
         console.warn("Doctors user fetch note:", e);
       }
       
-      const validDocs = docs.filter(d => d.name && d.name.trim() !== '');
-      
+      // Bulletproof Deduplication: Ensure no doctor appears twice
+      const seenIds = new Set<string>();
+      const seenEmails = new Set<string>();
+      const seenBmdc = new Set<string>();
+      const seenNames = new Set<string>();
+
+      const deduplicatedDocs: Doctor[] = [];
+
+      for (const d of docs) {
+        if (!d.name || d.name.trim() === '') continue;
+
+        const id = String(d.id || '').trim();
+        const userId = String(d.userId || '').trim();
+        const email = String(d.email || '').toLowerCase().trim();
+        const bmdc = String(d.bmdcNumber || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const normName = String(d.name || '')
+          .toLowerCase()
+          .replace(/dr\.?|prof(essor)?\.?|\.|\s+/g, '')
+          .trim();
+
+        if (id && seenIds.has(id)) continue;
+        if (userId && seenIds.has(userId)) continue;
+        if (email && seenEmails.has(email)) continue;
+        if (bmdc && bmdc !== 'pending' && bmdc !== 'verified' && seenBmdc.has(bmdc)) continue;
+        if (normName && normName.length >= 6 && seenNames.has(normName)) continue;
+
+        if (id) seenIds.add(id);
+        if (userId) seenIds.add(userId);
+        if (email) seenEmails.add(email);
+        if (bmdc && bmdc !== 'pending' && bmdc !== 'verified') seenBmdc.add(bmdc);
+        if (normName && normName.length >= 6) seenNames.add(normName);
+
+        deduplicatedDocs.push(d);
+      }
+
       // Sort: Pinned first, then Online first, then by name
-      validDocs.sort((a, b) => {
+      deduplicatedDocs.sort((a, b) => {
         if (a.isPinned && !b.isPinned) return -1;
         if (!a.isPinned && b.isPinned) return 1;
         if (a.isOnline === b.isOnline) return (a.name || '').localeCompare(b.name || '');
         return a.isOnline ? -1 : 1;
       });
 
-      setDoctors(validDocs);
-      try { localStorage.setItem('cached_doctors', JSON.stringify(validDocs)); } catch(e) {}
+      setDoctors(deduplicatedDocs);
+      try { localStorage.setItem('cached_doctors', JSON.stringify(deduplicatedDocs)); } catch(e) {}
       setLoading(false);
     }, (error: any) => {
       console.error("Doctors fetch error:", error);

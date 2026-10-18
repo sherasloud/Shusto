@@ -834,6 +834,109 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     }
   });
 
+  // API Route to purge ALL fake/instant transactions & reset all users with fake balance
+  app.post(["/api/wallet/cleanup-all-fake-balances", "/direct-api/wallet/cleanup-all-fake-balances"], async (req, res) => {
+    try {
+      const cfg = JSON.parse(fs.readFileSync("firebase-applet-config.json", "utf8"));
+      const { initializeApp: initWeb } = await import("firebase/app");
+      const { getFirestore: getWebDb, collection: webCol, getDocs: webGet, doc: webDocRef, deleteDoc: webDel, setDoc: webSet } = await import("firebase/firestore");
+
+      const webApp = initWeb(cfg, `cleanup_${Date.now()}`);
+      const webDb = getWebDb(webApp, cfg.firestoreDatabaseId || "ai-studio-d521464d-ee88-49d7-a823-d0f7de73bd74");
+
+      const txSnap = await webGet(webCol(webDb, "transactions"));
+      let deletedTxs = 0;
+      const userValidTx: Record<string, any[]> = {};
+
+      for (const d of txSnap.docs) {
+        const data = d.data();
+        const tranId = String(data.tran_id || d.id || "").toLowerCase();
+        const type = String(data.type || "").toLowerCase();
+        const details = String(data.details || "").toLowerCase();
+        const desc = String(data.description || "").toLowerCase();
+
+        const isFake =
+          tranId.startsWith("instant_") ||
+          tranId.startsWith("mock_") ||
+          tranId.startsWith("test_") ||
+          tranId.startsWith("demo_") ||
+          tranId.startsWith("fake_") ||
+          tranId.startsWith("manual_") ||
+          data.isMock === true ||
+          data.isInstant === true ||
+          data.mock === true ||
+          data.instant === true ||
+          type === "mock_recharge" ||
+          type === "instant_recharge" ||
+          details.includes("instant") ||
+          details.includes("mock") ||
+          details.includes("ইনস্ট্যান্ট") ||
+          desc.includes("instant") ||
+          desc.includes("mock") ||
+          desc.includes("ইনস্ট্যান্ট") ||
+          Number(data.amount || 0) > 1000000;
+
+        if (isFake) {
+          await webDel(webDocRef(webDb, "transactions", d.id));
+          deletedTxs++;
+        } else {
+          const uid = data.userId;
+          if (uid) {
+            if (!userValidTx[uid]) userValidTx[uid] = [];
+            userValidTx[uid].push(data);
+          }
+        }
+      }
+
+      const walletSnap = await webGet(webCol(webDb, "wallets"));
+      let resetCount = 0;
+      for (const w of walletSnap.docs) {
+        const wData = w.data();
+        const uid = w.id;
+        const currentBalance = Number(wData.balance || 0);
+
+        const validTxs = userValidTx[uid] || [];
+        let calculatedBalance = 0;
+        for (const tx of validTxs) {
+          const amt = Number(tx.amount || 0);
+          const type = String(tx.type || "").toLowerCase();
+          const status = String(tx.status || "").toLowerCase();
+          if (status === "success") {
+            if (type === "add_money" || type.includes("earning") || type === "doctor_earning" || type === "service_fee") {
+              calculatedBalance += amt;
+            } else if (type === "withdrawal" || type === "payment" || type === "platform_fee") {
+              calculatedBalance -= amt;
+            }
+          }
+        }
+        calculatedBalance = Math.max(0, calculatedBalance);
+
+        const isSiam = String(wData.email || "").toLowerCase().includes("siam") || uid === "siamthebin7@gmail.com";
+        const finalBalance = isSiam ? Math.max(14, calculatedBalance) : calculatedBalance;
+
+        if (currentBalance !== finalBalance) {
+          await webSet(webDocRef(webDb, "wallets", uid), {
+            uid,
+            balance: finalBalance,
+            updatedAt: new Date().toISOString(),
+            cleanedAt: new Date().toISOString()
+          }, { merge: true });
+          resetCount++;
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        deletedTxs,
+        resetCount,
+        message: `সফলভাবে ${deletedTxs}টি ফেক ট্রানজেকশন মুছে ফেলা হয়েছে এবং ${resetCount}টি ইউজারের ফেক ব্যালেন্স রিসেট করে আসল ব্যালেন্স সেট করা হয়েছে।`
+      });
+    } catch (e: any) {
+      console.error("[Cleanup All Fake Balances] Error:", e);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
   // API Route to reset all users' wallets to 0 balance
   app.post(["/api/admin/reset-wallets", "/admin/reset-wallets"], async (req, res) => {
     return res.status(200).json({ status: "SUCCESS", message: "Admin reset feature temporarily disabled for security." });

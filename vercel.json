@@ -9,6 +9,18 @@
       "destination": "https://ai-studio-applet-webapp-3b366.firebaseapp.com/__/auth/$1"
     },
     {
+      "source": "/api/payment/success/:userId",
+      "destination": "/api/payment/success?userId=:userId"
+    },
+    {
+      "source": "/api/payment/fail/:userId",
+      "destination": "/api/payment/fail?userId=:userId"
+    },
+    {
+      "source": "/api/payment/cancel/:userId",
+      "destination": "/api/payment/cancel?userId=:userId"
+    },
+    {
       "source": "/((?!api/|__/).*)",
       "destination": "/index.html"
     }

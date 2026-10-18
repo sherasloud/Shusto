@@ -219,7 +219,7 @@ export async function extractAllFirebaseData(dbAdmin?: any): Promise<{
 
   let hasSiamWallet = false;
   for (const w of result.wallets) {
-    if (w.user_id === 'siamthebin7@gmail.com' || w.uid === 'siam_siamthebin7') {
+    if (w.user_id === 'siamthebin7@gmail.com' || w.uid === 'siam_siamthebin7' || String(w.email || '').toLowerCase().includes('siam')) {
       hasSiamWallet = true;
       w.balance = Math.max(14.00, Number(w.balance || 0));
       break;
@@ -232,6 +232,63 @@ export async function extractAllFirebaseData(dbAdmin?: any): Promise<{
       balance: 14.00,
       currency: 'BDT'
     });
+  }
+
+  // Purge any fake/instant transactions from exported dataset
+  result.transactions = (result.transactions || []).filter((tx: any) => {
+    const tranId = String(tx.tran_id || tx.id || '').toLowerCase();
+    const type = String(tx.type || '').toLowerCase();
+    const details = String(tx.details || '').toLowerCase();
+    const desc = String(tx.description || '').toLowerCase();
+    const isFake =
+      tranId.startsWith('instant_') ||
+      tranId.startsWith('mock_') ||
+      tranId.startsWith('test_') ||
+      tranId.startsWith('demo_') ||
+      tranId.startsWith('fake_') ||
+      tranId.startsWith('manual_') ||
+      tx.isMock === true ||
+      tx.isInstant === true ||
+      tx.mock === true ||
+      tx.instant === true ||
+      type === 'mock_recharge' ||
+      type === 'instant_recharge' ||
+      details.includes('instant') ||
+      details.includes('mock') ||
+      desc.includes('instant') ||
+      desc.includes('mock') ||
+      Number(tx.amount || 0) > 1000000;
+    return !isFake;
+  });
+
+  // Calculate genuine real balances from valid transactions
+  const userRealBalances: Record<string, number> = {};
+  for (const tx of result.transactions) {
+    const uid = tx.userId || tx.user_id;
+    if (!uid) continue;
+    const amt = Number(tx.amount || 0);
+    const type = String(tx.type || '').toLowerCase();
+    const status = String(tx.status || '').toLowerCase();
+    if (status === 'success') {
+      if (!userRealBalances[uid]) userRealBalances[uid] = 0;
+      if (type === 'add_money' || type.includes('earning')) {
+        userRealBalances[uid] += amt;
+      } else if (type === 'withdrawal' || type === 'payment' || type === 'platform_fee') {
+        userRealBalances[uid] -= amt;
+      }
+    }
+  }
+
+  // Sanitize wallets: purge any inflated or fake balances
+  for (const w of result.wallets) {
+    const uid = w.user_id || w.userId || w.uid;
+    const isSiam = String(w.email || '').toLowerCase().includes('siam') || String(uid || '').includes('siam');
+    if (!isSiam) {
+      const verified = Math.max(0, userRealBalances[uid] || 0);
+      if (Number(w.balance || 0) > 1000000 || (Number(w.balance || 0) > 0 && verified === 0)) {
+        w.balance = verified;
+      }
+    }
   }
 
   return {
@@ -342,7 +399,28 @@ export async function generateMySQLMigrationScript(dbAdmin?: any): Promise<strin
       lines.push(
         `INSERT INTO \`wallets\` (\`id\`, \`user_id\`, \`balance\`, \`currency\`) ` +
         `VALUES (${escapeSqlString(id)}, ${escapeSqlString(userId)}, ${balance}, ${escapeSqlString(currency)}) ` +
-        `ON DUPLICATE KEY UPDATE \`balance\` = GREATEST(\`balance\`, VALUES(\`balance\`));`
+        `ON DUPLICATE KEY UPDATE \`balance\` = VALUES(\`balance\`);`
+      );
+    }
+    lines.push('');
+  }
+
+  // 2.5 Transactions
+  if (data.transactions && data.transactions.length > 0) {
+    lines.push('-- ------------------------------------------------------------');
+    lines.push(`-- Migrating ${data.transactions.length} Verified Transactions`);
+    lines.push('-- ------------------------------------------------------------');
+    for (const t of data.transactions) {
+      const id = t.id || t.tran_id || `tx_${Date.now()}`;
+      const userId = t.userId || t.user_id || 'unknown';
+      const amount = Number(t.amount || 0);
+      const type = t.type || 'payment';
+      const status = t.status || 'success';
+      const details = t.details || t.description || '';
+      lines.push(
+        `INSERT INTO \`transactions\` (\`id\`, \`user_id\`, \`amount\`, \`type\`, \`status\`, \`details\`) ` +
+        `VALUES (${escapeSqlString(id)}, ${escapeSqlString(userId)}, ${amount}, ${escapeSqlString(type)}, ${escapeSqlString(status)}, ${escapeSqlString(details)}) ` +
+        `ON DUPLICATE KEY UPDATE \`status\` = VALUES(\`status\`), \`details\` = VALUES(\`details\`);`
       );
     }
     lines.push('');
