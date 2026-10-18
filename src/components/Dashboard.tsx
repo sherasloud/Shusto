@@ -234,28 +234,29 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* Display Hero Title: "Make an Appointment" */}
+        {/* Display Hero Title (Refined) */}
         <div className="pt-2">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-normal text-slate-800 tracking-tight leading-none">
-            {lang === 'bn' ? 'ডাক্তার' : 'Make an'}
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight leading-none">
+            {t('Hey,', 'Hey,')}
           </h1>
-          <span className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-950 tracking-tight block mt-1">
-            {lang === 'bn' ? 'অ্যাপয়েন্টমেন্ট নিন' : 'Appointment'}
+          <span className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight block mt-0.5">
+            {user?.displayName || (user as any)?.name || 'User'}
+            <span className="text-slate-400 font-normal"> {t('Let\'s Start..!', 'Let\'s Start..!')}</span>
           </span>
         </div>
 
-        {/* Horizontal Category Filter Pills (Matching Image 1:1) */}
-        <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-none">
+        {/* Horizontal Category Filter Pills (Refined UI) */}
+        <div className="flex items-center gap-3 overflow-x-auto pb-1 scrollbar-none">
           {categories.map((cat) => {
             const isActive = selectedCategory === cat;
             return (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all whitespace-nowrap shadow-xs ${
+                className={`px-6 py-3 rounded-2xl text-xs font-bold transition-all whitespace-nowrap ${
                   isActive 
-                    ? 'bg-[#121826] text-white shadow-md shadow-slate-950/15' 
-                    : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200/60 hover:border-slate-300'
+                    ? 'bg-[#2563EB] text-white shadow-lg shadow-blue-500/20' 
+                    : 'bg-white text-slate-500 hover:bg-slate-100 border border-slate-100'
                 }`}
               >
                 {cat}
@@ -269,78 +270,31 @@ export function Dashboard() {
           {filteredCards.map((card) => {
             const isBlue = card.theme === 'blue';
             return (
-              <div
+            <div
                 key={card.id}
                 onClick={() => setSelectedDoctor(card)}
-                className={`rounded-[36px] p-6 sm:p-7 relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.01] active:scale-[0.99] flex flex-col justify-between min-h-[260px] ${
-                  isBlue
-                    ? 'bg-gradient-to-br from-[#2563EB] via-[#1D4ED8] to-[#1E40AF] text-white shadow-xl shadow-blue-600/20'
-                    : 'bg-white border border-slate-200/70 text-slate-900 shadow-sm hover:shadow-md'
-                }`}
+                className="rounded-[32px] p-6 relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.01] bg-white border border-slate-100 shadow-sm hover:shadow-md flex flex-col justify-between min-h-[220px]"
               >
                 {/* Top Row: Department Badge + Time Slot Pill */}
                 <div className="flex items-center justify-between gap-3 relative z-10">
-                  <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold backdrop-blur-md ${
-                    isBlue 
-                      ? 'bg-white/15 text-white border border-white/20' 
-                      : 'bg-slate-100 text-slate-800'
-                  }`}>
-                    {card.category === 'Surgeon' ? <Brain size={15} /> : <Heart size={15} />}
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-100">
+                    {card.category === 'Surgeon' ? <Brain size={14} /> : <Heart size={14} />}
                     <span>{card.specialty.split(' ')[0]}</span>
                   </div>
 
-                  <div className={`px-3 py-1.5 rounded-full text-xs font-bold tracking-tight ${
-                    isBlue ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
-                  }`}>
+                  <div className="px-3 py-1.5 rounded-full text-[10px] font-bold tracking-tight bg-slate-50 text-slate-500">
                     {card.timeSlot}
                   </div>
                 </div>
 
-                {/* Middle Row: Doctor Avatars Pile + Available Count */}
-                <div className="flex items-center gap-3 my-5 relative z-10">
-                  <div className="flex -space-x-2.5 overflow-hidden">
-                    <img 
-                      className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover" 
-                      src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=120&auto=format&fit=crop&q=80" 
-                      alt="Doc 1" 
-                    />
-                    <img 
-                      className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover" 
-                      src="https://images.unsplash.com/photo-1594824813511-2e6504a9e52e?w=120&auto=format&fit=crop&q=80" 
-                      alt="Doc 2" 
-                    />
-                    <img 
-                      className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover" 
-                      src="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=120&auto=format&fit=crop&q=80" 
-                      alt="Doc 3" 
-                    />
-                  </div>
-                  <span className={`text-xs font-bold ${isBlue ? 'text-blue-100' : 'text-slate-400'}`}>
-                    +{card.availableCount} Doctor available
-                  </span>
-                </div>
-
-                {/* Bottom Row: Doctor Title & Diagonal Arrow Button */}
-                <div className="flex items-end justify-between gap-4 pt-2 relative z-10">
-                  <div>
-                    <h3 className={`text-xl sm:text-2xl font-black tracking-tight leading-tight ${isBlue ? 'text-white' : 'text-slate-900'}`}>
-                      {card.specialty}
-                    </h3>
-                    <p className={`text-xs font-semibold mt-1 ${isBlue ? 'text-blue-100' : 'text-slate-500'}`}>
-                      {card.name} • ৳{card.fee}
-                    </p>
-                  </div>
-
-                  <button
-                    aria-label="View doctor details"
-                    className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 transition-transform hover:scale-105 active:scale-95 shadow-md ${
-                      isBlue 
-                        ? 'bg-white text-slate-900' 
-                        : 'bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-600 border border-slate-200/80'
-                    }`}
-                  >
-                    <ArrowUpRight size={22} />
-                  </button>
+                {/* Bottom Row: Doctor Title */}
+                <div className="pt-4 relative z-10">
+                  <h3 className="text-lg font-black text-slate-950 tracking-tight leading-tight">
+                    {card.name}
+                  </h3>
+                  <p className="text-[11px] font-semibold text-slate-500 mt-1">
+                    {card.specialty} • ৳{card.fee}
+                  </p>
                 </div>
               </div>
             );
