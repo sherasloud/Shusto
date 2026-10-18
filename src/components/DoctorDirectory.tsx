@@ -186,9 +186,23 @@ export function DoctorDirectory() {
       for (const d of docs) {
         if (!d.name || d.name.trim() === '') continue;
 
+        const email = String(d.email || '').toLowerCase().trim();
+        const nameStr = String(d.name || '').toLowerCase();
+        
+        // Strictly exclude Siam and Monsur
+        if (
+          email === 'thesiambin@gmail.com' ||
+          email === 'monsurhelal86@gmail.com' ||
+          email.includes('thesiambin') ||
+          email.includes('monsurhelal') ||
+          nameStr.includes('siam') ||
+          nameStr.includes('monsur')
+        ) {
+          continue;
+        }
+
         const id = String(d.id || '').trim();
         const userId = String(d.userId || '').trim();
-        const email = String(d.email || '').toLowerCase().trim();
         const bmdc = String(d.bmdcNumber || '').toLowerCase().replace(/[^a-z0-9]/g, '');
         const normName = String(d.name || '')
           .toLowerCase()
@@ -222,8 +236,13 @@ export function DoctorDirectory() {
       try { localStorage.setItem('cached_doctors', JSON.stringify(deduplicatedDocs)); } catch(e) {}
       setLoading(false);
     }, (error: any) => {
-      console.error("Doctors fetch error:", error);
-      setDoctors([]);
+      console.warn("Doctors fetch quota/error notice:", error?.message || error);
+      try {
+        const cached = localStorage.getItem('cached_doctors');
+        if (cached) {
+          setDoctors(JSON.parse(cached));
+        }
+      } catch (e) {}
       setLoading(false);
     });
 

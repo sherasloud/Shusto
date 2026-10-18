@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const fbUser = res.user;
         const email = fbUser.email?.toLowerCase().trim() || null;
         const isDefaultAdmin = email === 'shustobd@gmail.com';
-        const isHardcodedDoctor = email === 'thesiambin@gmail.com' || email === 'monsurhelal86@gmail.com';
+        const isHardcodedDoctor = email === 'monsurhelal86@gmail.com';
         const profileName = email === 'shustobd@gmail.com' ? 'Shusto' : (fbUser.displayName || email?.split('@')[0] || 'Shusto');
         const profile: UserProfile = {
           uid: fbUser.uid,
@@ -127,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const email = firebaseUser.email?.toLowerCase().trim() || null;
       const isDefaultAdmin = email === 'shustobd@gmail.com';
-      const isHardcodedDoctor = email === 'thesiambin@gmail.com' || email === 'monsurhelal86@gmail.com';
+      const isHardcodedDoctor = email === 'monsurhelal86@gmail.com';
       const baseDisplayName = email === 'shustobd@gmail.com' ? 'Shusto' : (firebaseUser.displayName || (email ? email.split('@')[0] : 'Shusto'));
 
       const baseProfile: UserProfile = {
@@ -193,7 +193,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Proactive Sync Effect - Runs once when user is loaded to sync professional status
   useEffect(() => {
     // Prevent infinite loop if the user is forced to be 'admin'
-    if (!user || !user.email || user.role === 'admin' || user.email === 'thesiambin@gmail.com' || user.email === 'monsurhelal86@gmail.com') return;
+    if (!user || !user.email || user.role === 'admin' || user.email === 'monsurhelal86@gmail.com') return;
 
     const syncRole = async () => {
       const email = user.email!.toLowerCase().trim();
@@ -265,7 +265,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const fbUser = result.user;
       const email = fbUser.email?.toLowerCase().trim() || null;
       const isDefaultAdmin = email === 'shustobd@gmail.com';
-      const isHardcodedDoctor = email === 'thesiambin@gmail.com' || email === 'monsurhelal86@gmail.com';
+      const isHardcodedDoctor = email === 'monsurhelal86@gmail.com';
       
       const immediateProfile: UserProfile = {
         uid: fbUser.uid,
@@ -322,7 +322,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const fbUser = result.user;
       const email = fbUser.email?.toLowerCase().trim() || null;
       const isDefaultAdmin = email === 'shustobd@gmail.com';
-      const isHardcodedDoctor = email === 'thesiambin@gmail.com' || email === 'monsurhelal86@gmail.com';
+      const isHardcodedDoctor = email === 'monsurhelal86@gmail.com';
       
       const immediateProfile: UserProfile = {
         uid: fbUser.uid,
@@ -377,7 +377,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const fbUser = result.user;
       const email = fbUser.email?.toLowerCase().trim() || null;
       const isDefaultAdmin = email === 'shustobd@gmail.com';
-      const isHardcodedDoctor = email === 'thesiambin@gmail.com' || email === 'monsurhelal86@gmail.com';
+      const isHardcodedDoctor = email === 'monsurhelal86@gmail.com';
       
       const immediateProfile: UserProfile = {
         uid: fbUser.uid,
@@ -429,7 +429,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const fbUser = cred.user;
       const email = fbUser.email?.toLowerCase().trim() || null;
       const isDefaultAdmin = email === 'shustobd@gmail.com';
-      const isHardcodedDoctor = email === 'thesiambin@gmail.com' || email === 'monsurhelal86@gmail.com';
+      const isHardcodedDoctor = email === 'monsurhelal86@gmail.com';
 
       const profile: UserProfile = {
         uid: fbUser.uid,
