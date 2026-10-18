@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAuth } from '../AuthContext';
-import { Bell, Search, MapPin, Calendar, Video } from 'lucide-react';
+import { Search, MapPin } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export function Home() {
@@ -25,12 +25,12 @@ export function Home() {
       </div>
 
       {/* Search */}
-      <div className="relative mb-8">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+      <div className="relative mb-8 group">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#1DA1F2] transition-colors duration-300" size={20} />
         <input 
           type="text" 
           placeholder="Search a doctor or health issue" 
-          className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl border border-slate-100 shadow-sm focus:ring-2 focus:ring-[#1DA1F2]/20 outline-none text-sm"
+          className="w-full pl-12 pr-4 py-4 bg-[#EBF5FF] rounded-2xl border border-transparent shadow-sm focus:bg-white focus:border-[#1DA1F2] focus:ring-2 focus:ring-[#1DA1F2]/20 outline-none transition-all duration-300 text-sm"
         />
       </div>
 
@@ -39,7 +39,6 @@ export function Home() {
         <div className="flex justify-between items-center mb-4">
           <h2 className="font-bold text-lg">Upcoming Schedule</h2>
         </div>
-        {/* Real Dynamic Data Integration Needed Here - Placeholder if empty */}
         <div className="p-6 rounded-3xl bg-white border border-slate-100 text-center text-slate-400 text-sm">
           No upcoming appointments
         </div>

@@ -46,8 +46,8 @@ export function BottomNav({ activeTab, setActiveTab, onMenuClick }: BottomNavPro
   ];
 
   return (
-    <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center justify-center pointer-events-auto">
-      <div className="bg-[#121826] border border-white/10 shadow-[0_15px_35px_rgba(0,0,0,0.35)] rounded-full px-3.5 py-2 flex items-center gap-3 sm:gap-5 backdrop-blur-md">
+    <nav className="fixed bottom-6 left-6 right-6 z-50 flex items-center justify-center">
+      <div className="bg-white border border-slate-100 shadow-[0_10px_30px_rgba(0,0,0,0.05)] rounded-full px-6 py-4 flex items-center justify-between w-full max-w-md">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
           return (
@@ -56,13 +56,13 @@ export function BottomNav({ activeTab, setActiveTab, onMenuClick }: BottomNavPro
               onClick={() => setActiveTab(item.id)}
               aria-label={item.label}
               className={cn(
-                "transition-all duration-300 rounded-full flex items-center justify-center relative",
+                "transition-all duration-300 rounded-full p-3 flex items-center justify-center",
                 isActive 
-                  ? "w-11 h-11 bg-blue-600 text-white shadow-lg shadow-blue-600/40 scale-105" 
-                  : "w-10 h-10 text-slate-400 hover:text-white"
+                  ? "bg-[#1DA1F2] text-white shadow-md shadow-[#1DA1F2]/30" 
+                  : "text-slate-400 hover:text-[#1DA1F2]"
               )}
             >
-              <item.icon size={20} />
+              <item.icon size={22} />
             </button>
           );
         })}
@@ -71,9 +71,9 @@ export function BottomNav({ activeTab, setActiveTab, onMenuClick }: BottomNavPro
         <button
           onClick={onMenuClick}
           aria-label="Open menu"
-          className="w-10 h-10 text-slate-400 hover:text-white flex items-center justify-center transition-colors border-l border-white/10 pl-2 ml-1"
+          className="text-slate-400 hover:text-[#1DA1F2] p-3 flex items-center justify-center transition-colors border-l border-slate-100 pl-4"
         >
-          <Menu size={20} />
+          <Menu size={22} />
         </button>
       </div>
     </nav>
