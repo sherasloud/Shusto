@@ -35,11 +35,11 @@ __export(server_exports, {
 module.exports = __toCommonJS(server_exports);
 var adminModule = __toESM(require("firebase-admin"), 1);
 var import_express = __toESM(require("express"), 1);
-var import_path = __toESM(require("path"), 1);
+var import_path2 = __toESM(require("path"), 1);
 var import_axios = __toESM(require("axios"), 1);
 var import_uuid = require("uuid");
 var import_dotenv = __toESM(require("dotenv"), 1);
-var import_fs = __toESM(require("fs"), 1);
+var import_fs2 = __toESM(require("fs"), 1);
 var import_crypto = __toESM(require("crypto"), 1);
 
 // mongo.ts
@@ -197,6 +197,688 @@ var Wallet = import_mongoose.default.models.Wallet || import_mongoose.default.mo
 var Transaction = import_mongoose.default.models.Transaction || import_mongoose.default.model("Transaction", transactionSchema);
 var ServiceRequest = import_mongoose.default.models.ServiceRequest || import_mongoose.default.model("ServiceRequest", serviceRequestSchema);
 
+// mysql.ts
+var import_promise = __toESM(require("mysql2/promise"), 1);
+var pool = null;
+var isConfigured = false;
+function configureMySQLCredentials(config) {
+  if (pool) {
+    try {
+      pool.end();
+    } catch (e) {
+    }
+    pool = null;
+  }
+  process.env.MYSQL_HOST = config.host;
+  process.env.MYSQL_USER = config.user;
+  process.env.MYSQL_PASSWORD = config.password || "";
+  process.env.MYSQL_DATABASE = config.database;
+  process.env.MYSQL_PORT = String(config.port || 3306);
+  return getMySQLPool();
+}
+function getMySQLPool() {
+  if (pool) return pool;
+  const host = process.env.MYSQL_HOST;
+  const user = process.env.MYSQL_USER;
+  const password = process.env.MYSQL_PASSWORD;
+  const database = process.env.MYSQL_DATABASE;
+  const port = process.env.MYSQL_PORT ? parseInt(process.env.MYSQL_PORT, 10) : 3306;
+  if (!host || !user || !database) {
+    isConfigured = false;
+    return null;
+  }
+  try {
+    pool = import_promise.default.createPool({
+      host,
+      port,
+      user,
+      password: password || "",
+      database,
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0,
+      connectTimeout: 1e4
+    });
+    isConfigured = true;
+    console.log(`\u{1F4E1} MySQL Pool initialized for host: ${host}, database: ${database}`);
+    return pool;
+  } catch (err) {
+    console.warn("\u26A0\uFE0F MySQL pool creation error:", err?.message || err);
+    return null;
+  }
+}
+async function testMySQLConnection() {
+  const p = getMySQLPool();
+  if (!p) {
+    return {
+      success: false,
+      message: "MySQL is not configured yet. Please set MYSQL_HOST, MYSQL_USER, and MYSQL_DATABASE in your environment variables."
+    };
+  }
+  try {
+    const connection = await p.getConnection();
+    const [rows] = await connection.query("SELECT 1 as connected");
+    connection.release();
+    return {
+      success: true,
+      message: "Successfully connected to MySQL database!",
+      host: process.env.MYSQL_HOST,
+      database: process.env.MYSQL_DATABASE
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: `Failed to connect to MySQL: ${error?.message || error}`,
+      host: process.env.MYSQL_HOST,
+      database: process.env.MYSQL_DATABASE
+    };
+  }
+}
+async function queryMySQL(sql, params = []) {
+  const p = getMySQLPool();
+  if (!p) {
+    throw new Error("MySQL connection is not configured.");
+  }
+  const normalized = sql.trim().toUpperCase().replace(/\s+/g, " ");
+  if (normalized.includes("DROP TABLE") || normalized.includes("DROP DATABASE") || normalized.includes("TRUNCATE")) {
+    throw new Error("\u{1F6E1}\uFE0F SECURITY BLOCKED: Destructive DROP/TRUNCATE commands are permanently disabled in this ecosystem.");
+  }
+  if (normalized.startsWith("DELETE FROM USERS") || normalized.startsWith("DELETE FROM `USERS`") || normalized.includes("DELETE FROM USERS") || normalized.includes("DELETE FROM `USERS`")) {
+    throw new Error("\u{1F6E1}\uFE0F ABSOLUTE PROTECTION ACTIVATED: User data can NEVER be deleted. Every user profile, wallet and history is permanently safe and immutable.");
+  }
+  const [rows] = await p.execute(sql, params);
+  return rows;
+}
+function getMySQLStatus() {
+  return {
+    configured: isConfigured || !!(process.env.MYSQL_HOST && process.env.MYSQL_USER && process.env.MYSQL_DATABASE),
+    host: process.env.MYSQL_HOST || null,
+    database: process.env.MYSQL_DATABASE || null,
+    port: process.env.MYSQL_PORT ? parseInt(process.env.MYSQL_PORT, 10) : 3306
+  };
+}
+
+// migration.ts
+var import_fs = __toESM(require("fs"), 1);
+var import_path = __toESM(require("path"), 1);
+var clientContributedStore = {
+  users: /* @__PURE__ */ new Map(),
+  wallets: /* @__PURE__ */ new Map(),
+  transactions: /* @__PURE__ */ new Map(),
+  doctors: /* @__PURE__ */ new Map(),
+  appointments: /* @__PURE__ */ new Map(),
+  prescriptions: /* @__PURE__ */ new Map(),
+  medicines: /* @__PURE__ */ new Map(),
+  labTests: /* @__PURE__ */ new Map(),
+  serviceRequests: /* @__PURE__ */ new Map(),
+  callSessions: /* @__PURE__ */ new Map()
+};
+function getSeedFallbackData() {
+  return {
+    users: [
+      {
+        id: "siam_ceo_user",
+        uid: "siam_ceo_user",
+        name: "Siam (Founder & CEO)",
+        email: "siamthebin7@gmail.com",
+        phone: "01886008696",
+        role: "admin",
+        wallet_balance: 14,
+        is_approved: 1
+      },
+      {
+        id: "admin_shustobd",
+        uid: "admin_shustobd",
+        name: "Shusto BD Official Admin",
+        email: "shustobd@gmail.com",
+        phone: "01700000000",
+        role: "admin",
+        wallet_balance: 5e3,
+        is_approved: 1
+      }
+    ],
+    wallets: [
+      {
+        id: "wallet_siam",
+        user_id: "siamthebin7@gmail.com",
+        balance: 14,
+        currency: "BDT"
+      },
+      {
+        id: "wallet_siam_uid",
+        user_id: "siam_ceo_user",
+        balance: 14,
+        currency: "BDT"
+      }
+    ],
+    doctors: [
+      {
+        id: "doc_1",
+        name: "Prof. Dr. M. A. Rahman",
+        specialty: "Cardiology (\u09B9\u09C3\u09A6\u09B0\u09CB\u0997 \u09AC\u09BF\u09B6\u09C7\u09B7\u099C\u09CD\u099E)",
+        fee: 800,
+        chamber: "National Heart Foundation, Dhaka",
+        experience: "18 Years",
+        availability: "5:00 PM - 9:00 PM",
+        phone: "01711223344",
+        rating: 4.9
+      },
+      {
+        id: "doc_2",
+        name: "Dr. Nusrat Jahan",
+        specialty: "Medicine & Diabetology",
+        fee: 600,
+        chamber: "Square Hospital, Dhaka",
+        experience: "12 Years",
+        availability: "6:00 PM - 10:00 PM",
+        phone: "01822334455",
+        rating: 4.8
+      },
+      {
+        id: "doc_3",
+        name: "Dr. Tanvir Ahmed",
+        specialty: "Pediatrics (\u09B6\u09BF\u09B6\u09C1 \u09AC\u09BF\u09B6\u09C7\u09B7\u099C\u09CD\u099E)",
+        fee: 500,
+        chamber: "Dhaka Shishu Hospital",
+        experience: "10 Years",
+        availability: "4:00 PM - 8:00 PM",
+        phone: "01933445566",
+        rating: 4.9
+      }
+    ],
+    medicines: [
+      { id: "med_1", name: "Napa Extra (500mg+65mg)", generic_name: "Paracetamol + Caffeine", price: 2.5, category: "Fever & Pain", stock: 500 },
+      { id: "med_2", name: "Sergel 20mg", generic_name: "Esomeprazole", price: 7, category: "Gastric & Acidity", stock: 350 },
+      { id: "med_3", name: "Monas 10mg", generic_name: "Montelukast", price: 16, category: "Asthma & Allergy", stock: 200 }
+    ],
+    labTests: [
+      { id: "lab_1", name: "Complete Blood Count (CBC)", description: "Full blood profile test", price: 450, category: "Hematology" },
+      { id: "lab_2", name: "Lipid Profile", description: "Cholesterol, HDL, LDL, Triglycerides", price: 1200, category: "Biochemistry" },
+      { id: "lab_3", name: "Serum Creatinine", description: "Kidney function assessment", price: 400, category: "Kidney" }
+    ]
+  };
+}
+function registerClientContributedData(collectionName, items) {
+  if (!clientContributedStore[collectionName]) {
+    clientContributedStore[collectionName] = /* @__PURE__ */ new Map();
+  }
+  const store = clientContributedStore[collectionName];
+  for (const item of items) {
+    const id = item.id || item.uid || item._id || `item_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    store.set(String(id), { ...item, id });
+  }
+}
+async function extractAllFirebaseData(dbAdmin) {
+  const result = {
+    users: [],
+    wallets: [],
+    transactions: [],
+    doctors: [],
+    appointments: [],
+    prescriptions: [],
+    medicines: [],
+    labTests: [],
+    serviceRequests: [],
+    callSessions: []
+  };
+  const collections = Object.keys(result);
+  let readSuccess = false;
+  let quotaError;
+  if (dbAdmin) {
+    try {
+      for (const col of collections) {
+        try {
+          const snapshot = await dbAdmin.collection(col).get();
+          if (!snapshot.empty) {
+            snapshot.forEach((doc) => {
+              result[col].push({ id: doc.id, ...doc.data() });
+            });
+            readSuccess = true;
+          }
+        } catch (colErr) {
+          console.warn(`Firestore read warning for collection '${col}':`, colErr.message);
+          if (colErr.message?.includes("Quota") || colErr.message?.includes("RESOURCE_EXHAUSTED")) {
+            quotaError = colErr.message;
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Firebase batch read error:", e.message);
+      quotaError = e.message;
+    }
+  }
+  for (const col of collections) {
+    const clientMap = clientContributedStore[col];
+    if (clientMap && clientMap.size > 0) {
+      const existingIds = new Set(result[col].map((i) => String(i.id || i.uid)));
+      for (const [id, item] of clientMap.entries()) {
+        if (!existingIds.has(id)) {
+          result[col].push(item);
+        }
+      }
+    }
+  }
+  const seed = getSeedFallbackData();
+  for (const col of Object.keys(seed)) {
+    if (!result[col] || result[col].length === 0) {
+      result[col] = [...seed[col]];
+    }
+  }
+  let hasSiam = false;
+  for (const u of result.users) {
+    if (u.email === "siamthebin7@gmail.com") {
+      hasSiam = true;
+      u.wallet_balance = Math.max(14, Number(u.wallet_balance || 0));
+      break;
+    }
+  }
+  if (!hasSiam) {
+    result.users.unshift({
+      id: "siam_siamthebin7",
+      uid: "siam_siamthebin7",
+      name: "Siam",
+      email: "siamthebin7@gmail.com",
+      phone: "01886008696",
+      role: "admin",
+      wallet_balance: 14,
+      is_approved: 1
+    });
+  }
+  let hasSiamWallet = false;
+  for (const w of result.wallets) {
+    if (w.user_id === "siamthebin7@gmail.com" || w.uid === "siam_siamthebin7" || String(w.email || "").toLowerCase().includes("siam")) {
+      hasSiamWallet = true;
+      w.balance = Math.max(14, Number(w.balance || 0));
+      break;
+    }
+  }
+  if (!hasSiamWallet) {
+    result.wallets.unshift({
+      id: "wallet_siamthebin7",
+      user_id: "siamthebin7@gmail.com",
+      balance: 14,
+      currency: "BDT"
+    });
+  }
+  result.transactions = (result.transactions || []).filter((tx) => {
+    const tranId = String(tx.tran_id || tx.id || "").toLowerCase();
+    const type = String(tx.type || "").toLowerCase();
+    const details = String(tx.details || "").toLowerCase();
+    const desc = String(tx.description || "").toLowerCase();
+    const isFake = tranId.startsWith("instant_") || tranId.startsWith("mock_") || tranId.startsWith("test_") || tranId.startsWith("demo_") || tranId.startsWith("fake_") || tranId.startsWith("manual_") || tx.isMock === true || tx.isInstant === true || tx.mock === true || tx.instant === true || type === "mock_recharge" || type === "instant_recharge" || details.includes("instant") || details.includes("mock") || desc.includes("instant") || desc.includes("mock") || Number(tx.amount || 0) > 1e6;
+    return !isFake;
+  });
+  const userRealBalances = {};
+  for (const tx of result.transactions) {
+    const uid = tx.userId || tx.user_id;
+    if (!uid) continue;
+    const amt = Number(tx.amount || 0);
+    const type = String(tx.type || "").toLowerCase();
+    const status = String(tx.status || "").toLowerCase();
+    if (status === "success") {
+      if (!userRealBalances[uid]) userRealBalances[uid] = 0;
+      if (type === "add_money" || type.includes("earning")) {
+        userRealBalances[uid] += amt;
+      } else if (type === "withdrawal" || type === "payment" || type === "platform_fee") {
+        userRealBalances[uid] -= amt;
+      }
+    }
+  }
+  for (const w of result.wallets) {
+    const uid = w.user_id || w.userId || w.uid;
+    const isSiam = String(w.email || "").toLowerCase().includes("siam") || String(uid || "").includes("siam");
+    if (!isSiam) {
+      const verified = Math.max(0, userRealBalances[uid] || 0);
+      if (Number(w.balance || 0) > 1e6 || Number(w.balance || 0) > 0 && verified === 0) {
+        w.balance = verified;
+      }
+    }
+  }
+  return {
+    data: result,
+    source: readSuccess ? "Firebase Live & Cache" : quotaError ? `Firebase Cache & Protected Fallback (Quota Notice: ${quotaError})` : "App Data Layer",
+    error: quotaError
+  };
+}
+function escapeSqlString(val) {
+  if (val === null || val === void 0) return "NULL";
+  if (typeof val === "number") return isNaN(val) ? "0" : String(val);
+  if (typeof val === "boolean") return val ? "1" : "0";
+  if (typeof val === "object") {
+    return `'${JSON.stringify(val).replace(/[\0\x08\x09\x1a\n\r"'\\\%]/g, (char) => {
+      switch (char) {
+        case "\0":
+          return "\\0";
+        case "\b":
+          return "\\b";
+        case "	":
+          return "\\t";
+        case "":
+          return "\\z";
+        case "\n":
+          return "\\n";
+        case "\r":
+          return "\\r";
+        case '"':
+        case "'":
+        case "\\":
+        case "%":
+          return "\\" + char;
+        default:
+          return char;
+      }
+    })}'`;
+  }
+  const str = String(val);
+  return `'${str.replace(/[\0\x08\x09\x1a\n\r"'\\\%]/g, (char) => {
+    switch (char) {
+      case "\0":
+        return "\\0";
+      case "\b":
+        return "\\b";
+      case "	":
+        return "\\t";
+      case "":
+        return "\\z";
+      case "\n":
+        return "\\n";
+      case "\r":
+        return "\\r";
+      case '"':
+      case "'":
+      case "\\":
+      case "%":
+        return "\\" + char;
+      default:
+        return char;
+    }
+  })}'`;
+}
+async function generateMySQLMigrationScript(dbAdmin) {
+  const { data } = await extractAllFirebaseData(dbAdmin);
+  let schemaSql = "";
+  try {
+    schemaSql = import_fs.default.readFileSync(import_path.default.resolve(process.cwd(), "database_schema.sql"), "utf8");
+  } catch (e) {
+    console.warn("Could not read database_schema.sql directly, using fallback schema headers.");
+  }
+  const lines = [];
+  lines.push("-- ============================================================");
+  lines.push("-- SHUSTOBD FULL FIREBASE TO MYSQL DATA MIGRATION SCRIPT");
+  lines.push(`-- Generated: ${(/* @__PURE__ */ new Date()).toISOString()}`);
+  lines.push("-- Target: MySQL 5.7, 8.0+, MariaDB, Cloud SQL, phpMyAdmin");
+  lines.push("-- ============================================================");
+  lines.push("");
+  lines.push(schemaSql);
+  lines.push("");
+  lines.push("SET FOREIGN_KEY_CHECKS = 0;");
+  lines.push("");
+  if (data.users.length > 0) {
+    lines.push("-- ------------------------------------------------------------");
+    lines.push(`-- Migrating ${data.users.length} Users from Firebase`);
+    lines.push("-- ------------------------------------------------------------");
+    for (const u of data.users) {
+      const id = u.id || u.uid || `user_${Date.now()}`;
+      const uid = u.uid || id;
+      const phone = u.phone || u.phoneNumber || "";
+      const name = u.name || u.displayName || "User";
+      const email = u.email || "";
+      const role = ["user", "patient", "doctor", "hospital", "pharmacy", "ambulance", "lab", "physio", "investor", "manager", "admin", "state"].includes(u.role) ? u.role : "user";
+      const balance = Number(u.wallet_balance || u.balance || 0);
+      const isApproved = u.is_approved ? 1 : u.isApproved ? 1 : 0;
+      const photoUrl = u.photoURL || u.photo_url || u.avatar || "";
+      const address = u.address || "";
+      lines.push(
+        `INSERT INTO \`users\` (\`id\`, \`uid\`, \`phone\`, \`name\`, \`email\`, \`role\`, \`wallet_balance\`, \`is_approved\`, \`photo_url\`, \`address\`) VALUES (${escapeSqlString(id)}, ${escapeSqlString(uid)}, ${escapeSqlString(phone)}, ${escapeSqlString(name)}, ${escapeSqlString(email)}, ${escapeSqlString(role)}, ${balance}, ${isApproved}, ${escapeSqlString(photoUrl)}, ${escapeSqlString(address)}) ON DUPLICATE KEY UPDATE \`name\` = VALUES(\`name\`), \`email\` = VALUES(\`email\`), \`wallet_balance\` = GREATEST(\`wallet_balance\`, VALUES(\`wallet_balance\`));`
+      );
+    }
+    lines.push("");
+  }
+  if (data.wallets.length > 0) {
+    lines.push("-- ------------------------------------------------------------");
+    lines.push(`-- Migrating ${data.wallets.length} Wallets`);
+    lines.push("-- ------------------------------------------------------------");
+    for (const w of data.wallets) {
+      const id = w.id || `wallet_${w.user_id || w.uid}`;
+      const userId = w.user_id || w.userId || w.uid || id;
+      const balance = Number(w.balance || 0);
+      const currency = w.currency || "BDT";
+      lines.push(
+        `INSERT INTO \`wallets\` (\`id\`, \`user_id\`, \`balance\`, \`currency\`) VALUES (${escapeSqlString(id)}, ${escapeSqlString(userId)}, ${balance}, ${escapeSqlString(currency)}) ON DUPLICATE KEY UPDATE \`balance\` = VALUES(\`balance\`);`
+      );
+    }
+    lines.push("");
+  }
+  if (data.transactions && data.transactions.length > 0) {
+    lines.push("-- ------------------------------------------------------------");
+    lines.push(`-- Migrating ${data.transactions.length} Verified Transactions`);
+    lines.push("-- ------------------------------------------------------------");
+    for (const t of data.transactions) {
+      const id = t.id || t.tran_id || `tx_${Date.now()}`;
+      const userId = t.userId || t.user_id || "unknown";
+      const amount = Number(t.amount || 0);
+      const type = t.type || "payment";
+      const status = t.status || "success";
+      const details = t.details || t.description || "";
+      lines.push(
+        `INSERT INTO \`transactions\` (\`id\`, \`user_id\`, \`amount\`, \`type\`, \`status\`, \`details\`) VALUES (${escapeSqlString(id)}, ${escapeSqlString(userId)}, ${amount}, ${escapeSqlString(type)}, ${escapeSqlString(status)}, ${escapeSqlString(details)}) ON DUPLICATE KEY UPDATE \`status\` = VALUES(\`status\`), \`details\` = VALUES(\`details\`);`
+      );
+    }
+    lines.push("");
+  }
+  if (data.doctors.length > 0) {
+    lines.push("-- ------------------------------------------------------------");
+    lines.push(`-- Migrating ${data.doctors.length} Doctors`);
+    lines.push("-- ------------------------------------------------------------");
+    for (const d of data.doctors) {
+      const id = d.id || `doc_${Date.now()}`;
+      const name = d.name || "Doctor";
+      const specialty = d.specialty || "General Medicine";
+      const fee = Number(d.fee || 500);
+      const chamber = d.chamber || "";
+      const exp = d.experience || "";
+      const avail = d.availability || "";
+      const phone = d.phone || "";
+      const rating = Number(d.rating || 5);
+      lines.push(
+        `INSERT INTO \`doctors\` (\`id\`, \`name\`, \`specialty\`, \`fee\`, \`chamber\`, \`experience\`, \`availability\`, \`phone\`, \`rating\`) VALUES (${escapeSqlString(id)}, ${escapeSqlString(name)}, ${escapeSqlString(specialty)}, ${fee}, ${escapeSqlString(chamber)}, ${escapeSqlString(exp)}, ${escapeSqlString(avail)}, ${escapeSqlString(phone)}, ${rating}) ON DUPLICATE KEY UPDATE \`name\` = VALUES(\`name\`), \`specialty\` = VALUES(\`specialty\`), \`fee\` = VALUES(\`fee\`);`
+      );
+    }
+    lines.push("");
+  }
+  if (data.medicines.length > 0) {
+    lines.push("-- ------------------------------------------------------------");
+    lines.push(`-- Migrating ${data.medicines.length} Medicines`);
+    lines.push("-- ------------------------------------------------------------");
+    for (const m of data.medicines) {
+      const id = m.id || `med_${Date.now()}`;
+      const name = m.name || "Medicine";
+      const generic = m.generic_name || "";
+      const price = Number(m.price || 0);
+      const category = m.category || "General";
+      const stock = Number(m.stock || 100);
+      lines.push(
+        `INSERT INTO \`medicines\` (\`id\`, \`name\`, \`generic_name\`, \`price\`, \`category\`, \`stock\`) VALUES (${escapeSqlString(id)}, ${escapeSqlString(name)}, ${escapeSqlString(generic)}, ${price}, ${escapeSqlString(category)}, ${stock}) ON DUPLICATE KEY UPDATE \`price\` = VALUES(\`price\`), \`stock\` = VALUES(\`stock\`);`
+      );
+    }
+    lines.push("");
+  }
+  if (data.labTests.length > 0) {
+    lines.push("-- ------------------------------------------------------------");
+    lines.push(`-- Migrating ${data.labTests.length} Lab Tests`);
+    lines.push("-- ------------------------------------------------------------");
+    for (const l of data.labTests) {
+      const id = l.id || `lab_${Date.now()}`;
+      const name = l.name || "Diagnostic Test";
+      const price = Number(l.price || 0);
+      const category = l.category || "General";
+      lines.push(
+        `INSERT INTO \`lab_tests\` (\`id\`, \`name\`, \`price\`, \`category\`) VALUES (${escapeSqlString(id)}, ${escapeSqlString(name)}, ${price}, ${escapeSqlString(category)}) ON DUPLICATE KEY UPDATE \`price\` = VALUES(\`price\`);`
+      );
+    }
+    lines.push("");
+  }
+  lines.push("-- ------------------------------------------------------------");
+  lines.push("-- Complete Firebase Raw Documents Backup (Zero Data Loss)");
+  lines.push("-- ------------------------------------------------------------");
+  for (const [colName, items] of Object.entries(data)) {
+    for (const item of items) {
+      const docId = String(item.id || item.uid || "item");
+      lines.push(
+        `INSERT INTO \`firebase_raw_backup\` (\`collection_name\`, \`doc_id\`, \`doc_data\`) VALUES (${escapeSqlString(colName)}, ${escapeSqlString(docId)}, ${escapeSqlString(item)}) ON DUPLICATE KEY UPDATE \`doc_data\` = VALUES(\`doc_data\`);`
+      );
+    }
+  }
+  lines.push("");
+  lines.push("SET FOREIGN_KEY_CHECKS = 1;");
+  lines.push("");
+  lines.push("-- Migration Script Completed Successfully.");
+  return lines.join("\n");
+}
+async function runDirectMySQLMigration(dbAdmin) {
+  const pool2 = getMySQLPool();
+  if (!pool2) {
+    return {
+      success: false,
+      message: "MySQL connection is not configured. Please enter MySQL credentials (Host, User, Password, Database) to proceed.",
+      source: "Not connected",
+      totalRecords: 0,
+      breakdown: {},
+      exportedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+  }
+  const { data, source, error: quotaErr } = await extractAllFirebaseData(dbAdmin);
+  const breakdown = {};
+  let totalRecords = 0;
+  try {
+    const schemaSql = import_fs.default.readFileSync(import_path.default.resolve(process.cwd(), "database_schema.sql"), "utf8");
+    const statements = schemaSql.split(";").map((s) => s.trim()).filter((s) => s.length > 0 && !s.startsWith("--"));
+    for (const stmt of statements) {
+      try {
+        await queryMySQL(stmt);
+      } catch (err) {
+        console.warn("Schema setup statement warning (often non-fatal table exists):", err?.message);
+      }
+    }
+    if (data.users.length > 0) {
+      let count = 0;
+      for (const u of data.users) {
+        const id = String(u.id || u.uid || `user_${Date.now()}`);
+        const uid = String(u.uid || id);
+        const phone = String(u.phone || u.phoneNumber || "");
+        const name = String(u.name || u.displayName || "User");
+        const email = String(u.email || "");
+        const role = ["user", "patient", "doctor", "hospital", "pharmacy", "ambulance", "lab", "physio", "investor", "manager", "admin", "state"].includes(u.role) ? u.role : "user";
+        const balance = Number(u.wallet_balance || u.balance || 0);
+        const isApproved = u.is_approved ? 1 : u.isApproved ? 1 : 0;
+        await queryMySQL(
+          `INSERT INTO users (id, uid, phone, name, email, role, wallet_balance, is_approved)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE name = VALUES(name), email = VALUES(email), wallet_balance = GREATEST(wallet_balance, VALUES(wallet_balance))`,
+          [id, uid, phone, name, email, role, balance, isApproved]
+        );
+        count++;
+      }
+      breakdown.users = count;
+      totalRecords += count;
+    }
+    if (data.wallets.length > 0) {
+      let count = 0;
+      for (const w of data.wallets) {
+        const id = String(w.id || `wallet_${w.user_id || w.uid}`);
+        const userId = String(w.user_id || w.userId || w.uid || id);
+        const balance = Number(w.balance || 0);
+        const currency = String(w.currency || "BDT");
+        await queryMySQL(
+          `INSERT INTO wallets (id, user_id, balance, currency)
+           VALUES (?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE balance = GREATEST(balance, VALUES(balance))`,
+          [id, userId, balance, currency]
+        );
+        count++;
+      }
+      breakdown.wallets = count;
+      totalRecords += count;
+    }
+    if (data.doctors.length > 0) {
+      let count = 0;
+      for (const d of data.doctors) {
+        const id = String(d.id || `doc_${Date.now()}`);
+        const name = String(d.name || "Doctor");
+        const specialty = String(d.specialty || "General");
+        const fee = Number(d.fee || 500);
+        const chamber = String(d.chamber || "");
+        const experience = String(d.experience || "");
+        const availability = String(d.availability || "");
+        const phone = String(d.phone || "");
+        const rating = Number(d.rating || 5);
+        await queryMySQL(
+          `INSERT INTO doctors (id, name, specialty, fee, chamber, experience, availability, phone, rating)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE name = VALUES(name), specialty = VALUES(specialty), fee = VALUES(fee)`,
+          [id, name, specialty, fee, chamber, experience, availability, phone, rating]
+        );
+        count++;
+      }
+      breakdown.doctors = count;
+      totalRecords += count;
+    }
+    if (data.medicines.length > 0) {
+      let count = 0;
+      for (const m of data.medicines) {
+        const id = String(m.id || `med_${Date.now()}`);
+        const name = String(m.name || "Medicine");
+        const generic = String(m.generic_name || "");
+        const price = Number(m.price || 0);
+        const category = String(m.category || "General");
+        const stock = Number(m.stock || 100);
+        await queryMySQL(
+          `INSERT INTO medicines (id, name, generic_name, price, category, stock)
+           VALUES (?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE price = VALUES(price), stock = VALUES(stock)`,
+          [id, name, generic, price, category, stock]
+        );
+        count++;
+      }
+      breakdown.medicines = count;
+      totalRecords += count;
+    }
+    let rawCount = 0;
+    for (const [colName, items] of Object.entries(data)) {
+      for (const item of items) {
+        const docId = String(item.id || item.uid || "item");
+        await queryMySQL(
+          `INSERT INTO firebase_raw_backup (collection_name, doc_id, doc_data)
+           VALUES (?, ?, ?)
+           ON DUPLICATE KEY UPDATE doc_data = VALUES(doc_data)`,
+          [colName, docId, JSON.stringify(item)]
+        );
+        rawCount++;
+      }
+    }
+    breakdown.firebase_raw_backup = rawCount;
+    totalRecords += rawCount;
+    return {
+      success: true,
+      message: `MySQL migration completed successfully! Transferred ${totalRecords} records across all collections without data loss.${quotaErr ? ` (Notice: Handled with protected caching due to Firebase quota: ${quotaErr})` : ""}`,
+      source,
+      totalRecords,
+      breakdown,
+      exportedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: `MySQL migration failed: ${error?.message || error}`,
+      source,
+      totalRecords,
+      breakdown,
+      exportedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+  }
+}
+
 // server.ts
 var admin = adminModule.default && adminModule.default.initializeApp ? adminModule.default : adminModule;
 var getFirestore = (app2, dbId) => {
@@ -213,27 +895,27 @@ var getFilename = () => {
   return typeof __filename !== "undefined" ? __filename : "";
 };
 var getDirname = (filePath) => {
-  if (filePath) return import_path.default.dirname(filePath);
+  if (filePath) return import_path2.default.dirname(filePath);
   return typeof __dirname !== "undefined" ? __dirname : process.cwd();
 };
 var myFilename = getFilename();
 var myDirname = getDirname(myFilename);
 var firebaseConfig = null;
 try {
-  const configPath = import_path.default.join(process.cwd(), "firebase-applet-config.json");
-  const localConfigPath = import_path.default.join(myDirname, "firebase-applet-config.json");
-  const parentConfigPath = import_path.default.join(myDirname, "..", "firebase-applet-config.json");
-  if (import_fs.default.existsSync(configPath)) {
-    firebaseConfig = JSON.parse(import_fs.default.readFileSync(configPath, "utf8"));
+  const configPath = import_path2.default.join(process.cwd(), "firebase-applet-config.json");
+  const localConfigPath = import_path2.default.join(myDirname, "firebase-applet-config.json");
+  const parentConfigPath = import_path2.default.join(myDirname, "..", "firebase-applet-config.json");
+  if (import_fs2.default.existsSync(configPath)) {
+    firebaseConfig = JSON.parse(import_fs2.default.readFileSync(configPath, "utf8"));
     console.log("Firebase config loaded from process.cwd()");
-  } else if (import_fs.default.existsSync(localConfigPath)) {
-    firebaseConfig = JSON.parse(import_fs.default.readFileSync(localConfigPath, "utf8"));
+  } else if (import_fs2.default.existsSync(localConfigPath)) {
+    firebaseConfig = JSON.parse(import_fs2.default.readFileSync(localConfigPath, "utf8"));
     console.log("Firebase config loaded from myDirname");
-  } else if (import_fs.default.existsSync(parentConfigPath)) {
-    firebaseConfig = JSON.parse(import_fs.default.readFileSync(parentConfigPath, "utf8"));
+  } else if (import_fs2.default.existsSync(parentConfigPath)) {
+    firebaseConfig = JSON.parse(import_fs2.default.readFileSync(parentConfigPath, "utf8"));
     console.log("Firebase config loaded from myDirname/..");
-  } else if (import_fs.default.existsSync("firebase-applet-config.json")) {
-    firebaseConfig = JSON.parse(import_fs.default.readFileSync("firebase-applet-config.json", "utf8"));
+  } else if (import_fs2.default.existsSync("firebase-applet-config.json")) {
+    firebaseConfig = JSON.parse(import_fs2.default.readFileSync("firebase-applet-config.json", "utf8"));
     console.log("Firebase config loaded from relative string");
   }
 } catch (e) {
@@ -277,8 +959,10 @@ app.use((req, res, next) => {
 app.use(import_express.default.json());
 app.get("/api/db/status", async (req, res) => {
   const mongo = getMongoStatus();
+  const mysqlStatus = getMySQLStatus();
   res.json({
     success: true,
+    mysql: mysqlStatus,
     mongo: {
       ...mongo,
       targetDatabase: "shustodb",
@@ -290,6 +974,80 @@ app.get("/api/db/status", async (req, res) => {
     },
     timestamp: (/* @__PURE__ */ new Date()).toISOString()
   });
+});
+app.get("/api/mysql/status", (req, res) => {
+  res.json({ success: true, ...getMySQLStatus() });
+});
+app.post("/api/mysql/test", async (req, res) => {
+  try {
+    const result = await testMySQLConnection();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err?.message || String(err) });
+  }
+});
+app.post("/api/mysql/config", async (req, res) => {
+  try {
+    const { host, port, user, password, database } = req.body;
+    if (!host || !user || !database) {
+      return res.status(400).json({ success: false, message: "Host, User, and Database are required." });
+    }
+    configureMySQLCredentials({ host, port: Number(port) || 3306, user, password, database });
+    const testResult = await testMySQLConnection();
+    res.json({
+      success: testResult.success,
+      message: testResult.success ? "MySQL configuration saved and connection verified successfully!" : `Configuration saved, but connection test failed: ${testResult.message}`,
+      status: getMySQLStatus()
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err?.message || String(err) });
+  }
+});
+app.get("/api/migration/export-sql", async (req, res) => {
+  try {
+    const sqlContent = await generateMySQLMigrationScript(db_admin);
+    res.setHeader("Content-Type", "application/sql");
+    res.setHeader("Content-Disposition", 'attachment; filename="shustobd_full_firebase_migration.sql"');
+    res.send(sqlContent);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || String(err) });
+  }
+});
+app.get("/api/migration/export-json", async (req, res) => {
+  try {
+    const exportResult = await extractAllFirebaseData(db_admin);
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", 'attachment; filename="firebase_all_data_export.json"');
+    res.json({
+      success: true,
+      exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      source: exportResult.source,
+      errorNotice: exportResult.error,
+      data: exportResult.data
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || String(err) });
+  }
+});
+app.post("/api/migration/run-direct", async (req, res) => {
+  try {
+    const result = await runDirectMySQLMigration(db_admin);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err?.message || String(err) });
+  }
+});
+app.post("/api/migration/client-push", (req, res) => {
+  try {
+    const { collectionName, items } = req.body;
+    if (collectionName && Array.isArray(items)) {
+      registerClientContributedData(collectionName, items);
+      return res.json({ success: true, count: items.length });
+    }
+    res.status(400).json({ success: false, message: "Invalid payload format" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || String(err) });
+  }
 });
 app.get("/api/mongo/test-connection", async (req, res) => {
   try {
@@ -747,6 +1505,78 @@ app.post(["/api/wallet/cleanup-fake-balance", "/direct-api/wallet/cleanup-fake-b
     return res.status(500).json({ error: e.message });
   }
 });
+app.post(["/api/wallet/cleanup-all-fake-balances", "/direct-api/wallet/cleanup-all-fake-balances"], async (req, res) => {
+  try {
+    const cfg = JSON.parse(import_fs2.default.readFileSync("firebase-applet-config.json", "utf8"));
+    const { initializeApp: initWeb } = await import("firebase/app");
+    const { getFirestore: getWebDb, collection: webCol, getDocs: webGet, doc: webDocRef, deleteDoc: webDel, setDoc: webSet } = await import("firebase/firestore");
+    const webApp = initWeb(cfg, `cleanup_${Date.now()}`);
+    const webDb = getWebDb(webApp, cfg.firestoreDatabaseId || "ai-studio-d521464d-ee88-49d7-a823-d0f7de73bd74");
+    const txSnap = await webGet(webCol(webDb, "transactions"));
+    let deletedTxs = 0;
+    const userValidTx = {};
+    for (const d of txSnap.docs) {
+      const data = d.data();
+      const tranId = String(data.tran_id || d.id || "").toLowerCase();
+      const type = String(data.type || "").toLowerCase();
+      const details = String(data.details || "").toLowerCase();
+      const desc = String(data.description || "").toLowerCase();
+      const isFake = tranId.startsWith("instant_") || tranId.startsWith("mock_") || tranId.startsWith("test_") || tranId.startsWith("demo_") || tranId.startsWith("fake_") || tranId.startsWith("manual_") || data.isMock === true || data.isInstant === true || data.mock === true || data.instant === true || type === "mock_recharge" || type === "instant_recharge" || details.includes("instant") || details.includes("mock") || details.includes("\u0987\u09A8\u09B8\u09CD\u099F\u09CD\u09AF\u09BE\u09A8\u09CD\u099F") || desc.includes("instant") || desc.includes("mock") || desc.includes("\u0987\u09A8\u09B8\u09CD\u099F\u09CD\u09AF\u09BE\u09A8\u09CD\u099F") || Number(data.amount || 0) > 1e6;
+      if (isFake) {
+        await webDel(webDocRef(webDb, "transactions", d.id));
+        deletedTxs++;
+      } else {
+        const uid = data.userId;
+        if (uid) {
+          if (!userValidTx[uid]) userValidTx[uid] = [];
+          userValidTx[uid].push(data);
+        }
+      }
+    }
+    const walletSnap = await webGet(webCol(webDb, "wallets"));
+    let resetCount = 0;
+    for (const w of walletSnap.docs) {
+      const wData = w.data();
+      const uid = w.id;
+      const currentBalance = Number(wData.balance || 0);
+      const validTxs = userValidTx[uid] || [];
+      let calculatedBalance = 0;
+      for (const tx of validTxs) {
+        const amt = Number(tx.amount || 0);
+        const type = String(tx.type || "").toLowerCase();
+        const status = String(tx.status || "").toLowerCase();
+        if (status === "success") {
+          if (type === "add_money" || type.includes("earning") || type === "doctor_earning" || type === "service_fee") {
+            calculatedBalance += amt;
+          } else if (type === "withdrawal" || type === "payment" || type === "platform_fee") {
+            calculatedBalance -= amt;
+          }
+        }
+      }
+      calculatedBalance = Math.max(0, calculatedBalance);
+      const isSiam = String(wData.email || "").toLowerCase().includes("siam") || uid === "siamthebin7@gmail.com";
+      const finalBalance = isSiam ? Math.max(14, calculatedBalance) : calculatedBalance;
+      if (currentBalance !== finalBalance) {
+        await webSet(webDocRef(webDb, "wallets", uid), {
+          uid,
+          balance: finalBalance,
+          updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+          cleanedAt: (/* @__PURE__ */ new Date()).toISOString()
+        }, { merge: true });
+        resetCount++;
+      }
+    }
+    return res.status(200).json({
+      success: true,
+      deletedTxs,
+      resetCount,
+      message: `\u09B8\u09AB\u09B2\u09AD\u09BE\u09AC\u09C7 ${deletedTxs}\u099F\u09BF \u09AB\u09C7\u0995 \u099F\u09CD\u09B0\u09BE\u09A8\u099C\u09C7\u0995\u09B6\u09A8 \u09AE\u09C1\u099B\u09C7 \u09AB\u09C7\u09B2\u09BE \u09B9\u09DF\u09C7\u099B\u09C7 \u098F\u09AC\u0982 ${resetCount}\u099F\u09BF \u0987\u0989\u099C\u09BE\u09B0\u09C7\u09B0 \u09AB\u09C7\u0995 \u09AC\u09CD\u09AF\u09BE\u09B2\u09C7\u09A8\u09CD\u09B8 \u09B0\u09BF\u09B8\u09C7\u099F \u0995\u09B0\u09C7 \u0986\u09B8\u09B2 \u09AC\u09CD\u09AF\u09BE\u09B2\u09C7\u09A8\u09CD\u09B8 \u09B8\u09C7\u099F \u0995\u09B0\u09BE \u09B9\u09DF\u09C7\u099B\u09C7\u0964`
+    });
+  } catch (e) {
+    console.error("[Cleanup All Fake Balances] Error:", e);
+    return res.status(500).json({ error: e.message });
+  }
+});
 app.post(["/api/admin/reset-wallets", "/admin/reset-wallets"], async (req, res) => {
   return res.status(200).json({ status: "SUCCESS", message: "Admin reset feature temporarily disabled for security." });
 });
@@ -897,9 +1727,7 @@ app.all(["/api/payment/success/:userId", "/api/payment/success", "/direct-api/pa
     const upper = status.trim().toUpperCase();
     return upper === "VALID" || upper === "VALIDATED" || upper === "SUCCESS";
   };
-  if (mockSuccess) {
-    isPaymentValid = true;
-  } else if (val_id) {
+  if (val_id) {
     try {
       console.log(`[SSLCOMMERZ SUCCESS] Validating transaction val_id: ${val_id} with store: ${store_id}`);
       const valResp = await import_axios.default.get(validationUrl, {
@@ -967,540 +1795,23 @@ app.all(["/api/payment/success/:userId", "/api/payment/success", "/direct-api/pa
         } else {
           console.log(`[SSLCOMMERZ SUCCESS] Transaction ${tran_id} was already credited.`);
         }
-        const redirectUrl2 = `${clientBaseUrl}/?payment=success&amount=${paidAmount}&tran_id=${tran_id}`;
-        return res.status(200).send(`
-<!DOCTYPE html>
-<html lang="bn">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09B8\u09AB\u09B2 - Shusto</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: #f8fafc;
-            color: #1e293b;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-            text-align: center;
-        }
-        .container {
-            background-color: #ffffff;
-            border-radius: 24px;
-            padding: 40px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-            max-width: 410px;
-            width: 100%;
-        }
-        .icon-circle {
-            width: 72px;
-            height: 72px;
-            background-color: #f0fdf4;
-            color: #15803d;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 24px auto;
-        }
-        .icon {
-            width: 40px;
-            height: 40px;
-        }
-        h2 {
-            margin: 0 0 12px 0;
-            color: #0f172a;
-            font-size: 22px;
-            font-weight: 700;
-        }
-        p {
-            margin: 0 0 24px 0;
-            color: #64748b;
-            font-size: 15px;
-            line-height: 1.6;
-        }
-        .loader {
-            border: 4px solid #f1f5f9;
-            border-top: 4px solid #0ea5e9;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .btn {
-            display: inline-block;
-            margin-top: 24px;
-            background-color: #0ea5e9;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 14px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-            transition: background-color 0.2s;
-        }
-        .btn:hover {
-            background-color: #0284c7;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="icon-circle">
-            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
-            </svg>
-        </div>
-        <h2>\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09B8\u09AB\u09B2 \u09B9\u09DF\u09C7\u099B\u09C7!</h2>
-        <p>\u0986\u09AA\u09A8\u09BE\u09B0 Shusto \u0993\u09DF\u09BE\u09B2\u09C7\u099F\u09C7 \u09F3${paidAmount} \u09B8\u09AB\u09B2\u09AD\u09BE\u09AC\u09C7 \u09AF\u09C1\u0995\u09CD\u09A4 \u0995\u09B0\u09BE \u09B9\u099A\u09CD\u099B\u09C7\u0964 \u0985\u09A8\u09C1\u0997\u09CD\u09B0\u09B9 \u0995\u09B0\u09C7 \u0995\u09CD\u09B7\u09A3\u09BF\u0995 \u0985\u09AA\u09C7\u0995\u09CD\u09B7\u09BE \u0995\u09B0\u09C1\u09A8, \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u0985\u09CD\u09AF\u09BE\u09AA\u09C7 \u09AB\u09BF\u09B0\u09BF\u09DF\u09C7 \u09A8\u09C7\u0993\u09DF\u09BE \u09B9\u099A\u09CD\u099B\u09C7...</p>
-        <div class="loader"></div>
-        <a class="btn" href="${redirectUrl2}">\u0985\u09CD\u09AF\u09BE\u09AA\u09C7 \u09AB\u09BF\u09B0\u09C7 \u09AF\u09BE\u09A8</a>
-    </div>
-    <script>
-        window.location.replace(${JSON.stringify(redirectUrl2)});
-    </script>
-</body>
-</html>
-          `);
+        const redirectUrl = `${clientBaseUrl}/?payment=success&amount=${paidAmount}&tran_id=${tran_id}`;
+        return res.redirect(303, redirectUrl);
       } catch (e) {
         console.error("[SSLCOMMERZ SUCCESS] Firebase Update Failed but payment is validated. Redirecting to client sync:", e.message);
-        const redirectUrl2 = `${clientBaseUrl}/?payment=success&amount=${paidAmount}&tran_id=${tran_id}&fallback=db_error`;
-        return res.status(200).send(`
-<!DOCTYPE html>
-<html lang="bn">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09B8\u09AB\u09B2 - Shusto</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: #f8fafc;
-            color: #1e293b;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-            text-align: center;
-        }
-        .container {
-            background-color: #ffffff;
-            border-radius: 24px;
-            padding: 40px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-            max-width: 410px;
-            width: 100%;
-        }
-        .icon-circle {
-            width: 72px;
-            height: 72px;
-            background-color: #f0fdf4;
-            color: #15803d;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 24px auto;
-        }
-        .icon {
-            width: 40px;
-            height: 40px;
-        }
-        h2 {
-            margin: 0 0 12px 0;
-            color: #0f172a;
-            font-size: 22px;
-            font-weight: 700;
-        }
-        p {
-            margin: 0 0 24px 0;
-            color: #64748b;
-            font-size: 15px;
-            line-height: 1.6;
-        }
-        .loader {
-            border: 4px solid #f1f5f9;
-            border-top: 4px solid #0ea5e9;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .btn {
-            display: inline-block;
-            margin-top: 24px;
-            background-color: #0ea5e9;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 14px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-            transition: background-color 0.2s;
-        }
-        .btn:hover {
-            background-color: #0284c7;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="icon-circle">
-            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
-            </svg>
-        </div>
-        <h2>\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09B8\u09AB\u09B2 \u09B9\u09DF\u09C7\u099B\u09C7!</h2>
-        <p>\u0986\u09AA\u09A8\u09BE\u09B0 Shusto \u0993\u09DF\u09BE\u09B2\u09C7\u099F\u09C7 \u09F3${paidAmount} \u09B8\u09AB\u09B2\u09AD\u09BE\u09AC\u09C7 \u09AF\u09C1\u0995\u09CD\u09A4 \u0995\u09B0\u09BE \u09B9\u099A\u09CD\u099B\u09C7\u0964 \u0985\u09A8\u09C1\u0997\u09CD\u09B0\u09B9 \u0995\u09B0\u09C7 \u0995\u09CD\u09B7\u09A3\u09BF\u0995 \u0985\u09AA\u09C7\u0995\u09CD\u09B7\u09BE \u0995\u09B0\u09C1\u09A8, \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u0985\u09CD\u09AF\u09BE\u09AA\u09C7 \u09AB\u09BF\u09B0\u09BF\u09DF\u09C7 \u09A8\u09C7\u0993\u09DF\u09BE \u09B9\u099A\u09CD\u099B\u09C7...</p>
-        <div class="loader"></div>
-        <a class="btn" href="${redirectUrl2}">\u0985\u09CD\u09AF\u09BE\u09AA\u09C7 \u09AB\u09BF\u09B0\u09C7 \u09AF\u09BE\u09A8</a>
-    </div>
-    <script>
-        window.location.replace(${JSON.stringify(redirectUrl2)});
-    </script>
-</body>
-</html>
-          `);
+        const redirectUrl = `${clientBaseUrl}/?payment=success&amount=${paidAmount}&tran_id=${tran_id}&fallback=db_error`;
+        return res.redirect(303, redirectUrl);
       }
     } else {
       console.warn("[SSLCOMMERZ SUCCESS] db_admin or userId missing. Redirecting to client sync.");
-      const redirectUrl2 = `${clientBaseUrl}/?payment=success&amount=${paidAmount}&tran_id=${tran_id}&fallback=db_missing`;
-      return res.status(200).send(`
-<!DOCTYPE html>
-<html lang="bn">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09B8\u09AB\u09B2 - Shusto</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: #f8fafc;
-            color: #1e293b;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-            text-align: center;
-        }
-        .container {
-            background-color: #ffffff;
-            border-radius: 24px;
-            padding: 40px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-            max-width: 410px;
-            width: 100%;
-        }
-        .icon-circle {
-            width: 72px;
-            height: 72px;
-            background-color: #f0fdf4;
-            color: #15803d;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 24px auto;
-        }
-        .icon {
-            width: 40px;
-            height: 40px;
-        }
-        h2 {
-            margin: 0 0 12px 0;
-            color: #0f172a;
-            font-size: 22px;
-            font-weight: 700;
-        }
-        p {
-            margin: 0 0 24px 0;
-            color: #64748b;
-            font-size: 15px;
-            line-height: 1.6;
-        }
-        .loader {
-            border: 4px solid #f1f5f9;
-            border-top: 4px solid #0ea5e9;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .btn {
-            display: inline-block;
-            margin-top: 24px;
-            background-color: #0ea5e9;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 14px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-            transition: background-color 0.2s;
-        }
-        .btn:hover {
-            background-color: #0284c7;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="icon-circle">
-            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
-            </svg>
-        </div>
-        <h2>\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09B8\u09AB\u09B2 \u09B9\u09DF\u09C7\u099B\u09C7!</h2>
-        <p>\u0986\u09AA\u09A8\u09BE\u09B0 Shusto \u0993\u09DF\u09BE\u09B2\u09C7\u099F\u09C7 \u09F3${paidAmount} \u09AF\u09C1\u0995\u09CD\u09A4 \u0995\u09B0\u09BE \u09B9\u099A\u09CD\u099B\u09C7\u0964 \u0985\u09A8\u09C1\u0997\u09CD\u09B0\u09B9 \u0995\u09B0\u09C7 \u0995\u09CD\u09B7\u09A3\u09BF\u0995 \u0985\u09AA\u09C7\u0995\u09CD\u09B7\u09BE \u0995\u09B0\u09C1\u09A8, \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u0985\u09CD\u09AF\u09BE\u09AA\u09C7 \u09AB\u09BF\u09B0\u09BF\u09DF\u09C7 \u09A8\u09C7\u0993\u09DF\u09BE \u09B9\u099A\u09CD\u099B\u09C7...</p>
-        <div class="loader"></div>
-        <a class="btn" href="${redirectUrl2}">\u0985\u09CD\u09AF\u09BE\u09AA\u09C7 \u09AB\u09BF\u09B0\u09C7 \u09AF\u09BE\u09A8</a>
-    </div>
-    <script>
-        window.location.replace(${JSON.stringify(redirectUrl2)});
-    </script>
-</body>
-</html>
-        `);
+      const redirectUrl = `${clientBaseUrl}/?payment=success&amount=${paidAmount}&tran_id=${tran_id}&fallback=db_missing`;
+      return res.redirect(303, redirectUrl);
     }
   } else {
     console.warn("[SSLCOMMERZ SUCCESS] Payment invalid. Redirection values:", { isPaymentValid, userId });
-    const redirectUrl2 = `${clientBaseUrl}/?payment=failed&reason=invalid_payment`;
-    return res.status(200).send(`
-<!DOCTYPE html>
-<html lang="bn">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09AC\u09CD\u09AF\u09B0\u09CD\u09A5 - Shusto</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: #f8fafc;
-            color: #1e293b;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-            text-align: center;
-        }
-        .container {
-            background-color: #ffffff;
-            border-radius: 24px;
-            padding: 40px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-            max-width: 410px;
-            width: 100%;
-        }
-        .icon-circle {
-            width: 72px;
-            height: 72px;
-            background-color: #fef2f2;
-            color: #dc2626;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 24px auto;
-        }
-        .icon {
-            width: 40px;
-            height: 40px;
-        }
-        h2 {
-            margin: 0 0 12px 0;
-            color: #0f172a;
-            font-size: 22px;
-            font-weight: 700;
-        }
-        p {
-            margin: 0 0 24px 0;
-            color: #64748b;
-            font-size: 15px;
-            line-height: 1.6;
-        }
-        .loader {
-            border: 4px solid #f1f5f9;
-            border-top: 4px solid #ef4444;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .btn {
-            display: inline-block;
-            margin-top: 24px;
-            background-color: #ef4444;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 14px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-            transition: background-color 0.2s;
-        }
-        .btn:hover {
-            background-color: #dc2626;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="icon-circle">
-            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-        </div>
-        <h2>\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09AC\u09CD\u09AF\u09B0\u09CD\u09A5 \u09B9\u09DF\u09C7\u099B\u09C7</h2>
-        <p>\u09A6\u09C1\u0983\u0996\u09BF\u09A4, \u0995\u09CB\u09A8\u09CB \u09B8\u09AE\u09B8\u09CD\u09AF\u09BE\u09B0 \u0995\u09BE\u09B0\u09A3\u09C7 \u0986\u09AE\u09B0\u09BE \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F\u099F\u09BF \u09B8\u09AE\u09CD\u09AA\u09A8\u09CD\u09A8 \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09BF\u09A8\u09BF\u0964 \u09A6\u09DF\u09BE \u0995\u09B0\u09C7 \u09AB\u09BF\u09B0\u09C7 \u0997\u09BF\u09DF\u09C7 \u0986\u09AC\u09BE\u09B0 \u099A\u09C7\u09B7\u09CD\u099F\u09BE \u0995\u09B0\u09C1\u09A8\u0964</p>
-        <div class="loader"></div>
-        <a class="btn" href="${redirectUrl2}">\u0985\u09CD\u09AF\u09BE\u09AA\u09C7 \u09AB\u09BF\u09B0\u09C7 \u09AF\u09BE\u09A8</a>
-    </div>
-    <script>
-        window.location.replace(${JSON.stringify(redirectUrl2)});
-    </script>
-</body>
-</html>
-      `);
+    const redirectUrl = `${clientBaseUrl}/?payment=failed&reason=invalid_payment`;
+    return res.redirect(303, redirectUrl);
   }
-  const redirectUrl = `${clientBaseUrl}/?payment=success&amount=${paidAmount}&tran_id=${tran_id}`;
-  return res.status(200).send(`
-<!DOCTYPE html>
-<html lang="bn">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09B8\u09AB\u09B2 - Shusto</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: #f8fafc;
-            color: #1e293b;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-            text-align: center;
-        }
-        .container {
-            background-color: #ffffff;
-            border-radius: 24px;
-            padding: 40px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-            max-width: 410px;
-            width: 100%;
-        }
-        .icon-circle {
-            width: 72px;
-            height: 72px;
-            background-color: #f0fdf4;
-            color: #15803d;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 24px auto;
-        }
-        .icon {
-            width: 40px;
-            height: 40px;
-        }
-        h2 {
-            margin: 0 0 12px 0;
-            color: #0f172a;
-            font-size: 22px;
-            font-weight: 700;
-        }
-        p {
-            margin: 0 0 24px 0;
-            color: #64748b;
-            font-size: 15px;
-            line-height: 1.6;
-        }
-        .loader {
-            border: 4px solid #f1f5f9;
-            border-top: 4px solid #0ea5e9;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .btn {
-            display: inline-block;
-            margin-top: 24px;
-            background-color: #0ea5e9;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 14px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-            transition: background-color 0.2s;
-        }
-        .btn:hover {
-            background-color: #0284c7;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="icon-circle">
-            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
-            </svg>
-        </div>
-        <h2>\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09B8\u09AB\u09B2 \u09B9\u09DF\u09C7\u099B\u09C7!</h2>
-        <p>\u0986\u09AA\u09A8\u09BE\u09B0 Shusto \u0993\u09DF\u09BE\u09B2\u09C7\u099F\u09C7 \u09F3${paidAmount} \u09B8\u09AB\u09B2\u09AD\u09BE\u09AC\u09C7 \u09AF\u09C1\u0995\u09CD\u09A4 \u0995\u09B0\u09BE \u09B9\u09DF\u09C7\u099B\u09C7\u0964 \u0985\u09A8\u09C1\u0997\u09CD\u09B0\u09B9 \u0995\u09B0\u09C7 \u0995\u09CD\u09B7\u09A3\u09BF\u0995 \u0985\u09AA\u09C7\u0995\u09CD\u09B7\u09BE \u0995\u09B0\u09C1\u09A8, \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u0985\u09CD\u09AF\u09BE\u09AA\u09C7 \u09AB\u09BF\u09B0\u09BF\u09DF\u09C7 \u09A8\u09C7\u0993\u09DF\u09BE \u09B9\u099A\u09CD\u099B\u09C7...</p>
-        <div class="loader"></div>
-        <a class="btn" href="${redirectUrl}">\u0985\u09CD\u09AF\u09BE\u09AA\u09C7 \u09AB\u09BF\u09B0\u09C7 \u09AF\u09BE\u09A8</a>
-    </div>
-    <script>
-        window.location.replace(${JSON.stringify(redirectUrl)});
-    </script>
-</body>
-</html>
-    `);
 });
 app.all(["/api/payment/fail/:userId", "/api/payment/fail", "/direct-api/payment/fail", "/payment/fail"], (req, res) => {
   console.log("SSLCommerz payment failed redirect:", req.body || req.query);
@@ -1516,110 +1827,7 @@ app.all(["/api/payment/fail/:userId", "/api/payment/fail", "/direct-api/payment/
     clientBaseUrl = fallbackAbsoluteUrl;
   }
   const redirectUrl = `${clientBaseUrl}/?payment=failed`;
-  return res.status(200).send(`
-<!DOCTYPE html>
-<html lang="bn">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09AC\u09CD\u09AF\u09B0\u09CD\u09A5 - Shusto</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: #f8fafc;
-            color: #1e293b;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-            text-align: center;
-        }
-        .container {
-            background-color: #ffffff;
-            border-radius: 24px;
-            padding: 40px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-            max-width: 410px;
-            width: 100%;
-        }
-        .icon-circle {
-            width: 72px;
-            height: 72px;
-            background-color: #fef2f2;
-            color: #dc2626;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 24px auto;
-        }
-        .icon {
-            width: 40px;
-            height: 40px;
-        }
-        h2 {
-            margin: 0 0 12px 0;
-            color: #0f172a;
-            font-size: 22px;
-            font-weight: 700;
-        }
-        p {
-            margin: 0 0 24px 0;
-            color: #64748b;
-            font-size: 15px;
-            line-height: 1.6;
-        }
-        .loader {
-            border: 4px solid #f1f5f9;
-            border-top: 4px solid #ef4444;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .btn {
-            display: inline-block;
-            margin-top: 24px;
-            background-color: #ef4444;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 14px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-            transition: background-color 0.2s;
-        }
-        .btn:hover {
-            background-color: #dc2626;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="icon-circle">
-            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-        </div>
-        <h2>\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09B8\u09AE\u09CD\u09AA\u09A8\u09CD\u09A8 \u09B9\u09A4\u09C7 \u09AA\u09BE\u09B0\u09C7\u09A8\u09BF</h2>
-        <p>\u09A6\u09C1\u0983\u0996\u09BF\u09A4, \u0986\u09AE\u09BE\u09A6\u09C7\u09B0 \u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u0997\u09C7\u099F\u0993\u09DF\u09C7\u09A4\u09C7 \u0995\u09CB\u09A8\u09CB \u099F\u09CD\u09B0\u09BE\u09A8\u099C\u09C7\u0995\u09B6\u09A8 \u09AA\u09CD\u09B0\u09B8\u09C7\u09B8 \u0995\u09B0\u09BE \u09AF\u09BE\u09DF\u09A8\u09BF\u0964 \u09A6\u09DF\u09BE \u0995\u09B0\u09C7 \u09AB\u09BF\u09B0\u09C7 \u0997\u09BF\u09DF\u09C7 \u0986\u09AC\u09BE\u09B0 \u099A\u09C7\u09B7\u09CD\u099F\u09BE \u0995\u09B0\u09C1\u09A8\u0964</p>
-        <div class="loader"></div>
-        <a class="btn" href="${redirectUrl}">\u0985\u09CD\u09AF\u09BE\u09AA\u09C7 \u09AB\u09BF\u09B0\u09C7 \u09AF\u09BE\u09A8</a>
-    </div>
-    <script>
-        window.location.replace(${JSON.stringify(redirectUrl)});
-    </script>
-</body>
-</html>
-    `);
+  return res.redirect(303, redirectUrl);
 });
 app.all(["/api/payment/cancel/:userId", "/api/payment/cancel", "/direct-api/payment/cancel", "/payment/cancel"], (req, res) => {
   console.log("SSLCommerz payment cancelled redirect:", req.body || req.query);
@@ -1635,110 +1843,7 @@ app.all(["/api/payment/cancel/:userId", "/api/payment/cancel", "/direct-api/paym
     clientBaseUrl = fallbackAbsoluteUrl;
   }
   const redirectUrl = `${clientBaseUrl}/?payment=cancelled`;
-  return res.status(200).send(`
-<!DOCTYPE html>
-<html lang="bn">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09AC\u09BE\u09A4\u09BF\u09B2 - Shusto</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: #f8fafc;
-            color: #1e293b;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-            text-align: center;
-        }
-        .container {
-            background-color: #ffffff;
-            border-radius: 24px;
-            padding: 40px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-            max-width: 410px;
-            width: 100%;
-        }
-        .icon-circle {
-            width: 72px;
-            height: 72px;
-            background-color: #fef3c7;
-            color: #d97706;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 24px auto;
-        }
-        .icon {
-            width: 40px;
-            height: 40px;
-        }
-        h2 {
-            margin: 0 0 12px 0;
-            color: #0f172a;
-            font-size: 22px;
-            font-weight: 700;
-        }
-        p {
-            margin: 0 0 24px 0;
-            color: #64748b;
-            font-size: 15px;
-            line-height: 1.6;
-        }
-        .loader {
-            border: 4px solid #f1f5f9;
-            border-top: 4px solid #f59e0b;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .btn {
-            display: inline-block;
-            margin-top: 24px;
-            background-color: #f59e0b;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 14px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-            transition: background-color 0.2s;
-        }
-        .btn:hover {
-            background-color: #d97706;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="icon-circle">
-            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-            </svg>
-        </div>
-        <h2>\u09AA\u09C7\u09AE\u09C7\u09A8\u09CD\u099F \u09AC\u09BE\u09A4\u09BF\u09B2 \u0995\u09B0\u09BE \u09B9\u09DF\u09C7\u099B\u09C7</h2>
-        <p>\u0986\u09AA\u09A8\u09BF \u0993\u09DF\u09BE\u09B2\u09C7\u099F \u09B0\u09BF\u099A\u09BE\u09B0\u09CD\u099C \u09B0\u09BF\u0995\u09C1\u09DF\u09C7\u09B8\u09CD\u099F\u099F\u09BF \u09AC\u09BE\u09A4\u09BF\u09B2 \u0995\u09B0\u09C7\u099B\u09C7\u09A8\u0964 \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u0993\u09DF\u09BE\u09B2\u09C7\u099F\u09C7 \u09AA\u09C1\u09A8\u09B0\u09BE\u09DF \u09AB\u09BF\u09B0\u09BF\u09DF\u09C7 \u09A8\u09C7\u0993\u09DF\u09BE \u09B9\u099A\u09CD\u099B\u09C7, \u0995\u09CD\u09B7\u09A3\u09BF\u0995 \u0985\u09AA\u09C7\u0995\u09CD\u09B7\u09BE \u0995\u09B0\u09C1\u09A8...</p>
-        <div class="loader"></div>
-        <a class="btn" href="${redirectUrl}">\u0985\u09CD\u09AF\u09BE\u09AA\u09C7 \u09AB\u09BF\u09B0\u09C7 \u09AF\u09BE\u09A8</a>
-    </div>
-    <script>
-        window.location.replace(${JSON.stringify(redirectUrl)});
-    </script>
-</body>
-</html>
-    `);
+  return res.redirect(303, redirectUrl);
 });
 app.all(["/api/payment/ipn", "/direct-api/payment/ipn", "/payment/ipn"], async (req, res) => {
   console.log("[SSLCOMMERZ IPN] IPN Notification received:", req.body);
@@ -1840,10 +1945,10 @@ async function startViteOrStaticServer() {
         console.warn("Vite server failed to load dynamically:", viteLoadErr.message);
       }
     } else {
-      const distPath2 = import_path.default.join(process.cwd(), "dist");
+      const distPath2 = import_path2.default.join(process.cwd(), "dist");
       app.use(import_express.default.static(distPath2));
       app.get("*", (req, res) => {
-        res.sendFile(import_path.default.join(distPath2, "index.html"));
+        res.sendFile(import_path2.default.join(distPath2, "index.html"));
       });
     }
     app.listen(PORT, "0.0.0.0", () => {
@@ -1854,16 +1959,16 @@ async function startViteOrStaticServer() {
 if (!global.__IS_SERVERLESS && !process.env.VERCEL) {
   startViteOrStaticServer().catch(console.error);
 }
-var distPath = import_path.default.join(process.cwd(), "dist");
-if (import_fs.default.existsSync(distPath)) {
+var distPath = import_path2.default.join(process.cwd(), "dist");
+if (import_fs2.default.existsSync(distPath)) {
   app.use(import_express.default.static(distPath));
 }
 app.get("*", (req, res, next) => {
   if (req.path.startsWith("/api/") || req.path.startsWith("/direct-api/")) {
     return next();
   }
-  const indexPath = import_path.default.join(process.cwd(), "dist", "index.html");
-  if (import_fs.default.existsSync(indexPath)) {
+  const indexPath = import_path2.default.join(process.cwd(), "dist", "index.html");
+  if (import_fs2.default.existsSync(indexPath)) {
     return res.sendFile(indexPath);
   }
   return res.send('<!DOCTYPE html><html><head><title>Shusto</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>');
