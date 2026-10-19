@@ -585,16 +585,29 @@ export function Settings({ onBack, onNavigate }: SettingsProps) {
                   ? 'আপনার অ্যাকাউন্টটি ডিলিটের জন্য সফলভাবে শিডিউল করা হয়েছে। ৩১ দিনের মধ্যে লগইন করলে এটি রিস্টোর করা যাবে।'
                   : 'Account scheduled for deletion successfully.');
 
-                logout();
+                await logout();
               } catch (err) {
                 console.error("Delete account error:", err);
                 alert('অ্যাকাউন্ট ডিলিট করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
               }
             }}
-            className="w-full py-3 px-4 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-200 transition-all flex items-center justify-center gap-2"
+            className="w-full py-3 px-4 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-200 transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <Trash2 className="w-4 h-4" />
             {lang === 'bn' ? 'অ্যাকাউন্ট ডিলিট করুন (৩১ দিন রিস্টোর টাইম)' : 'Delete Account (31 Days Restore)'}
+          </button>
+
+          {/* Dedicated Logout Button */}
+          <button
+            onClick={async () => {
+              if (window.confirm(lang === 'bn' ? 'আপনি কি নিশ্চিত যে Shusto থেকে লগআউট করতে চান?' : 'Are you sure you want to log out from Shusto?')) {
+                await logout();
+              }
+            }}
+            className="w-full py-3.5 px-4 rounded-2xl bg-white hover:bg-slate-50 text-slate-800 hover:text-red-600 font-bold text-sm border border-slate-200 hover:border-red-200 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs mt-3"
+          >
+            <LogOut className="w-4 h-4 text-red-500" />
+            {lang === 'bn' ? 'লগআউট করুন (Log Out)' : 'Log Out'}
           </button>
         </div>
 

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User, onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider, signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, query, where, collection, getDocs, deleteDoc, onSnapshot, addDoc } from 'firebase/firestore';
 import { auth, db, googleProvider, twitterProvider, appleProvider } from './firebase';
@@ -37,6 +37,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const unsubProfileRef = useRef<(() => void) | null>(null);
   const [user, setUser] = useState<UserProfile | null>(() => {
     try {
       const cached = safeStorage.getItem('shusto_user_cache');
@@ -112,13 +113,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(timeout);
       
       // Cleanup previous profile listener if it exists
-      if (unsubProfile) {
-        unsubProfile();
-        unsubProfile = null;
+      if (unsubProfileRef.current) {
+        unsubProfileRef.current();
+        unsubProfileRef.current = null;
       }
 
       if (!firebaseUser) {
         setUser(null);
+        safeStorage.removeItem('shusto_user_cache');
         setLoading(false);
         return;
       }
@@ -146,7 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Real-time listener for user's full Firestore profile
       const userRef = doc(db, 'users', firebaseUser.uid);
       
-      unsubProfile = onSnapshot(userRef, async (userDoc) => {
+      unsubProfileRef.current = onSnapshot(userRef, async (userDoc) => {
         try {
           if (!userDoc.exists()) {
             console.log("User doc not found in Firestore, saving initial profile...");
@@ -186,7 +188,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       unsubscribeAuth();
-      if (unsubProfile) unsubProfile();
+      if (unsubProfileRef.current) {
+        unsubProfileRef.current();
+        unsubProfileRef.current = null;
+      }
     };
   }, []);
 
@@ -538,9 +543,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    safeStorage.removeItem('shusto_user_cache');
+    // 1. Immediately detach any active Firestore profile snapshot listener
+    try {
+      if (unsubProfileRef.current) {
+        unsubProfileRef.current();
+        unsubProfileRef.current = null;
+      }
+    } catch (e) {
+      console.warn("Error detaching profile listener on logout:", e);
+    }
+
+    // 2. Immediately clear user from React state and all storage caches
     setUser(null);
-    await signOut(auth);
+    try {
+      safeStorage.removeItem('shusto_user_cache');
+      safeStorage.removeItem('hasSeenWelcome');
+      if (typeof window !== 'undefined') {
+        window.localStorage?.removeItem('shusto_user_cache');
+        window.localStorage?.removeItem('hasSeenWelcome');
+        window.sessionStorage?.clear();
+      }
+    } catch (e) {
+      console.warn("Storage clear error on logout:", e);
+    }
+
+    // 3. Gracefully sign out from Firebase Authentication
+    try {
+      await signOut(auth);
+    } catch (e) {
+      console.warn("Firebase signOut error (proceeding with local logout):", e);
+    }
+
+    // 4. Reset active UI state to dashboard/login
+    try {
+      window.dispatchEvent(new CustomEvent('switchTab', { detail: 'dashboard' }));
+    } catch (e) {}
   };
 
   const forceSync = async () => {

@@ -17,11 +17,17 @@ export function Home() {
             <p className="text-xs font-bold text-slate-700">{user?.address || 'Set location'}</p>
           </div>
         </div>
-        <img 
-          src={user?.photoURL || 'https://ui-avatars.com/api/?name=' + (user?.displayName || 'U')} 
-          alt="Profile" 
-          className="w-10 h-10 rounded-full object-cover" 
-        />
+        <button 
+          onClick={() => window.dispatchEvent(new CustomEvent('switchTab', { detail: 'profile' }))}
+          className="relative rounded-full focus:outline-none focus:ring-2 focus:ring-[#1DA1F2]/50 cursor-pointer"
+          title="প্রোফাইল ও সেটিংস"
+        >
+          <img 
+            src={user?.photoURL || 'https://ui-avatars.com/api/?name=' + (user?.displayName || 'U')} 
+            alt="Profile" 
+            className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-xs hover:opacity-90 transition-opacity" 
+          />
+        </button>
       </div>
 
       {/* Search */}

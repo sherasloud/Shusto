@@ -9,7 +9,11 @@
     "start": "node server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "cap:sync": "npx cap sync android",
+    "build:android": "npm run build && npx cap sync android",
+    "build:aab": "node scripts/build-aab.js",
+    "build:abb": "node scripts/build-aab.js"
   },
   "dependencies": {
     "@capacitor/core": "^8.3.2",
