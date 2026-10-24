@@ -1395,6 +1395,34 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   next(err);
 });
 
+// Direct download routes for Android project and AAB bundle
+app.get("/api/download-android", (req, res) => {
+  const tarPath = path.join(process.cwd(), "shusto-android-project.tar.gz");
+  if (fs.existsSync(tarPath)) {
+    res.download(tarPath, "shusto-android-project.tar.gz");
+  } else {
+    res.status(404).send("Android project archive not found.");
+  }
+});
+
+app.get("/api/download-aab", (req, res) => {
+  const aabPath = path.join(process.cwd(), "shusto-app-release.aab");
+  if (fs.existsSync(aabPath)) {
+    res.download(aabPath, "1.aab");
+  } else {
+    res.status(404).send("Android app bundle not found.");
+  }
+});
+
+app.get("/api/download-abb", (req, res) => {
+  const aabPath = path.join(process.cwd(), "shusto-app-release.aab");
+  if (fs.existsSync(aabPath)) {
+    res.download(aabPath, "1.abb");
+  } else {
+    res.status(404).send("Android app bundle not found.");
+  }
+});
+
 // Serve static client assets and hot reload dev server dynamically
 async function startViteOrStaticServer() {
   if (!process.env.VERCEL) {

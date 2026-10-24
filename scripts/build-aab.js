@@ -43,6 +43,32 @@ try {
   // Step 2: Sync to Android via Capacitor
   runStep('Syncing assets with Capacitor Android', 'npx cap sync android');
 
+  // Fix Gradle wrapper distributionUrl to 8.11.1 for AGP 8.7+ compatibility
+  const wrapperPropsPath = path.join(androidDir, 'gradle', 'wrapper', 'gradle-wrapper.properties');
+  if (fs.existsSync(wrapperPropsPath)) {
+    let content = fs.readFileSync(wrapperPropsPath, 'utf8');
+    if (content.includes('gradle-8.7-bin.zip') || content.includes('gradle-8.7-all.zip')) {
+      content = content.replace(/gradle-8\.7-(bin|all)\.zip/g, 'gradle-8.11.1-bin.zip');
+      fs.writeFileSync(wrapperPropsPath, content, 'utf8');
+      console.log('✔ Updated gradle-wrapper.properties to Gradle 8.11.1');
+    }
+  }
+
+  // Ensure local.properties points to Android SDK
+  const localPropsPath = path.join(androidDir, 'local.properties');
+  const possibleSdkPaths = [
+    '/app/applet/android-sdk',
+    process.env.ANDROID_HOME,
+    path.join(rootDir, 'android-sdk'),
+    '/opt/android-sdk'
+  ];
+  const foundSdk = possibleSdkPaths.find(p => p && fs.existsSync(p));
+  if (foundSdk) {
+    fs.writeFileSync(localPropsPath, `sdk.dir=${foundSdk}\n`, 'utf8');
+    process.env.ANDROID_HOME = foundSdk;
+    console.log(`✔ Configured Android SDK location: ${foundSdk}`);
+  }
+
   // Step 3: Build Android App Bundle (.aab)
   if (fs.existsSync(androidDir)) {
     const isWindows = process.platform === 'win32';
@@ -52,9 +78,7 @@ try {
     if (!isWindows) {
       try {
         fs.chmodSync(path.join(androidDir, 'gradlew'), 0o755);
-      } catch (e) {
-        // Ignore if permission change fails
-      }
+      } catch (e) {}
     }
 
     console.log('\n▶ [Step] Building Android App Bundle with Gradle');

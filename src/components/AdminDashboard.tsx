@@ -86,7 +86,7 @@ interface Provider {
 
 export function AdminDashboard() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'users' | 'patients' | 'doctors' | 'medicines' | 'pharmacies' | 'labs' | 'physios' | 'hospitals' | 'ambulances' | 'nursings' | 'nutritionists' | 'transactions' | 'services' | 'merchant' | 'investors' | 'managers' | 'states' | 'shop_requests' | 'profits'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'patients' | 'doctors' | 'medicines' | 'pharmacies' | 'labs' | 'physios' | 'hospitals' | 'ambulances' | 'nursings' | 'nutritionists' | 'transactions' | 'services' | 'merchant' | 'investors' | 'managers' | 'states' | 'shop_requests' | 'profits' | 'android_build'>('android_build');
   const [users, setUsers] = useState<UserProfile[]>(() => {
     try {
       const cached = localStorage.getItem('shusto_admin_users_cache');
@@ -1630,7 +1630,7 @@ export function AdminDashboard() {
       <div className="space-y-6">
         {/* Row 1: Navigation Tabs */}
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 pb-4">
-          {(['profits', 'users', 'patients', 'doctors', 'medicines', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursings', 'nutritionists', 'services', 'transactions', 'merchant', 'investors', 'managers', 'states', 'shop_requests'] as const).map((tab) => (
+          {(['android_build', 'profits', 'users', 'patients', 'doctors', 'medicines', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursings', 'nutritionists', 'services', 'transactions', 'merchant', 'investors', 'managers', 'states', 'shop_requests'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -1639,7 +1639,8 @@ export function AdminDashboard() {
                 activeTab === tab ? "bg-sky-500 text-white shadow-lg shadow-sky-500/20" : "text-slate-400 hover:bg-slate-50"
               )}
             >
-              {tab === 'profits' ? '💰 লভ্যাংশ (Profits)' :
+              {tab === 'android_build' ? '📱 Android App (.aab)' :
+               tab === 'profits' ? '💰 লভ্যাংশ (Profits)' :
                tab === 'users' ? 'সকল ইউজার' : 
                tab === 'patients' ? 'রোগী' :
                tab === 'doctors' ? 'ডাক্তার' :
@@ -3403,6 +3404,67 @@ export function AdminDashboard() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+        {activeTab === 'android_build' && (
+          <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm space-y-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-100">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-sky-50 text-sky-600 rounded-3xl flex items-center justify-center font-black text-2xl shadow-inner">
+                  📱
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-slate-900">Android App (.aab) Developer Portal</h3>
+                  <p className="text-slate-500 text-sm mt-1">গুগল প্লে স্টোরে আপলোড করার জন্য রেডি অ্যান্ড্রয়েড অ্যাপ বান্ডেল ও সোর্স প্যাকেজ ম্যানেজমেন্ট।</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <a 
+                  href="/api/download-aab"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-6 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold flex items-center gap-3 shadow-xl shadow-emerald-600/20 transition-all text-sm"
+                >
+                  <span>📥 ডাউনলোড 1.aab ফাইল</span>
+                </a>
+                <a 
+                  href="/api/download-android"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-6 py-4 bg-sky-500 hover:bg-sky-600 text-white rounded-2xl font-bold flex items-center gap-3 shadow-xl shadow-sky-500/20 transition-all text-sm"
+                >
+                  <span>📦 প্রজেক্ট সোর্স ডাউনলোড করুন (.tar.gz)</span>
+                </a>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-2">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Application ID</p>
+                <p className="font-mono font-bold text-slate-800 text-lg">org.shusto.app</p>
+              </div>
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-2">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Version / SDK</p>
+                <p className="font-bold text-slate-800 text-lg">v1.0.0 (Target SDK 34)</p>
+              </div>
+              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-2">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Build Status</p>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 font-bold text-xs rounded-full border border-emerald-100">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Ready for Play Console
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-sky-50/50 rounded-3xl p-6 border border-sky-100 space-y-4">
+              <h4 className="font-bold text-slate-900 text-base">গুগল প্লে কনসোলে আপলোড করার নির্দেশনা:</h4>
+              <ol className="list-decimal list-inside space-y-2 text-sm text-slate-600">
+                <li>উপরে থাকা <strong>"অ্যান্ড্রয়েড প্রজেক্ট ডাউনলোড করুন"</strong> বাটনে ক্লিক করে প্রজেক্ট আর্কাইভ ডাউনলোড করুন।</li>
+                <li>আপনার কম্পিউটারে এক্সট্র্যাক্ট করে <strong>Android Studio</strong>-তে ওপেন করুন।</li>
+                <li>টপ মেনু থেকে <code className="bg-white px-2 py-0.5 rounded font-mono text-xs">Build ➔ Generate Signed Bundle / APK</code> সিলেক্ট করুন।</li>
+                <li><strong>Android App Bundle (.aab)</strong> সিলেক্ট করে রিলিজ মোডে `.aab` ফাইল তৈরি করুন এবং সরাসরি Google Play Console এ আপলোড করুন!</li>
+              </ol>
             </div>
           </div>
         )}
