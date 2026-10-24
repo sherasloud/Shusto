@@ -7,9 +7,7 @@ const config: CapacitorConfig = {
   webDir: 'dist',
 
   server: {
-    // Comment out 'url' for production releases to load local packaged web assets offline-first.
-    // When active, the app will try to load this URL from the web. If the site is down or offline, it shows a blank screen.
-    // url: 'https://shusto.com',
+    androidScheme: 'https',
     cleartext: true
   }
 };

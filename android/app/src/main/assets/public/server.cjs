@@ -1970,7 +1970,15 @@ app.get("/api/download-android", (req, res) => {
 app.get("/api/download-aab", (req, res) => {
   const aabPath = import_path2.default.join(process.cwd(), "shusto-app-release.aab");
   if (import_fs2.default.existsSync(aabPath)) {
-    res.download(aabPath, "shusto-app-release.aab");
+    res.download(aabPath, "1.aab");
+  } else {
+    res.status(404).send("Android app bundle not found.");
+  }
+});
+app.get("/api/download-abb", (req, res) => {
+  const aabPath = import_path2.default.join(process.cwd(), "shusto-app-release.aab");
+  if (import_fs2.default.existsSync(aabPath)) {
+    res.download(aabPath, "1.abb");
   } else {
     res.status(404).send("Android app bundle not found.");
   }
