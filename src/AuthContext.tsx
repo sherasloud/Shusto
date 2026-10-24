@@ -299,21 +299,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       setError(null);
     } catch (err: any) {
-      console.warn("Popup login failed, attempting fallback to signInWithRedirect...", err);
-      try {
-        await signInWithRedirect(auth, googleProvider);
-        return;
-      } catch (redirectErr: any) {
-        console.error("Detailed redirect login error:", redirectErr);
-        if (redirectErr?.code === 'auth/unauthorized-domain') {
-          setError(`এই ডোমেইনটি অনুমোদিত নয়। Firebase Console-এ authorized domains চেক করুন।`);
-        } else if (redirectErr?.code === 'auth/invalid-continue-uri' || redirectErr?.message?.includes('invalid-continue-uri')) {
-          setError(`Firebase Auth Continue URI ত্রুটি: ফায়ারবেস কনসোলে Authorized Domains-এ ডোমেইনটি যুক্ত আছে কিনা নিশ্চিত করুন।`);
-        } else {
-          setError(redirectErr?.message || "গুগল লগইন করতে সমস্যা হয়েছে। দয়া করে পপআপ বা ব্রাউজার সেটিংস চেক করুন।");
-        }
-        throw redirectErr;
+      console.warn("Google popup login error:", err);
+      if (err?.code === 'auth/unauthorized-domain') {
+        const domain = typeof window !== 'undefined' ? window.location.hostname : 'current domain';
+        setError(`এই ডোমেইনটি (${domain}) Firebase Console-এ অনুমোদিত নয়। দয়া করে Firebase Console > Authentication > Settings > Authorized Domains-এ ডোমেইনটি যোগ করুন।`);
+      } else if (err?.code === 'auth/popup-blocked') {
+        setError("ব্রাউজার গুগল সাইন ইন পপআপ ব্লক করেছে। দয়া করে ব্রাউজার অ্যাড্রেস বারের পপআপ পারমিশন এলাও করুন।");
+      } else if (err?.code === 'auth/popup-closed-by-user') {
+        setError("সাইন ইন পপআপ বন্ধ করা হয়েছে। পুনরায় চেষ্টা করুন।");
+      } else {
+        setError(err?.message || "গুগল লগইন করতে সমস্যা হয়েছে। দয়া করে পুনরায় চেষ্টা করুন।");
       }
+      throw err;
     }
   };
 

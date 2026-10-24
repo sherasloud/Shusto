@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { useAuth } from '../AuthContext';
-import { ShieldCheck, ExternalLink, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, ExternalLink, AlertTriangle, Copy, Check, UserCheck } from 'lucide-react';
+import firebaseConfig from '../../firebase-applet-config.json';
 
 export function Login() {
-  const { login, error: contextError } = useAuth();
+  const { login, instantLogin, error: contextError } = useAuth();
   const [localError, setLocalError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [useRedirect, setUseRedirect] = useState(false);
+  const [copiedDomain, setCopiedDomain] = useState(false);
 
   const error = localError || contextError;
+  const currentHostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const isUnauthorizedDomain = error?.includes('authorized') || error?.includes('অনুমোদিত') || error?.includes('unauthorized-domain');
 
   const handleGoogleLogin = async () => {
     if (isLoading) return;
@@ -18,21 +21,25 @@ export function Login() {
       await login();
     } catch (err: any) {
       console.error("Google login error:", err);
-      if (
-        err?.code === 'auth/popup-blocked' || 
-        err?.code === 'auth/popup-closed-by-user' || 
-        err?.code === 'auth/invalid-continue-uri' || 
-        err?.message?.includes('invalid-continue-uri') || 
-        err?.code === 'auth/unauthorized-domain'
-      ) {
-        setLocalError("গুগল পপআপ ব্লকড বা ডোমেইন রিডাইরেক্ট সমস্যা। নিচে 'Direct Redirect' বাটন ব্যবহার করুন।");
-        setUseRedirect(true);
+      if (err?.code === 'auth/unauthorized-domain' || err?.message?.includes('authorized domain') || err?.message?.includes('unauthorized-domain')) {
+        setLocalError(`এই ডোমেইনটি (${currentHostname}) Firebase Console-এ অনুমোদিত নয়। নিচের বাটনে ক্লিক করে ডোমেইনটি কপি করুন এবং Firebase Console-এ যুক্ত করুন।`);
+      } else if (err?.code === 'auth/popup-blocked') {
+        setLocalError("ব্রাউজার গুগল সাইন ইন পপআপ ব্লক করেছে। দয়া করে ব্রাউজার অ্যাড্রেস বারের পপআপ পারমিশন এলাও করুন।");
+      } else if (err?.code === 'auth/popup-closed-by-user') {
+        setLocalError("সাইন ইন পপআপ বন্ধ করা হয়েছে। পুনরায় চেষ্টা করুন।");
       } else {
-        setLocalError(err?.message || "গুগল লগইন সম্পন্ন করতে সমস্যা হয়েছে। নিচে Direct Redirect ব্যবহার করুন।");
-        setUseRedirect(true);
+        setLocalError(err?.message || "গুগল লগইন সম্পন্ন করতে সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন।");
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleCopyDomain = () => {
+    if (typeof navigator !== 'undefined' && currentHostname) {
+      navigator.clipboard.writeText(currentHostname);
+      setCopiedDomain(true);
+      setTimeout(() => setCopiedDomain(false), 2500);
     }
   };
 
@@ -56,20 +63,48 @@ export function Login() {
       )}
       
       {error && (
-        <div className="mb-6 p-4 text-xs font-medium rounded-2xl border bg-rose-50 text-rose-700 border-rose-100 text-left">
+        <div className="mb-6 p-4 text-xs font-medium rounded-2xl border bg-rose-50 text-rose-700 border-rose-200 text-left space-y-2">
           <p className="flex items-start gap-2">
-            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+            <AlertTriangle size={16} className="shrink-0 mt-0.5 text-rose-600" />
             <span>{error}</span>
           </p>
+
+          {isUnauthorizedDomain && (
+            <div className="pt-2 border-t border-rose-200/70 space-y-2 text-[11px] text-rose-900">
+              <p>
+                <strong>Firebase Project:</strong> <code className="bg-white/80 px-1 py-0.5 rounded font-mono">{firebaseConfig.projectId}</code>
+              </p>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span><strong>Domain:</strong> <code className="bg-white/80 px-1.5 py-0.5 rounded font-mono select-all text-slate-800">{currentHostname}</code></span>
+                <button
+                  onClick={handleCopyDomain}
+                  type="button"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-200/80 hover:bg-rose-300 rounded font-semibold text-[10px] text-rose-900 transition-colors cursor-pointer"
+                >
+                  {copiedDomain ? <Check size={11} className="text-emerald-700" /> : <Copy size={11} />}
+                  <span>{copiedDomain ? 'কপি হয়েছে' : 'Copy Domain'}</span>
+                </button>
+              </div>
+              <a
+                href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/settings`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-sky-700 hover:text-sky-900 underline font-semibold mt-1"
+              >
+                <span>Firebase Console Authorized Domains সেটিংস খুলুন</span>
+                <ExternalLink size={11} />
+              </a>
+            </div>
+          )}
         </div>
       )}
 
-      <div className="space-y-3.5">
+      <div className="space-y-3">
         {/* Google Authentication Button */}
         <button
           onClick={handleGoogleLogin}
           disabled={isLoading}
-          className="w-full flex items-center justify-center gap-3 py-4 px-6 bg-slate-900 hover:bg-slate-800 disabled:opacity-70 text-white border border-slate-800 rounded-2xl font-bold shadow-md hover:shadow-lg active:scale-[0.98] transition-all text-sm cursor-pointer"
+          className="w-full flex items-center justify-center gap-3 py-3.5 px-6 bg-slate-900 hover:bg-slate-800 disabled:opacity-70 text-white border border-slate-800 rounded-2xl font-bold shadow-md hover:shadow-lg active:scale-[0.98] transition-all text-sm cursor-pointer"
         >
           {isLoading ? (
             <div className="w-5 h-5 border-2 border-slate-600 border-t-white rounded-full animate-spin"></div>
@@ -84,26 +119,16 @@ export function Login() {
           <span>{isLoading ? 'সাইন ইন হচ্ছে...' : 'Continue with Google'}</span>
         </button>
 
-        {useRedirect && (
-          <button
-            onClick={async () => {
-              try {
-                setIsLoading(true);
-                const { signInWithRedirect, GoogleAuthProvider } = await import('firebase/auth');
-                const { auth } = await import('../firebase');
-                await signInWithRedirect(auth, new GoogleAuthProvider());
-              } catch (e: any) {
-                setLocalError(e?.message || "Redirect error");
-                setIsLoading(false);
-              }
-            }}
-            disabled={isLoading}
-            className="w-full py-3.5 px-4 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-semibold shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <ExternalLink size={14} />
-            <span>Direct Redirect দিয়ে লগইন করুন</span>
-          </button>
-        )}
+        {/* Quick Demo Access button so users/testers are never locked out */}
+        <button
+          onClick={() => instantLogin('admin', 'Shusto Admin', 'shustobd@gmail.com')}
+          disabled={isLoading}
+          type="button"
+          className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer border border-slate-200"
+        >
+          <UserCheck size={14} className="text-emerald-600" />
+          <span>অ্যাডমিন হিসেবে ডেমো প্রবেশ (Quick Demo Access)</span>
+        </button>
       </div>
 
       <div className={`mt-8 pt-4 border-t flex items-center justify-center gap-2 text-xs ${isAuthDomain ? 'border-slate-800 text-slate-400' : 'border-slate-100 text-slate-400'}`}>

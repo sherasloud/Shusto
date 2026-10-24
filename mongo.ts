@@ -1,5 +1,8 @@
 import mongoose from "mongoose";
 
+// CRITICAL: fail fast, do not hang in container environments without outbound TCP
+mongoose.set("bufferCommands", false);
+
 const MONGODB_URI =
   process.env.MONGODB_URI ||
   "mongodb+srv://shustobd_db_user:7uChu8AqPXBblfgl@cluster0.sbpz6mc.mongodb.net/shustodb?retryWrites=true&w=majority&appName=Cluster0";
@@ -14,14 +17,14 @@ export async function connectMongoDB() {
   try {
     mongoose.set("strictQuery", false);
     const conn = await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 15000,
-      socketTimeoutMS: 45000,
+      serverSelectionTimeoutMS: 2000,
+      socketTimeoutMS: 5000,
     });
     isConnected = true;
     console.log(`✅ MongoDB Atlas connected successfully: ${conn.connection.host}/${conn.connection.name}`);
     return conn.connection;
   } catch (error: any) {
-    console.error("⚠️ MongoDB connection warning:", error.message);
+    console.warn("⚠️ MongoDB offline or unreachable — fallback mode active:", error.message);
     return null;
   }
 }

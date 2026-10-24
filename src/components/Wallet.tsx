@@ -151,21 +151,22 @@ export function Wallet() {
 
       if (pm === "success" && amtStr && tid) {
         const amt = Number(amtStr);
+        // CRITICAL: Immediately wipe URL query parameters synchronously to prevent duplicate runs on re-render / back navigation
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname,
+        );
+
         if (isNaN(amt) || amt <= 0) return;
         setProcessing(true);
 
-        // 1. Immediately credit balance in React state and in localStorage
-        let updatedBal = 0;
-        setBalance((prev) => {
-          const current = Number(prev || 0);
-          updatedBal = current + amt;
-          try {
-            localStorage.setItem(`cached_wallet_balance_${user.uid}`, String(updatedBal));
-          } catch (e) {}
-          return updatedBal;
-        });
+        // Display confirmation message (the backend server has already atomically credited Firestore)
+        setCreditSuccessMsg(`৳${amt} আপনার Shusto ওয়ালেটে সফলভাবে জমা হয়েছে!`);
+        setWalletLoaded(true);
+        setTransactionsLoaded(true);
 
-        // 2. Add transaction to local state and cache immediately
+        // Ensure the transaction record is present in client state immediately for smooth UI
         const newTx: Transaction = {
           id: tid,
           tran_id: tid,
@@ -187,45 +188,16 @@ export function Wallet() {
           return updated;
         });
 
-        // 3. Mark loading as done immediately so spinner never hangs
-        setWalletLoaded(true);
-        setTransactionsLoaded(true);
-        setCreditSuccessMsg(`৳${amt} আপনার Shusto ওয়ালেটে সফলভাবে জমা করা হয়েছে!`);
-
-        // 4. Background sync to Firestore & backend without blocking UI or showing quota error alerts
-        try {
-          const txDocRef = doc(db, "transactions", tid);
-          setDoc(txDocRef, newTx, { merge: true }).catch(() => {});
-          const walletRef = doc(db, "wallets", user.uid);
-          setDoc(
-            walletRef,
-            {
-              uid: user.uid,
-              balance: increment(amt),
-              updatedAt: new Date().toISOString(),
-            },
-            { merge: true }
-          ).catch(() => {});
-        } catch (syncErr: any) {
-          console.warn("[Wallet Background Sync Warning]:", syncErr?.message || syncErr);
-        } finally {
-          setProcessing(false);
-          // Safely keep page state but wipe query parameters to prevent duplicate triggers on manual refresh
-          window.history.replaceState(
-            {},
-            document.title,
-            window.location.pathname,
-          );
-        }
+        setProcessing(false);
       } else if (pm === "failed" || pm === "cancelled") {
         const reason = urlParams.get("reason");
-        alert(
-          `পেমেন্ট সম্পন্ন হতে পারেনি (${pm === "failed" ? "ব্যর্থ" : "বাতিল"} হয়েছে)।${reason ? `\nকারণ: ${reason}` : ""}`,
-        );
         window.history.replaceState(
           {},
           document.title,
           window.location.pathname,
+        );
+        alert(
+          `পেমেন্ট সম্পন্ন হতে পারেনি (${pm === "failed" ? "ব্যর্থ" : "বাতিল"} হয়েছে)।${reason ? `\nকারণ: ${reason}` : ""}`,
         );
       }
     };
@@ -409,23 +381,7 @@ export function Wallet() {
         body: JSON.stringify(payload),
       });
 
-      // If Vercel Serverless Function crashes or fails with 500/502/504, try cloud backup endpoint
-      if (!response.ok && (response.status >= 500 || response.status === 404)) {
-        console.warn(`Primary endpoint ${primaryUrl} returned ${response.status}. Attempting cloud failover...`);
-        const fallbackUrl = "https://ais-pre-6kavvewen5leykxngifkrf-376108686618.asia-southeast1.run.app/api/payment/init";
-        try {
-          const fallbackResponse = await fetch(fallbackUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-          if (fallbackResponse.ok) {
-            response = fallbackResponse;
-          }
-        } catch (failoverErr) {
-          console.error("Cloud failover attempt error:", failoverErr);
-        }
-      }
+
 
       if (!response.ok) {
         if (response.status === 405 && !isRetry) {
