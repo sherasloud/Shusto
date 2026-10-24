@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { collection, query, getDocs, doc, updateDoc, setDoc, where, deleteDoc, onSnapshot, getDoc, increment, orderBy, limit, addDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { getApiUrl } from '../utils/api';
-import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit, Store, Heart, TrendingUp, Pin, AlertTriangle } from 'lucide-react';
+import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit, Store, Heart, TrendingUp, Pin, AlertTriangle, Key, Copy, CheckCircle2, Clock, Lock, Calendar } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { AdMobBanner } from './AdMobBanner';
@@ -132,6 +132,18 @@ export function AdminDashboard() {
     } catch (e) {}
     return {};
   });
+
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string, fieldName: string) => {
+    try {
+      navigator.clipboard.writeText(text);
+      setCopiedField(fieldName);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (e) {
+      console.warn("Clipboard copy error:", e);
+    }
+  };
 
   useEffect(() => {
     if (users.length > 0) {
@@ -3415,8 +3427,8 @@ export function AdminDashboard() {
                   📱
                 </div>
                 <div>
-                  <h3 className="text-2xl font-black text-slate-900">Android App (.aab) Developer Portal</h3>
-                  <p className="text-slate-500 text-sm mt-1">গুগল প্লে স্টোরে আপলোড করার জন্য রেডি অ্যান্ড্রয়েড অ্যাপ বান্ডেল ও সোর্স প্যাকেজ ম্যানেজমেন্ট।</p>
+                  <h3 className="text-2xl font-black text-slate-900">Android Developer & Keystore Portal</h3>
+                  <p className="text-slate-500 text-sm mt-1">গুগল প্লে স্টোরে আপলোড, সাইনিং চাবি (Keystore), পাসওয়ার্ড ও ডেভেলপার কনফিগারেশন ম্যানেজমেন্ট।</p>
                 </div>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -3434,15 +3446,128 @@ export function AdminDashboard() {
                   rel="noreferrer"
                   className="px-6 py-4 bg-sky-500 hover:bg-sky-600 text-white rounded-2xl font-bold flex items-center gap-3 shadow-xl shadow-sky-500/20 transition-all text-sm"
                 >
-                  <span>📦 প্রজেক্ট সোর্স ডাউনলোড করুন (.tar.gz)</span>
+                  <span>📦 প্রজেক্ট সোর্স ডাউনলোড (.tar.gz)</span>
                 </a>
               </div>
             </div>
 
+            {/* Google Play Console Reset Status Banner */}
+            <div className="bg-gradient-to-r from-emerald-500/10 via-sky-500/10 to-emerald-500/10 border-2 border-emerald-400/30 rounded-3xl p-6 relative overflow-hidden">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500 text-white rounded-full text-xs font-bold uppercase tracking-wider">
+                    <Clock size={14} /> Google Play Key Reset Active
+                  </div>
+                  <h4 className="text-lg font-bold text-slate-900 mt-2">
+                    ২৬ অক্টোবর ২০২৬, রাত ৮:৪৬ মি (14:46:39 UTC) থেকে কার্যকর হবে
+                  </h4>
+                  <p className="text-slate-600 text-sm">
+                    Google Play Console-এ আপনার আপলোড কী সফলভাবে রিসেট রিকোয়েস্টে চলে গেছে। ২৬ অক্টোবর রাত ৮:৪৭ মিনিটের পর একই <code className="bg-white/80 px-2 py-0.5 rounded font-mono text-xs font-bold text-slate-800">app-release.aab</code> ফাইলটি সরাসরি আপলোড করুন।
+                  </p>
+                </div>
+                <div className="bg-white p-4 rounded-2xl border border-emerald-200 shadow-sm text-center min-w-[200px]">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Next Action Date</p>
+                  <p className="text-xl font-black text-emerald-600">২৬ অক্টোবর, রাত ৮:৪৭</p>
+                  <span className="text-xs text-slate-500 font-medium">বাংলাদেশ সময় (GMT+6)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Keystore Signing Credentials Card */}
+            <div className="bg-slate-900 rounded-[32px] p-8 text-white space-y-6 shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-8 opacity-5">
+                <Key size={140} />
+              </div>
+              <div className="flex items-center gap-3 relative z-10">
+                <div className="w-10 h-10 bg-sky-500/20 text-sky-400 rounded-xl flex items-center justify-center">
+                  <Lock size={20} />
+                </div>
+                <div>
+                  <h4 className="text-lg font-bold">অফিসিয়াল অ্যাপ সাইনিং ক্রেডেনশিয়াল (Keystore Credentials)</h4>
+                  <p className="text-xs text-slate-400">Android Studio-তে অ্যাপ সাইন করার জন্য এই চাবি ও পাসওয়ার্ডগুলো ব্যবহার করতে হবে</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 relative z-10">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-1">
+                  <p className="text-[10px] font-bold text-sky-400 uppercase tracking-wider">Keystore File</p>
+                  <p className="font-mono text-sm font-bold text-white break-all">shusto_new_upload_key.jks</p>
+                  <p className="text-[10px] text-slate-400">পাথ: ~/Desktop/</p>
+                </div>
+
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold text-sky-400 uppercase tracking-wider">Keystore Password</p>
+                    <p className="font-mono text-base font-bold text-white">ShustoPass123</p>
+                  </div>
+                  <button
+                    onClick={() => copyToClipboard('ShustoPass123', 'storepass')}
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300 font-bold transition-colors"
+                  >
+                    {copiedField === 'storepass' ? <CheckCircle2 size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                    {copiedField === 'storepass' ? 'কপি হয়েছে!' : 'পাসওয়ার্ড কপি করুন'}
+                  </button>
+                </div>
+
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold text-sky-400 uppercase tracking-wider">Key Alias</p>
+                    <p className="font-mono text-base font-bold text-white">upload</p>
+                  </div>
+                  <button
+                    onClick={() => copyToClipboard('upload', 'alias')}
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300 font-bold transition-colors"
+                  >
+                    {copiedField === 'alias' ? <CheckCircle2 size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                    {copiedField === 'alias' ? 'কপি হয়েছে!' : 'এলিয়াস কপি করুন'}
+                  </button>
+                </div>
+
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold text-sky-400 uppercase tracking-wider">Key Password</p>
+                    <p className="font-mono text-base font-bold text-white">ShustoPass123</p>
+                  </div>
+                  <button
+                    onClick={() => copyToClipboard('ShustoPass123', 'keypass')}
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300 font-bold transition-colors"
+                  >
+                    {copiedField === 'keypass' ? <CheckCircle2 size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                    {copiedField === 'keypass' ? 'কপি হয়েছে!' : 'পাসওয়ার্ড কপি করুন'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs text-slate-300 relative z-10">
+                <div>
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Key Algorithm</span>
+                  <span className="font-mono font-bold text-white">RSA 2048-bit</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Validity Period</span>
+                  <span className="font-bold text-white">10,000 Days (~27 Years)</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Certificate Start Date</span>
+                  <span className="font-mono text-white">2024/01/01 00:00:00</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[10px] uppercase font-bold">Exported Cert File</span>
+                  <span className="font-mono text-sky-400">upload_certificate.pem</span>
+                </div>
+              </div>
+            </div>
+
+            {/* App Identifiers */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-2">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Application ID</p>
-                <p className="font-mono font-bold text-slate-800 text-lg">org.shusto.app</p>
+                <div className="flex items-center justify-between">
+                  <p className="font-mono font-bold text-slate-800 text-lg">org.shusto.app</p>
+                  <button onClick={() => copyToClipboard('org.shusto.app', 'appid')} className="text-slate-400 hover:text-sky-600">
+                    {copiedField === 'appid' ? <CheckCircle2 size={16} className="text-emerald-500" /> : <Copy size={16} />}
+                  </button>
+                </div>
               </div>
               <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-2">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Version / SDK</p>
@@ -3457,13 +3582,26 @@ export function AdminDashboard() {
               </div>
             </div>
 
+            {/* Important Developer Backup Warning */}
+            <div className="bg-amber-50 rounded-3xl p-6 border border-amber-200/80 space-y-2">
+              <div className="flex items-center gap-2 text-amber-800 font-bold text-sm">
+                <AlertTriangle size={18} className="text-amber-600" />
+                <span>ডেভেলপার ব্যাকআপ সতর্কতা (অতি গুরুত্বপূর্ণ):</span>
+              </div>
+              <p className="text-sm text-amber-900/90 leading-relaxed">
+                আপনার ম্যাকের ডেস্কটপে থাকা <strong className="font-mono bg-white/80 px-1.5 py-0.5 rounded">shusto_new_upload_key.jks</strong> ফাইলটি কোনো অবস্থাতেই ডিলিট করবেন না। এই ফাইলটি এবং এর পাসওয়ার্ড <strong>ShustoPass123</strong> আপনার ব্যক্তিগত গুগল ড্রাইভ বা পেনড্রাইভে নিরাপদ ব্যাকআপ রেখে দিন। ভবিষ্যতে Shusto অ্যাপের যেকোনো নতুন ফিচার বা আপডেট (যেমন v1.1.0, v2.0.0) প্লে স্টোরে দিতে এই একই চাবি দিয়েই বান্ডেল সাইন করতে হবে।
+              </p>
+            </div>
+
+            {/* Step by Step Guide */}
             <div className="bg-sky-50/50 rounded-3xl p-6 border border-sky-100 space-y-4">
-              <h4 className="font-bold text-slate-900 text-base">গুগল প্লে কনসোলে আপলোড করার নির্দেশনা:</h4>
+              <h4 className="font-bold text-slate-900 text-base">Android Studio-তে অ্যাপ সাইন করার সহজ পদ্ধতি:</h4>
               <ol className="list-decimal list-inside space-y-2 text-sm text-slate-600">
-                <li>উপরে থাকা <strong>"অ্যান্ড্রয়েড প্রজেক্ট ডাউনলোড করুন"</strong> বাটনে ক্লিক করে প্রজেক্ট আর্কাইভ ডাউনলোড করুন।</li>
-                <li>আপনার কম্পিউটারে এক্সট্র্যাক্ট করে <strong>Android Studio</strong>-তে ওপেন করুন।</li>
-                <li>টপ মেনু থেকে <code className="bg-white px-2 py-0.5 rounded font-mono text-xs">Build ➔ Generate Signed Bundle / APK</code> সিলেক্ট করুন।</li>
-                <li><strong>Android App Bundle (.aab)</strong> সিলেক্ট করে রিলিজ মোডে `.aab` ফাইল তৈরি করুন এবং সরাসরি Google Play Console এ আপলোড করুন!</li>
+                <li>Android Studio ওপেন করে টপ মেনু থেকে ক্লিক করুন: <code className="bg-white px-2 py-0.5 rounded font-mono text-xs font-bold text-slate-800">Build ➔ Generate Signed Bundle / APK</code></li>
+                <li><strong>Android App Bundle (.aab)</strong> সিলেক্ট করে <strong>Next</strong> চাপুন।</li>
+                <li><strong>Key store path:</strong> Choose Existing এ গিয়ে Desktop থেকে <code className="bg-white px-1.5 py-0.5 rounded font-mono text-xs">shusto_new_upload_key.jks</code> সিলেক্ট করুন।</li>
+                <li><strong>Passwords & Alias:</strong> Key store password: <code className="bg-white px-1.5 py-0.5 rounded font-mono text-xs font-bold text-sky-700">ShustoPass123</code> | Key alias: <code className="bg-white px-1.5 py-0.5 rounded font-mono text-xs font-bold text-sky-700">upload</code> | Key password: <code className="bg-white px-1.5 py-0.5 rounded font-mono text-xs font-bold text-sky-700">ShustoPass123</code></li>
+                <li><strong>Next</strong> দিয়ে <strong>release</strong> সিলেক্ট করে <strong>Create</strong> বাটনে চাপ দিন। তৈরি হয়ে যাওয়া <code className="bg-white px-1.5 py-0.5 rounded font-mono text-xs">app-release.aab</code> ফাইলটি গুগল প্লে কনসোলে আপলোড করে দিন।</li>
               </ol>
             </div>
           </div>
