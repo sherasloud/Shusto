@@ -208,52 +208,17 @@ export function Wallet() {
   useEffect(() => {
     if (!user) return;
 
-    // Restore and protect 14 tk balance for siamthebin7@gmail.com
-    if (isSiamUser(user.email, user.uid)) {
-      setBalance(14);
-      try {
-        localStorage.setItem(`cached_wallet_balance_${user.uid}`, "14");
-      } catch (e) {}
-
-      const ensureSiamBalance = async () => {
-        try {
-          const walletRef = doc(db, "wallets", user.uid);
-          const snap = await getDoc(walletRef);
-          if (!snap.exists() || Number(snap.data()?.balance || 0) < 14) {
-            await setDoc(
-              walletRef,
-              { uid: user.uid, email: user.email, balance: 14, updatedAt: new Date().toISOString() },
-              { merge: true }
-            );
-          }
-        } catch (e) {
-          console.warn("Wallet ensure notice:", e);
-        }
-      };
-      ensureSiamBalance();
-    }
-
     // Listen to wallet balance
     const walletRef = doc(db, "wallets", user.uid);
     const unsubscribeWallet = onSnapshot(walletRef, (docSnap) => {
       if (docSnap.exists()) {
         const bal = Number(docSnap.data().balance ?? 0);
-        if (isSiamUser(user.email, user.uid)) {
-          setBalance(Math.max(14, bal));
-          try { localStorage.setItem(`cached_wallet_balance_${user.uid}`, String(Math.max(14, bal))); } catch (e) {}
-        } else {
-          // Reject absurd fake balances (> 1,000,000) but preserve real added balance
-          const safeBal = (bal > 0 && bal < 1000000) ? bal : 0;
-          setBalance(safeBal);
-          try { localStorage.setItem(`cached_wallet_balance_${user.uid}`, String(safeBal)); } catch (e) {}
-        }
+        // Reject absurd fake balances (> 1,000,000) but preserve real added balance
+        const safeBal = (bal > 0 && bal < 1000000) ? bal : 0;
+        setBalance(safeBal);
+        try { localStorage.setItem(`cached_wallet_balance_${user.uid}`, String(safeBal)); } catch (e) {}
       } else {
-        if (isSiamUser(user.email, user.uid)) {
-          setBalance(14);
-          setDoc(walletRef, { uid: user.uid, email: user.email, balance: 14, updatedAt: new Date().toISOString() }, { merge: true }).catch(() => {});
-        } else {
-          setBalance(0);
-        }
+        setBalance(0);
       }
       setWalletLoaded(true);
     }, (error) => {
@@ -264,9 +229,6 @@ export function Wallet() {
           setBalance(Number(cachedBal));
         }
       } catch (e) {}
-      if (isSiamUser(user.email, user.uid)) {
-        setBalance((prev) => Math.max(14, prev || 14));
-      }
       setWalletLoaded(true);
     });
 
@@ -284,21 +246,6 @@ export function Wallet() {
         }
       });
       
-      if (isSiamUser(user.email, user.uid)) {
-        const has14 = list.some(t => t.amount === 14 && t.type === "add_money");
-        if (!has14) {
-          list.push({
-            id: "ssl_siam_real_14",
-            tran_id: "ssl_siam_real_14",
-            userId: user.uid,
-            type: "add_money",
-            amount: 14,
-            status: "success",
-            createdAt: new Date().toISOString(),
-            details: "SSLCommerz Wallet Top Up"
-          });
-        }
-      }
       const sorted = list.sort(
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -306,33 +253,28 @@ export function Wallet() {
       setTransactions(sorted);
       try { localStorage.setItem(`cached_wallet_txns_${user.uid}`, JSON.stringify(sorted)); } catch (e) {}
 
-      // Keep real verified balance from wallet document, or calculate from real transactions
-      if (isSiamUser(user.email, user.uid)) {
-        setBalance(14);
-        try { localStorage.setItem(`cached_wallet_balance_${user.uid}`, "14"); } catch (e) {}
-      } else {
-        let totalRealAdded = 0;
-        let calculated = 0;
-        for (const t of sorted) {
-          if (t.status === "success") {
-            const amt = Number(t.amount || 0);
-            if (t.type === "add_money" || t.type.includes("earning")) {
-              totalRealAdded += amt;
-              calculated += amt;
-            } else if (t.type === "withdrawal" || t.type === "payment" || t.type === "platform_fee") {
-              calculated -= amt;
-            }
+      // Keep real verified balance from wallet document
+      let totalRealAdded = 0;
+      let calculated = 0;
+      for (const t of sorted) {
+        if (t.status === "success") {
+          const amt = Number(t.amount || 0);
+          if (t.type === "add_money" || t.type.includes("earning")) {
+            totalRealAdded += amt;
+            calculated += amt;
+          } else if (t.type === "withdrawal" || t.type === "payment" || t.type === "platform_fee") {
+            calculated -= amt;
           }
         }
-        setBalance((prev) => {
-          if (prev !== null && prev > 0 && prev < 1000000) {
-            return prev;
-          }
-          const chosen = calculated > 0 ? calculated : totalRealAdded;
-          try { localStorage.setItem(`cached_wallet_balance_${user.uid}`, String(chosen)); } catch (e) {}
-          return chosen;
-        });
       }
+      setBalance((prev) => {
+        if (prev !== null && prev > 0 && prev < 1000000) {
+          return prev;
+        }
+        const chosen = calculated > 0 ? calculated : totalRealAdded;
+        try { localStorage.setItem(`cached_wallet_balance_${user.uid}`, String(chosen)); } catch (e) {}
+        return chosen;
+      });
 
       setTransactionsLoaded(true);
     }, (error) => {
