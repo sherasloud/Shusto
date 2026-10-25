@@ -58,7 +58,7 @@ export function Login() {
             />
           </div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Shusto</h1>
-          <p className="text-slate-500 mb-6 text-sm">আপনার ডিজিটাল হেলথকেয়ার সঙ্গী। সহজে ও নিরাপদে প্রবেশ করতে আপনার গুগল অ্যাকাউন্ট দিয়ে লগইন করুন।</p>
+          <p className="text-slate-500 mb-6 text-sm">Shusto-এর সাথে আপনার ডিজিটাল স্বাস্থ্যসেবার নতুন যাত্রা শুরু করুন। গুগল দিয়ে লগইন করে নিরাপদে অ্যাপে প্রবেশ করুন।</p>
         </>
       )}
       
@@ -119,16 +119,6 @@ export function Login() {
           <span>{isLoading ? 'সাইন ইন হচ্ছে...' : 'Continue with Google'}</span>
         </button>
 
-        {/* Quick Demo Access button so users/testers are never locked out */}
-        <button
-          onClick={() => instantLogin('admin', 'Shusto Admin', 'shustobd@gmail.com')}
-          disabled={isLoading}
-          type="button"
-          className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer border border-slate-200"
-        >
-          <UserCheck size={14} className="text-emerald-600" />
-          <span>অ্যাডমিন হিসেবে ডেমো প্রবেশ (Quick Demo Access)</span>
-        </button>
       </div>
 
       <div className={`mt-8 pt-4 border-t flex items-center justify-center gap-2 text-xs ${isAuthDomain ? 'border-slate-800 text-slate-400' : 'border-slate-100 text-slate-400'}`}>

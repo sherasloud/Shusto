@@ -90,15 +90,12 @@ export function Wallet() {
   const { user } = useAuth();
   const [balance, setBalance] = useState<number | null>(() => {
     if (!user) return null;
-    const isSiam = isSiamUser(user.email, user.uid);
     try {
       const cached = localStorage.getItem(`cached_wallet_balance_${user.uid}`);
       if (cached !== null && cached !== undefined && !isNaN(Number(cached))) {
-        const val = Number(cached);
-        return isSiam ? Math.max(14, val) : val;
+        return Number(cached);
       }
     } catch (e) {}
-    if (isSiam) return 14;
     return null;
   });
   const [gatewayRedirectUrl, setGatewayRedirectUrl] = useState<string | null>(null);
