@@ -163,28 +163,10 @@ export function Wallet() {
         setWalletLoaded(true);
         setTransactionsLoaded(true);
 
-        // Ensure the transaction record is present in client state immediately for smooth UI
-        const newTx: Transaction = {
-          id: tid,
-          tran_id: tid,
-          userId: user.uid,
-          amount: amt,
-          type: "add_money",
-          status: "success",
-          createdAt: new Date().toISOString(),
-          details: `SSLCommerz Wallet Top Up (৳${amt})`,
-        };
-
-        setTransactions((prev) => {
-          const exists = prev.some((t) => t.id === tid || t.tran_id === tid);
-          if (exists) return prev;
-          const updated = [newTx, ...prev];
-          try {
-            localStorage.setItem(`cached_wallet_txns_${user.uid}`, JSON.stringify(updated));
-          } catch (e) {}
-          return updated;
-        });
-
+        // Simply display confirmation message. The Firestore snapshot listener will update transactions automatically.
+        setCreditSuccessMsg(`৳${amt} আপনার Shusto ওয়ালেটে সফলভাবে জমা হয়েছে!`);
+        setWalletLoaded(true);
+        setTransactionsLoaded(true);
         setProcessing(false);
       } else if (pm === "failed" || pm === "cancelled") {
         const reason = urlParams.get("reason");

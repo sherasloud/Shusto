@@ -1,6 +1,6 @@
 {
   "name": "Shusto",
-  "description": "Shusto imported from GitHub: sherasloud/Shusto-Telehealth",
+  "description": "Shusto imported from GitHub: sherasloud/Shusto",
   "requestFramePermissions": [
     "camera",
     "microphone",

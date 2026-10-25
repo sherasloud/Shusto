@@ -8,6 +8,7 @@ import { Home } from './components/Home';
 import { MedicineStore } from './components/MedicineStore';
 import { Prescriptions } from './components/Prescriptions';
 import { DoctorDirectory } from './components/DoctorDirectory';
+import { DoctorProfile } from './components/DoctorProfile';
 import { LabTests } from './components/LabTests';
 import { AdminDashboard } from './components/AdminDashboard';
 import { DoctorDashboard } from './components/DoctorDashboard';
@@ -171,9 +172,17 @@ function AppContent() {
     }
   });
 
+  const [doctorProfileId, setDoctorProfileId] = useState<string | null>(null);
+
   useEffect(() => {
     const handleSwitchTab = (e: any) => {
-      setActiveTab(e.detail);
+      if (typeof e.detail === 'object' && e.detail.tab === 'doctorProfile') {
+        setDoctorProfileId(e.detail.doctorId);
+        setActiveTab('dashboard'); // Stay on dashboard
+      } else {
+        setDoctorProfileId(null);
+        setActiveTab(e.detail);
+      }
     };
     window.addEventListener('switchTab', handleSwitchTab);
     return () => window.removeEventListener('switchTab', handleSwitchTab);
@@ -632,7 +641,11 @@ function AppContent() {
 
       <main className="flex-1 lg:ml-72 p-4 md:p-8 lg:p-12 pb-32 lg:pb-12 overflow-x-hidden">
         <div className="max-w-7xl mx-auto">
-          {renderContent()}
+          {doctorProfileId ? (
+            <DoctorProfile doctorId={doctorProfileId} onBack={() => setDoctorProfileId(null)} />
+          ) : (
+            renderContent()
+          )}
         </div>
       </main>
 

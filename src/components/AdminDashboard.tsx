@@ -2909,6 +2909,7 @@ export function AdminDashboard() {
           <table className="w-full text-left">
             <thead className="bg-slate-50 border-b border-slate-100">
               <tr>
+                <th className="px-6 py-4 text-sm font-bold text-slate-900">Pin</th>
                 <th className="px-6 py-4 text-sm font-bold text-slate-900">Doctor</th>
                 <th className="px-6 py-4 text-sm font-bold text-slate-900">Type</th>
                 <th className="px-6 py-4 text-sm font-bold text-slate-900">Specialty</th>
@@ -2919,6 +2920,18 @@ export function AdminDashboard() {
             <tbody className="divide-y divide-slate-50">
               {allDoctors.map((doc) => (
                 <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-6 py-4">
+                    <button
+                      onClick={() => handleTogglePinDoctor(doc)}
+                      className={cn(
+                        "p-2 rounded-lg transition-all",
+                        doc.isPinned ? "bg-amber-100 text-amber-600" : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+                      )}
+                      title={doc.isPinned ? "Unpin from Home" : "Pin to Home"}
+                    >
+                      <Pin size={18} />
+                    </button>
+                  </td>
                   <td className="px-6 py-4 flex items-center gap-3">
                     <div 
                       className="relative group cursor-pointer"

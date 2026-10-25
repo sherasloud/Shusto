@@ -1,10 +1,22 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../AuthContext';
-import { Search, MapPin } from 'lucide-react';
+import { Search, MapPin, FileText } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { db } from '../firebase';
+import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
 
 export function Home() {
   const { user } = useAuth();
+  const [featuredDoctors, setFeaturedDoctors] = useState<any[]>([]);
+
+  useEffect(() => {
+    const q = query(collection(db, 'doctors'), where('isPinned', '==', true), limit(4));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      setFeaturedDoctors(docs);
+    });
+    return () => unsub();
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#F8FBFF] p-6 pb-24 text-slate-900">
@@ -40,25 +52,35 @@ export function Home() {
         />
       </div>
 
-      {/* Upcoming Schedule */}
+      {/* Featured Doctors */}
       <div className="mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="font-bold text-lg">Upcoming Schedule</h2>
-        </div>
-        <div className="p-6 rounded-3xl bg-white border border-slate-100 text-center text-slate-400 text-sm">
-          No upcoming appointments
+        <h2 className="font-bold text-lg mb-4">Featured Doctors</h2>
+        <div className="grid grid-cols-2 gap-4">
+          {featuredDoctors.map((doc: any) => (
+            <div 
+              key={doc.id} 
+              onClick={() => window.dispatchEvent(new CustomEvent('switchTab', { detail: { tab: 'doctorProfile', doctorId: doc.id } }))}
+              className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm cursor-pointer hover:shadow-md transition-all"
+            >
+              <img src={doc.image || 'https://ui-avatars.com/api/?name=' + doc.name} alt={doc.name} className="w-12 h-12 rounded-full mb-2 object-cover" />
+              <p className="font-bold text-xs truncate">{doc.name}</p>
+              <p className="text-[10px] text-slate-500">{doc.specialty}</p>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Categories */}
-      <div>
-        <h2 className="font-bold text-lg mb-4">Let's find your doctor</h2>
-        <div className="flex gap-3 overflow-x-auto pb-2">
-          {['Heart surgeon', 'Psychologist', 'Dentist'].map(cat => (
-            <button key={cat} className="px-4 py-3 bg-white rounded-2xl border border-slate-100 shadow-sm text-xs font-semibold whitespace-nowrap">
-              {cat}
-            </button>
-          ))}
+      {/* Recent Prescriptions */}
+      <div className="mb-8">
+        <h2 className="font-bold text-lg mb-4">Recent Prescriptions</h2>
+        <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+          <div className="w-10 h-10 bg-sky-100 rounded-full flex items-center justify-center">
+            <FileText className="text-sky-600" size={20} />
+          </div>
+          <div>
+            <p className="font-bold text-sm">Recent View</p>
+            <p className="text-xs text-slate-500">Latest Prescription</p>
+          </div>
         </div>
       </div>
     </div>

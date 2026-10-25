@@ -450,7 +450,8 @@ export function DoctorDirectory() {
             {filteredDoctors.map((doc) => (
               <div
                 key={doc.id}
-                className="bg-white rounded-[32px] border border-slate-100 p-6 hover:shadow-xl hover:shadow-slate-200/50 transition-all group"
+                onClick={() => window.dispatchEvent(new CustomEvent('switchTab', { detail: { tab: 'doctorProfile', doctorId: doc.id } }))}
+                className="bg-white rounded-[32px] border border-slate-100 p-6 hover:shadow-xl hover:shadow-slate-200/50 transition-all group cursor-pointer"
               >
                 <div className="relative mb-6">
                   <img 
