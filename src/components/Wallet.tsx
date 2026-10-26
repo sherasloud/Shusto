@@ -162,11 +162,6 @@ export function Wallet() {
         setCreditSuccessMsg(`৳${amt} আপনার Shusto ওয়ালেটে সফলভাবে জমা হয়েছে!`);
         setWalletLoaded(true);
         setTransactionsLoaded(true);
-
-        // Simply display confirmation message. The Firestore snapshot listener will update transactions automatically.
-        setCreditSuccessMsg(`৳${amt} আপনার Shusto ওয়ালেটে সফলভাবে জমা হয়েছে!`);
-        setWalletLoaded(true);
-        setTransactionsLoaded(true);
         setProcessing(false);
       } else if (pm === "failed" || pm === "cancelled") {
         const reason = urlParams.get("reason");
