@@ -15,7 +15,6 @@ import {
   Phone, 
   Heart, 
   Info, 
-  Sparkles, 
   LogOut, 
   ChevronRight,
   Database,
@@ -36,11 +35,6 @@ export function Settings({ onBack, onNavigate }: SettingsProps) {
   // Language state
   const [lang, setLang] = useState<'bn' | 'en'>(() => {
     return (safeStorage.getItem('shusto_lang') as 'bn' | 'en') || 'bn';
-  });
-
-  // Brand Name state
-  const [brandName, setBrandName] = useState<string>(() => {
-    return safeStorage.getItem('shusto_brand_name') || 'Shusto';
   });
 
   // Notifications preferences
@@ -161,56 +155,6 @@ export function Settings({ onBack, onNavigate }: SettingsProps) {
                 </div>
               )}
             </button>
-          </div>
-        </div>
-
-        {/* 1.5. App Name & Branding Selector (Shusto Official) */}
-        <div className="bg-white rounded-3xl p-6 border border-sky-100 shadow-sm space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center font-bold">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900">
-                {lang === 'bn' ? 'অ্যাপ নাম ও ব্র্যান্ডিং সিলেক্টর' : 'App Name & Branding'}
-              </h2>
-              <p className="text-xs text-slate-500">
-                {lang === 'bn' ? 'গুগল প্লে স্টোর পাবলিশিংয়ের জন্য সেরা নাম সিলেক্ট করুন' : 'Select official name for Play Store publishing'}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 pt-1">
-            {[
-              { id: 'Shusto', title: 'Shusto (Recommended)', sub: 'Official Brand' },
-              { id: 'Shusto Health', title: 'Shusto Health', sub: 'Medical Category' },
-              { id: 'Shusto Care', title: 'Shusto Care', sub: 'Telehealth' },
-              { id: 'Shusto Telehealth', title: 'Shusto Telehealth', sub: 'Full Suite' }
-            ].map(b => (
-              <button
-                key={b.id}
-                onClick={() => {
-                  setBrandName(b.id);
-                  safeStorage.setItem('shusto_brand_name', b.id);
-                  alert(lang === 'bn' ? `অফিসিয়াল অ্যাপ নাম "${b.id}" সিলেক্ট করা হয়েছে!` : `Official app name set to "${b.id}"!`);
-                }}
-                className={`p-3.5 rounded-2xl border-2 text-left transition-all flex items-center justify-between ${
-                  brandName === b.id 
-                    ? 'border-sky-500 bg-sky-50/60 text-sky-950 font-bold shadow-sm' 
-                    : 'border-slate-100 hover:border-slate-200 text-slate-700 bg-slate-50/50'
-                }`}
-              >
-                <div>
-                  <span className="block text-xs font-extrabold">{b.title}</span>
-                  <span className="block text-[10px] text-slate-500 font-normal">{b.sub}</span>
-                </div>
-                {brandName === b.id && (
-                  <div className="w-5 h-5 rounded-full bg-sky-500 text-white flex items-center justify-center shrink-0">
-                    <Check className="w-3 h-3 stroke-[3]" />
-                  </div>
-                )}
-              </button>
-            ))}
           </div>
         </div>
 
