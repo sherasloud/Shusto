@@ -79,28 +79,6 @@ export function Settings({ onBack, onNavigate }: SettingsProps) {
     });
   };
 
-  const handleClearCache = () => {
-    if (window.confirm(lang === 'bn' ? 'আপনি কি সাময়িক ক্যাশ ডাটা পরিষ্কার করতে চান?' : 'Do you want to clear temporary cached data?')) {
-      try {
-        const preserveKeys = ['shusto_lang', 'shusto_notifications'];
-        const savedData: Record<string, string> = {};
-        preserveKeys.forEach(k => {
-          const v = safeStorage.getItem(k);
-          if (v) savedData[k] = v;
-        });
-
-        sessionStorage.clear();
-        preserveKeys.forEach(k => {
-          if (savedData[k]) safeStorage.setItem(k, savedData[k]);
-        });
-
-        alert(lang === 'bn' ? 'ক্যাশ সফলভাবে পরিষ্কার করা হয়েছে!' : 'Cache cleared successfully!');
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 pb-28">
       {/* Sticky Header */}
@@ -352,62 +330,6 @@ export function Settings({ onBack, onNavigate }: SettingsProps) {
                 />
               </button>
             </div>
-          </div>
-        </div>
-
-        {/* 3. Data & Storage */}
-        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
-              <Database className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900">
-                {lang === 'bn' ? 'ডাটা ও স্টোরেজ' : 'Data & Storage'}
-              </h2>
-              <p className="text-xs text-slate-500">
-                {lang === 'bn' ? 'অ্যাপের স্পিড বাড়াতে ক্যাশ ফাইল পরিষ্কার করুন' : 'Manage cached files and local storage'}
-              </p>
-            </div>
-          </div>
-
-          <div className="pt-2">
-            <button
-              onClick={handleClearCache}
-              className="w-full flex items-center justify-between p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200/60 transition-all text-left"
-            >
-              <div className="flex items-center gap-3">
-                <RefreshCw className="w-4 h-4 text-slate-500" />
-                <div>
-                  <span className="block text-sm font-bold text-slate-800">
-                    {lang === 'bn' ? 'ক্যাশ পরিষ্কার করুন (Clear Cache)' : 'Clear Cached App Data'}
-                  </span>
-                  <span className="block text-xs text-slate-400">
-                    {lang === 'bn' ? 'অ্যাপ দ্রুত লোড হতে সাহায্য করে' : 'Frees up local temporary memory'}
-                  </span>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-slate-400" />
-            </button>
-            <button
-              onClick={() => onNavigate && onNavigate('mysql-migration')}
-              className="w-full mt-3 flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-indigo-50 via-purple-50 to-blue-50 hover:from-indigo-100 hover:to-blue-100 border border-indigo-200/70 transition-all text-left shadow-sm"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-sm">
-                  <Database className="w-5 h-5" />
-                </div>
-                <div>
-                  <span className="block text-sm font-bold text-slate-900">
-                    {lang === 'bn' ? 'ফায়ারবেস থেকে MySQL-এ ডাটা শিফট করুন (Shift to MySQL)' : 'Shift All Data from Firebase to MySQL'}
-                  </span>
-                  <span className="block text-xs text-indigo-700 font-medium">
-                    {lang === 'bn' ? 'সকল কালেকশন, ইউজার, ওয়ালেট ও অ্যাপ ডেটা মাইগ্রেশন করুন' : 'Export SQL dumps, JSON backups & migrate directly'}
-                  </span>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-indigo-600" />
-            </button>
           </div>
         </div>
 
