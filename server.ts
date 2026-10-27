@@ -1123,14 +1123,16 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     try {
       const result = await db_admin.runTransaction(async (t: any) => {
         // Atomic check INSIDE the transaction to prevent concurrent race condition with IPN
+        console.log(`[PAYMENT CREDIT ${source}] Checking for transaction: ${tran_id}, userId: ${userId}`);
         const existingTx = await t.get(targetTxRef);
         if (existingTx.exists) {
           const txData = existingTx.data();
           if (txData?.status === "success") {
-            console.log(`[PAYMENT CREDIT ${source}] Transaction ${tran_id} was ALREADY processed. Skipping duplicate credit.`);
+            console.log(`[PAYMENT CREDIT ${source}] Transaction ${tran_id} was ALREADY processed. Skipping duplicate credit. Data:`, txData);
             return { credited: false, alreadyProcessed: true };
           }
         }
+        console.log(`[PAYMENT CREDIT ${source}] Transaction ${tran_id} not found/not success. Proceeding to credit.`);
 
         // Atomically increment wallet balance exactly once
         t.set(walletRef, {
