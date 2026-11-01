@@ -1,21 +1,29 @@
+import doctor1 from '../assets/images/doctor_1.jpg';
+import doctor2 from '../assets/images/doctor_2.jpg';
+import doctor3 from '../assets/images/doctor_3.jpg';
+import doctor4 from '../assets/images/doctor_4.jpg';
+
+const doctorImages = [doctor1, doctor2, doctor3, doctor4];
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../AuthContext';
 import { Search, MapPin, FileText } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 
 export function Home() {
   const { user } = useAuth();
   const [featuredDoctors, setFeaturedDoctors] = useState<any[]>([]);
 
   useEffect(() => {
-    const q = query(collection(db, 'doctors'), where('isPinned', '==', true), limit(4));
-    const unsub = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    const fetchData = async () => {
+      const q = query(collection(db, 'doctors'), where('isPinned', '==', true), limit(4));
+      const querySnapshot = await getDocs(q);
+      const docs = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
       setFeaturedDoctors(docs);
-    });
-    return () => unsub();
+    };
+    fetchData();
   }, []);
 
   return (
@@ -56,13 +64,13 @@ export function Home() {
       <div className="mb-8">
         <h2 className="font-bold text-lg mb-4">Featured Doctors</h2>
         <div className="grid grid-cols-2 gap-4">
-          {featuredDoctors.map((doc: any) => (
+          {featuredDoctors.map((doc: any, index: number) => (
             <div 
               key={doc.id} 
               onClick={() => window.dispatchEvent(new CustomEvent('switchTab', { detail: { tab: 'doctorProfile', doctorId: doc.id } }))}
               className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm cursor-pointer hover:shadow-md transition-all"
             >
-              <img src={doc.image || 'https://ui-avatars.com/api/?name=' + doc.name} alt={doc.name} className="w-12 h-12 rounded-full mb-2 object-cover" />
+              <img src={doc.image || doctorImages[index % 4]} alt={doc.name} className="w-12 h-12 rounded-full mb-2 object-cover" />
               <p className="font-bold text-xs truncate">{doc.name}</p>
               <p className="text-[10px] text-slate-500">{doc.specialty}</p>
             </div>

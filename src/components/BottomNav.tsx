@@ -47,7 +47,7 @@ export function BottomNav({ activeTab, setActiveTab, onMenuClick }: BottomNavPro
 
   return (
     <nav className="fixed bottom-6 left-6 right-6 z-50 flex items-center justify-center">
-      <div className="bg-white border border-slate-100 shadow-[0_10px_30px_rgba(0,0,0,0.05)] rounded-full px-6 py-4 flex items-center justify-between w-full max-w-md">
+      <div className="bg-white shadow-[0_10px_30px_rgba(0,0,0,0.05)] rounded-full px-6 py-4 flex items-center justify-between w-full max-w-md">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
           return (
@@ -71,7 +71,7 @@ export function BottomNav({ activeTab, setActiveTab, onMenuClick }: BottomNavPro
         <button
           onClick={onMenuClick}
           aria-label="Open menu"
-          className="text-slate-400 hover:text-[#1DA1F2] p-3 flex items-center justify-center transition-colors border-l border-slate-100 pl-4"
+          className="text-slate-400 hover:text-[#1DA1F2] p-3 flex items-center justify-center transition-colors pl-4"
         >
           <Menu size={22} />
         </button>

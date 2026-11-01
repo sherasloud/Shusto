@@ -25,7 +25,7 @@ import {
   X,
 } from 'lucide-react';
 import { AdMobBanner } from './AdMobBanner';
-import { collection, query, where, onSnapshot, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChatWindow } from './ChatWindow';
@@ -62,22 +62,24 @@ export function Dashboard() {
   useEffect(() => {
     if (!user) return;
 
-    const q = query(
-      collection(db, 'appointments'),
-      where('userId', '==', user.uid)
-    );
+    const fetchData = async () => {
+      try {
+        const q = query(
+          collection(db, 'appointments'),
+          where('userId', '==', user.uid)
+        );
+        const snapshot = await getDocs(q);
+        const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        list.sort((a: any, b: any) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime());
+        setUpcomingAppointments(list);
+        setLoadingAppts(false);
+      } catch (err) {
+        console.warn("Appointments fetch error:", err);
+        setLoadingAppts(false);
+      }
+    };
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      list.sort((a: any, b: any) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime());
-      setUpcomingAppointments(list);
-      setLoadingAppts(false);
-    }, (err) => {
-      console.warn("Appointments listener error:", err);
-      setLoadingAppts(false);
-    });
-
-    return () => unsubscribe();
+    fetchData();
   }, [user]);
 
   // Categories matching the image theme
