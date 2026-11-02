@@ -7,6 +7,7 @@ const doctorImages = [doctor1, doctor2, doctor3, doctor4];
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../AuthContext';
+import { Banner } from './Banner';
 import { Search, MapPin, FileText } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { db } from '../firebase';
@@ -79,6 +80,8 @@ export function Home() {
           ))}
         </div>
       </div>
+      
+      <Banner />
 
       {/* Recent Prescriptions */}
       <div className="mb-6">
