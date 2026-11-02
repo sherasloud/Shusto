@@ -929,33 +929,7 @@ export function ServiceDirectory({ type, title, description }: ServiceDirectoryP
         </div>
       )}
 
-      {user && !(user as any).location && (
-        <div className="bg-amber-50 border border-amber-200 p-6 rounded-[32px] flex flex-col md:flex-row items-center gap-6 text-amber-800 animate-in fade-in slide-in-from-top-2">
-           <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center flex-shrink-0">
-             <MapPin size={24} />
-           </div>
-           <div className="flex-1 text-center md:text-left">
-             <p className="font-bold mb-1">এলাকা (Area) সেট করা নেই</p>
-             <p className="text-sm opacity-80">
-               আপনার প্রোফাইল থেকে এলাকা সেট করুন যাতে আপনার নিকটবর্তী প্রোভাইডাররা সার্ভিস অনুরোধটি দ্রুত দেখতে পায়।
-             </p>
-           </div>
-           <button 
-             onClick={detectLocation}
-             disabled={detectingLocation}
-             className="px-6 py-3 bg-amber-600 text-white font-bold rounded-xl hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20 disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
-           >
-             {detectingLocation ? (
-               <>লোডিং...</>
-             ) : (
-               <>
-                 <Navigation size={18} />
-                 লোকেশন ডিটেক্ট করুন
-               </>
-             )}
-           </button>
-        </div>
-      )}
+
 
       {/* Ambulance Direct Booking View */}
       {type === 'ambulance' && (

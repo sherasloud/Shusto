@@ -46,8 +46,8 @@ export function BottomNav({ activeTab, setActiveTab, onMenuClick }: BottomNavPro
   ];
 
   return (
-    <nav className="fixed bottom-6 left-6 right-6 z-50 flex items-center justify-center">
-      <div className="bg-white shadow-[0_10px_30px_rgba(0,0,0,0.05)] rounded-full px-6 py-4 flex items-center justify-between w-full max-w-md">
+    <nav className="fixed bottom-4 left-6 right-6 z-50 flex items-center justify-center">
+      <div className="bg-white/90 backdrop-blur-md shadow-[0_8px_25px_rgba(0,0,0,0.08)] border border-slate-100 rounded-full px-5 py-2 flex items-center justify-between w-full max-w-md h-14">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
           return (
@@ -56,13 +56,13 @@ export function BottomNav({ activeTab, setActiveTab, onMenuClick }: BottomNavPro
               onClick={() => setActiveTab(item.id)}
               aria-label={item.label}
               className={cn(
-                "transition-all duration-300 rounded-full p-3 flex items-center justify-center",
+                "transition-all duration-300 rounded-full p-2.5 flex items-center justify-center",
                 isActive 
                   ? "bg-[#1DA1F2] text-white shadow-md shadow-[#1DA1F2]/30" 
-                  : "text-slate-400 hover:text-[#1DA1F2]"
+                  : "text-slate-500 hover:text-[#1DA1F2]"
               )}
             >
-              <item.icon size={22} />
+              <item.icon size={20} />
             </button>
           );
         })}
@@ -71,9 +71,9 @@ export function BottomNav({ activeTab, setActiveTab, onMenuClick }: BottomNavPro
         <button
           onClick={onMenuClick}
           aria-label="Open menu"
-          className="text-slate-400 hover:text-[#1DA1F2] p-3 flex items-center justify-center transition-colors pl-4"
+          className="text-slate-500 hover:text-[#1DA1F2] p-2.5 flex items-center justify-center transition-colors rounded-full"
         >
-          <Menu size={22} />
+          <Menu size={20} />
         </button>
       </div>
     </nav>

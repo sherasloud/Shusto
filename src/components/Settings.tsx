@@ -329,55 +329,7 @@ export function Settings({ onBack, onNavigate }: SettingsProps) {
           </div>
         </div>
 
-        {/* 5. Support & Emergency Helpline */}
-        <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
-              <Phone className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900">
-                {lang === 'bn' ? 'সহায়তা ও হটলাইন' : 'Support & Emergency'}
-              </h2>
-              <p className="text-xs text-slate-500">
-                {lang === 'bn' ? 'জরুরি চিকিৎসা হেল্পলাইন ও কাস্টমার কেয়ার' : 'Instant emergency assistance in Bangladesh'}
-              </p>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-3 pt-1">
-            <a
-              href="tel:16263"
-              className="p-3.5 rounded-2xl bg-rose-50/60 border border-rose-200/60 flex items-center gap-3 hover:bg-rose-100/60 transition-all"
-            >
-              <div className="w-9 h-9 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0">
-                <Phone className="w-4 h-4" />
-              </div>
-              <div>
-                <span className="block text-xs font-bold text-rose-950">১৬২৬৩</span>
-                <span className="block text-[11px] text-rose-600">স্বাস্থ্য বাতায়ন</span>
-              </div>
-            </a>
-
-            <a
-              href="tel:999"
-              className="p-3.5 rounded-2xl bg-sky-50/60 border border-sky-200/60 flex items-center gap-3 hover:bg-sky-100/60 transition-all"
-            >
-              <div className="w-9 h-9 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0">
-                <Phone className="w-4 h-4" />
-              </div>
-              <div>
-                <span className="block text-xs font-bold text-sky-950">৯৯৯</span>
-                <span className="block text-[11px] text-sky-600">জাতীয় জরুরি সেবা</span>
-              </div>
-            </a>
-          </div>
-
-          <div className="pt-2 text-center text-xs text-slate-400 space-y-1">
-            <p>ইমেইল: <a href="mailto:shustobd@gmail.com" className="text-sky-600 font-semibold underline">shustobd@gmail.com</a></p>
-            <p>অফিসিয়াল ওয়েবসাইট: <a href="https://shusto.com" target="_blank" rel="noreferrer" className="text-sky-600 font-semibold underline">shusto.com</a></p>
-          </div>
-        </div>
 
         {/* 6. Account Deletion & Data Removal (Google Play & User Policy) */}
         <div className="bg-white rounded-3xl p-6 border border-rose-100 shadow-sm space-y-4">
