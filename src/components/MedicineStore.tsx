@@ -17,7 +17,6 @@ import {
   useSensors,
   DragEndEvent
 } from '@dnd-kit/core';
-import { AdMobBanner } from './AdMobBanner';
 import {
   arrayMove,
   SortableContext,
@@ -482,15 +481,7 @@ export function MedicineStore() {
         </div>
       </div>
 
-      {/* Google AdMob Sponsored Banner */}
-      <AdMobBanner />
-
       {loading && medicines.length === 0 ? (
-        <div className="p-12 text-center flex flex-col items-center gap-4">
-          <Loader2 className="animate-spin text-sky-500" size={40} />
-          <p className="text-slate-500 font-medium">লোড হচ্ছে...</p>
-        </div>
-      ) : medicines.length === 0 && !loading ? (
         <div className="p-12 text-center bg-white rounded-[40px] border border-dashed border-slate-200 text-slate-400">
           কোনো ঔষধ পাওয়া যায়নি।
         </div>

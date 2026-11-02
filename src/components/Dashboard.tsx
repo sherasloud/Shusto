@@ -24,7 +24,6 @@ import {
   UserCheck,
   X,
 } from 'lucide-react';
-import { AdMobBanner } from './AdMobBanner';
 import { collection, query, where, getDocs, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { motion, AnimatePresence } from 'motion/react';
@@ -268,14 +267,14 @@ export function Dashboard() {
         </div>
 
         {/* Featured Big Appointment Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 gap-6">
           {filteredCards.map((card) => {
             const isBlue = card.theme === 'blue';
             return (
             <div
                 key={card.id}
                 onClick={() => setSelectedDoctor(card)}
-                className={`rounded-[36px] p-6 sm:p-7 relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.01] active:scale-[0.99] flex flex-col justify-between min-h-[260px] ${
+                className={`rounded-[36px] p-7 sm:p-9 relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.01] active:scale-[0.99] flex flex-col justify-between min-h-[400px] sm:min-h-[450px] ${
                   card.theme === 'blue'
                     ? 'bg-gradient-to-br from-[#2563EB] via-[#1D4ED8] to-[#1E40AF] text-white shadow-xl shadow-blue-600/20'
                     : 'bg-white border border-slate-200/70 text-slate-900 shadow-sm hover:shadow-md'
@@ -453,9 +452,6 @@ export function Dashboard() {
             ))}
           </div>
         </div>
-
-        {/* Google AdMob Sponsored Banner */}
-        <AdMobBanner />
 
       </div>
 

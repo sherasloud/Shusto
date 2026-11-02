@@ -46,7 +46,7 @@ export function BottomNav({ activeTab, setActiveTab, onMenuClick }: BottomNavPro
   ];
 
   return (
-    <nav className="fixed bottom-4 left-6 right-6 z-50 flex items-center justify-center">
+    <nav className="fixed bottom-8 left-6 right-6 z-50 flex items-center justify-center">
       <div className="bg-white/90 backdrop-blur-md shadow-[0_8px_25px_rgba(0,0,0,0.08)] border border-slate-100 rounded-full px-5 py-2 flex items-center justify-between w-full max-w-md h-14">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
