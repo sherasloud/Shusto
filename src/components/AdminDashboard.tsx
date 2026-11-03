@@ -2,12 +2,14 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { collection, query, getDocs, doc, updateDoc, setDoc, where, deleteDoc, onSnapshot, getDoc, increment, orderBy, limit, addDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { getApiUrl } from '../utils/api';
-import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit, Store, Heart, TrendingUp, Pin, AlertTriangle, Key, Copy, CheckCircle2, Clock, Lock, Calendar } from 'lucide-react';
+import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit, Store, Heart, TrendingUp, Pin, AlertTriangle, Key, Copy, CheckCircle2, Clock, Lock, Calendar, FileSpreadsheet, Database } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { TransactionsPanel } from './TransactionsPanel';
 import { MerchantPanel } from './MerchantPanel';
 import { ProfitsPanel } from './ProfitsPanel';
+import { CsvGeneratorPanel } from './CsvGeneratorPanel';
+import { MySQLMigrationHub } from './MySQLMigrationHub';
 import { useAuth } from '../AuthContext';
 
 import { AMBULANCE_ROUTES, LAB_SERVICES_PRESETS, PHYSIO_SERVICES_PRESETS, HOSPITAL_SERVICES_PRESETS, NURSING_SERVICES_PRESETS } from '../constants';
@@ -85,7 +87,7 @@ interface Provider {
 
 export function AdminDashboard() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'users' | 'patients' | 'doctors' | 'medicines' | 'pharmacies' | 'labs' | 'physios' | 'hospitals' | 'ambulances' | 'nursings' | 'nutritionists' | 'transactions' | 'services' | 'merchant' | 'investors' | 'managers' | 'states' | 'shop_requests' | 'profits' | 'android_build'>('android_build');
+  const [activeTab, setActiveTab] = useState<'users' | 'patients' | 'doctors' | 'medicines' | 'pharmacies' | 'labs' | 'physios' | 'hospitals' | 'ambulances' | 'nursings' | 'nutritionists' | 'transactions' | 'services' | 'merchant' | 'investors' | 'managers' | 'states' | 'shop_requests' | 'profits' | 'android_build' | 'csv_tools'>('android_build');
   const [users, setUsers] = useState<UserProfile[]>(() => {
     try {
       const cached = localStorage.getItem('shusto_admin_users_cache');
@@ -132,6 +134,7 @@ export function AdminDashboard() {
     return {};
   });
 
+  const [showMySQLModal, setShowMySQLModal] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const copyToClipboard = (text: string, fieldName: string) => {
@@ -1638,7 +1641,7 @@ export function AdminDashboard() {
       <div className="space-y-6">
         {/* Row 1: Navigation Tabs */}
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 pb-4">
-          {(['android_build', 'profits', 'users', 'patients', 'doctors', 'medicines', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursings', 'nutritionists', 'services', 'transactions', 'merchant', 'investors', 'managers', 'states', 'shop_requests'] as const).map((tab) => (
+          {(['android_build', 'csv_tools', 'profits', 'users', 'patients', 'doctors', 'medicines', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursings', 'nutritionists', 'services', 'transactions', 'merchant', 'investors', 'managers', 'states', 'shop_requests'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -1648,6 +1651,7 @@ export function AdminDashboard() {
               )}
             >
               {tab === 'android_build' ? '📱 Android App (.aab)' :
+               tab === 'csv_tools' ? '📑 .CSV জেনারেটর' :
                tab === 'profits' ? '💰 লভ্যাংশ (Profits)' :
                tab === 'users' ? 'সকল ইউজার' : 
                tab === 'patients' ? 'রোগী' :
@@ -1672,6 +1676,22 @@ export function AdminDashboard() {
 
         {/* Row 2: Add Buttons */}
         <div className="flex flex-wrap gap-3 w-full">
+
+          <button 
+            onClick={() => setActiveTab('csv_tools')}
+            className="flex items-center gap-2 px-6 py-3 bg-emerald-50 text-emerald-700 font-bold rounded-2xl border border-emerald-200 hover:bg-emerald-100 transition-all text-sm shadow-sm"
+          >
+            <FileSpreadsheet size={18} />
+            .CSV ফাইল তৈরি ও ডাউনলোড
+          </button>
+
+          <button 
+            onClick={() => setShowMySQLModal(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-indigo-50 text-indigo-700 font-bold rounded-2xl border border-indigo-200 hover:bg-indigo-100 transition-all text-sm shadow-sm"
+          >
+            <Database size={18} />
+            🗄️ MySQL / ক্লাউড ডাটাবেজ হাব
+          </button>
 
           <button 
             onClick={syncAllRoles}
@@ -3615,7 +3635,24 @@ export function AdminDashboard() {
             </div>
           </div>
         )}
+
+        {activeTab === 'csv_tools' && (
+          <CsvGeneratorPanel 
+            users={users} 
+            doctors={allDoctors} 
+            medicines={medicines} 
+            providers={[...pharmacies, ...labs, ...physios, ...hospitals, ...ambulances]} 
+          />
+        )}
       </div>
+
+      {showMySQLModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md overflow-y-auto">
+          <div className="relative w-full max-w-4xl my-8">
+            <MySQLMigrationHub onClose={() => setShowMySQLModal(false)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
