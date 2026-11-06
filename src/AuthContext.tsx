@@ -97,8 +97,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setError(null);
       }
     }).catch((err) => {
-      if (err?.code !== 'auth/invalid-continue-uri' && !err?.message?.includes('invalid-continue-uri')) {
-        console.warn("Redirect sign in result note:", err?.message || err);
+      const msg = err?.message || String(err || '');
+      const code = err?.code || '';
+      if (
+        code === 'auth/missing-initial-state' ||
+        code === 'auth/invalid-continue-uri' ||
+        code === 'auth/argument-error' ||
+        msg.includes('missing initial state') ||
+        msg.includes('invalid-continue-uri') ||
+        msg.includes('sessionStorage')
+      ) {
+        // Benign error when no redirect flow was active or storage is partitioned
+        console.log("Firebase getRedirectResult note:", msg);
+      } else {
+        console.warn("Redirect sign in result note:", msg);
       }
     });
 

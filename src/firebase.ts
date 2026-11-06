@@ -4,8 +4,10 @@ import { getFirestore, doc, getDoc, setDoc, collection, query, where, onSnapshot
 import firebaseConfig from '../firebase-applet-config.json';
 
 console.log("Initializing Firebase with project:", firebaseConfig.projectId);
-// Use standard Firebase authDomain to match Google OAuth authorized redirect URI
-const activeAuthDomain = (firebaseConfig as any).authDomain || `${firebaseConfig.projectId}.firebaseapp.com`;
+const isCustomDomainHost = typeof window !== 'undefined' && (window.location.hostname === 'shusto.com' || window.location.hostname.endsWith('.shusto.com'));
+const activeAuthDomain = isCustomDomainHost
+  ? ((firebaseConfig as any).authDomain || `${firebaseConfig.projectId}.firebaseapp.com`)
+  : `${firebaseConfig.projectId}.firebaseapp.com`;
 
 const app = initializeApp({
   ...firebaseConfig,
