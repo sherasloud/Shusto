@@ -107,7 +107,7 @@ export function Login() {
             />
           </div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Shusto</h1>
-          <p className="text-slate-500 mb-6 text-sm">Shusto (shusto.com)-এর সাথে আপনার ডিজিটাল স্বাস্থ্যসেবার নতুন যাত্রা শুরু করুন। গুগল দিয়ে নিরাপদে অ্যাকাউন্টে প্রবেশ করুন।</p>
+          <p className="text-slate-500 mb-6 text-sm">Shusto-এর সাথে আপনার ডিজিটাল স্বাস্থ্যসেবার নতুন যাত্রা শুরু করুন। গুগল দিয়ে নিরাপদে অ্যাকাউন্টে প্রবেশ করুন।</p>
         </>
       )}
 
@@ -171,7 +171,7 @@ export function Login() {
 
       <div className={`mt-8 pt-4 border-t flex items-center justify-center gap-2 text-xs ${isAuthDomain ? 'border-slate-800 text-slate-400' : 'border-slate-100 text-slate-400'}`}>
         <ShieldCheck size={14} className="text-sky-500" />
-        <span>১০০% নিরাপদ (shusto.com) গুগল অথেনটিকেশন</span>
+        <span>১০০% নিরাপদ ও বিশ্বস্ত গুগল অথেনটিকেশন</span>
       </div>
       <p className={`mt-4 text-[11px] ${isAuthDomain ? 'text-slate-400' : 'text-slate-400'}`}>
         By continuing, you agree to our{' '}
