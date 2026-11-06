@@ -1,14 +1,22 @@
 import React, { useState } from 'react';
 import { useAuth } from '../AuthContext';
-import { ShieldCheck, ExternalLink, AlertTriangle, Copy, Check, UserCheck } from 'lucide-react';
+import { ShieldCheck, ExternalLink, AlertTriangle, Copy, Check, Mail, Key, Sparkles, Smartphone, UserCheck } from 'lucide-react';
 import firebaseConfig from '../../firebase-applet-config.json';
+import { isNativePlatform } from '../utils/api';
 
 export function Login() {
-  const { login, instantLogin, error: contextError } = useAuth();
+  const { login, loginWithEmail, registerWithEmail, instantLogin, error: contextError } = useAuth();
   const [localError, setLocalError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [copiedDomain, setCopiedDomain] = useState(false);
+  const [showEmailAuth, setShowEmailAuth] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
 
+  const isNative = isNativePlatform();
   const error = localError || contextError;
   const currentHostname = typeof window !== 'undefined' ? window.location.hostname : '';
   const isUnauthorizedDomain = error?.includes('authorized') || error?.includes('অনুমোদিত') || error?.includes('unauthorized-domain');
@@ -24,12 +32,53 @@ export function Login() {
       if (err?.code === 'auth/unauthorized-domain' || err?.message?.includes('authorized domain') || err?.message?.includes('unauthorized-domain')) {
         setLocalError(`এই ডোমেইনটি (${currentHostname}) Firebase Console-এ অনুমোদিত নয়। নিচের বাটনে ক্লিক করে ডোমেইনটি কপি করুন এবং Firebase Console-এ যুক্ত করুন।`);
       } else if (err?.code === 'auth/popup-blocked') {
-        setLocalError("ব্রাউজার গুগল সাইন ইন পপআপ ব্লক করেছে। দয়া করে ব্রাউজার অ্যাড্রেস বারের পপআপ পারমিশন এলাও করুন।");
+        setLocalError("ব্রাউজার গুগল সাইন ইন পপআপ ব্লক করেছে। ইন-অ্যাপ ইমেইল লগইন বা ইনস্ট্যান্ট ডেমো লগইন ব্যবহার করুন।");
+      } else if (err?.code === 'auth/disallowed-useragent' || err?.message?.includes('disallowed_useragent')) {
+        setLocalError("অ্যান্ড্রয়েড ইন-অ্যাপ ব্রাউজারে (WebView) গুগল পপআপ সাপোর্ট করে না। দয়া করে ইমেইল/পাসওয়ার্ড অথবা ইনস্ট্যান্ট এক্সেস ব্যবহার করুন।");
       } else if (err?.code === 'auth/popup-closed-by-user') {
         setLocalError("সাইন ইন পপআপ বন্ধ করা হয়েছে। পুনরায় চেষ্টা করুন।");
       } else {
-        setLocalError(err?.message || "গুগল লগইন সম্পন্ন করতে সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন।");
+        setLocalError(err?.message || "গুগল লগইন সম্পন্ন করতে সমস্যা হয়েছে। ইমেইল লগইন বিকল্প চেষ্টা করতে পারেন।");
       }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEmailAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      setLocalError("দয়া করে সঠিক ইমেইল ও পাসওয়ার্ড দিন।");
+      return;
+    }
+    try {
+      setIsLoading(true);
+      setLocalError(null);
+      if (isRegistering) {
+        if (!name.trim()) {
+          setLocalError("দয়া করে আপনার নাম লিখুন।");
+          setIsLoading(false);
+          return;
+        }
+        await registerWithEmail(email, password, name);
+      } else {
+        await loginWithEmail(email, password);
+      }
+    } catch (err: any) {
+      console.error("Email auth error:", err);
+      setLocalError(err?.message || "ইমেইল অথেনটিকেশন ব্যর্থ হয়েছে। দয়া করে আবার চেষ্টা করুন।");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleQuickDemoAccess = async () => {
+    try {
+      setIsLoading(true);
+      setLocalError(null);
+      await instantLogin('user', 'Shusto App User', 'user@shusto.com');
+    } catch (err: any) {
+      setLocalError("ইনস্ট্যান্ট এক্সেসে সমস্যা হয়েছে।");
     } finally {
       setIsLoading(false);
     }
@@ -58,10 +107,10 @@ export function Login() {
             />
           </div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Shusto</h1>
-          <p className="text-slate-500 mb-6 text-sm">Shusto-এর সাথে আপনার ডিজিটাল স্বাস্থ্যসেবার নতুন যাত্রা শুরু করুন। গুগল দিয়ে লগইন করে নিরাপদে অ্যাপে প্রবেশ করুন।</p>
+          <p className="text-slate-500 mb-6 text-sm">Shusto (shusto.com)-এর সাথে আপনার ডিজিটাল স্বাস্থ্যসেবার নতুন যাত্রা শুরু করুন। গুগল দিয়ে নিরাপদে অ্যাকাউন্টে প্রবেশ করুন।</p>
         </>
       )}
-      
+
       {error && (
         <div className="mb-6 p-4 text-xs font-medium rounded-2xl border bg-rose-50 text-rose-700 border-rose-200 text-left space-y-2">
           <p className="flex items-start gap-2">
@@ -72,7 +121,7 @@ export function Login() {
           {isUnauthorizedDomain && (
             <div className="pt-2 border-t border-rose-200/70 space-y-2 text-[11px] text-rose-900">
               <p>
-                <strong>Firebase Project:</strong> <code className="bg-white/80 px-1 py-0.5 rounded font-mono">{firebaseConfig.projectId}</code>
+                <strong>Auth Domain:</strong> <code className="bg-white/80 px-1 py-0.5 rounded font-mono">shusto.com</code>
               </p>
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span><strong>Domain:</strong> <code className="bg-white/80 px-1.5 py-0.5 rounded font-mono select-all text-slate-800">{currentHostname}</code></span>
@@ -118,12 +167,11 @@ export function Login() {
           )}
           <span>{isLoading ? 'সাইন ইন হচ্ছে...' : 'Continue with Google'}</span>
         </button>
-
       </div>
 
       <div className={`mt-8 pt-4 border-t flex items-center justify-center gap-2 text-xs ${isAuthDomain ? 'border-slate-800 text-slate-400' : 'border-slate-100 text-slate-400'}`}>
         <ShieldCheck size={14} className="text-sky-500" />
-        <span>১০০% নিরাপদ ও বিশ্বস্ত গুগল অথেনটিকেশন</span>
+        <span>১০০% নিরাপদ (shusto.com) গুগল অথেনটিকেশন</span>
       </div>
       <p className={`mt-4 text-[11px] ${isAuthDomain ? 'text-slate-400' : 'text-slate-400'}`}>
         By continuing, you agree to our{' '}
@@ -142,3 +190,4 @@ export function Login() {
     </div>
   );
 }
+
