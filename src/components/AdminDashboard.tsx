@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { collection, query, getDocs, doc, updateDoc, setDoc, where, deleteDoc, onSnapshot, getDoc, increment, orderBy, limit, addDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { getApiUrl } from '../utils/api';
-import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit, Store, Heart, TrendingUp, Pin, AlertTriangle, Key, Copy, CheckCircle2, Clock, Lock, Calendar, FileSpreadsheet, Database } from 'lucide-react';
+import { User as UserIcon, Shield, Stethoscope, Pill, FlaskConical, Truck, Building, Activity, Plus, X, Search, Camera, RefreshCcw, DollarSign, Wallet, Edit, Store, Heart, TrendingUp, Pin, AlertTriangle, Key, Copy, CheckCircle2, Clock, Lock, Calendar, FileSpreadsheet, Database, Download, PackageCheck, Rocket } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { TransactionsPanel } from './TransactionsPanel';
@@ -10,6 +10,7 @@ import { MerchantPanel } from './MerchantPanel';
 import { ProfitsPanel } from './ProfitsPanel';
 import { CsvGeneratorPanel } from './CsvGeneratorPanel';
 import { MySQLMigrationHub } from './MySQLMigrationHub';
+import { AABBuildModal } from './AABBuildModal';
 import { useAuth } from '../AuthContext';
 
 import { AMBULANCE_ROUTES, LAB_SERVICES_PRESETS, PHYSIO_SERVICES_PRESETS, HOSPITAL_SERVICES_PRESETS, NURSING_SERVICES_PRESETS } from '../constants';
@@ -135,6 +136,7 @@ export function AdminDashboard() {
   });
 
   const [showMySQLModal, setShowMySQLModal] = useState(false);
+  const [showAABModal, setShowAABModal] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const copyToClipboard = (text: string, fieldName: string) => {
@@ -1692,6 +1694,25 @@ export function AdminDashboard() {
             <Database size={18} />
             🗄️ MySQL / ক্লাউড ডাটাবেজ হাব
           </button>
+
+          <button 
+            onClick={() => setShowAABModal(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 text-white font-bold rounded-2xl hover:from-emerald-700 hover:to-cyan-800 transition-all text-sm shadow-md"
+            title="Play Store .AAB / .ABB এরর ফিক্স ও অটোমেটিক বিল্ড হাব"
+          >
+            <PackageCheck size={18} />
+            🚀 Play Store .AAB (.ABB) হাব
+          </button>
+
+          <a 
+            href="/downloads/sheba_mfs_fixed.zip"
+            download="sheba_mfs_fixed_v1.0.2.zip"
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold rounded-2xl hover:from-amber-600 hover:to-orange-700 transition-all text-sm shadow-md"
+            title="Sheba MFS শতভাগ ফিক্সড Android/Play Store প্রজেক্ট জিপ (v1.0.2)"
+          >
+            <Download size={18} />
+            📲 ফিক্সড .ZIP (v1.0.2)
+          </a>
 
           <button 
             onClick={syncAllRoles}
@@ -3650,6 +3671,14 @@ export function AdminDashboard() {
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md overflow-y-auto">
           <div className="relative w-full max-w-4xl my-8">
             <MySQLMigrationHub onClose={() => setShowMySQLModal(false)} />
+          </div>
+        </div>
+      )}
+
+      {showAABModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md overflow-y-auto">
+          <div className="relative w-full max-w-4xl my-8">
+            <AABBuildModal onClose={() => setShowAABModal(false)} />
           </div>
         </div>
       )}
