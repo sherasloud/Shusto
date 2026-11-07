@@ -514,8 +514,11 @@ export function DoctorDirectory() {
                       <p className="text-lg font-bold text-slate-900">৳{doc.fee}</p>
                     </div>
                     <button 
-                      onClick={() => setBookingDoctor(doc)}
-                      className="px-6 py-3 bg-sky-500 text-white text-sm font-bold rounded-2xl hover:bg-sky-600 shadow-lg shadow-sky-500/20 transition-all"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setBookingDoctor(doc);
+                      }}
+                      className="px-6 py-3 bg-sky-500 text-white text-sm font-bold rounded-2xl hover:bg-sky-600 shadow-lg shadow-sky-500/20 transition-all cursor-pointer"
                     >
                       Book Now
                     </button>
