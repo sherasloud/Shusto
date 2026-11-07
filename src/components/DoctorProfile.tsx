@@ -222,14 +222,14 @@ export function DoctorProfile({ doctorId, onBack }: { doctorId: string, onBack: 
             </div>
           </div>
 
-          <div className="flex items-center justify-center md:justify-start gap-6 pt-2">
+          <div className="flex flex-col sm:flex-row items-center md:items-start gap-4 pt-2">
             <div className="flex items-center gap-2 text-amber-500 font-bold">
               <Star size={20} fill="currentColor" />
               <span>4.8 Rating</span>
             </div>
 
-            <div className="text-slate-900 font-bold text-lg">
-              Fee: <span className="text-sky-600">৳{parsedFee}</span>
+            <div className="text-2xl font-black text-sky-600">
+              ৳{parsedFee}
             </div>
           </div>
 

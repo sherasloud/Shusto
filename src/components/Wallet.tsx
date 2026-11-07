@@ -187,10 +187,8 @@ export function Wallet() {
     const unsubscribeWallet = onSnapshot(walletRef, (docSnap) => {
       if (docSnap.exists()) {
         const bal = Number(docSnap.data().balance ?? 0);
-        // Reject absurd fake balances (> 1,000,000) but preserve real added balance
-        const safeBal = (bal > 0 && bal < 1000000) ? bal : 0;
-        setBalance(safeBal);
-        try { localStorage.setItem(`cached_wallet_balance_${user.uid}`, String(safeBal)); } catch (e) {}
+        setBalance(bal);
+        try { localStorage.setItem(`cached_wallet_balance_${user.uid}`, String(bal)); } catch (e) {}
       } else {
         setBalance(0);
       }
@@ -226,30 +224,6 @@ export function Wallet() {
       );
       setTransactions(sorted);
       try { localStorage.setItem(`cached_wallet_txns_${user.uid}`, JSON.stringify(sorted)); } catch (e) {}
-
-      // Keep real verified balance from wallet document
-      let totalRealAdded = 0;
-      let calculated = 0;
-      for (const t of sorted) {
-        if (t.status === "success") {
-          const amt = Number(t.amount || 0);
-          if (t.type === "add_money" || t.type.includes("earning")) {
-            totalRealAdded += amt;
-            calculated += amt;
-          } else if (t.type === "withdrawal" || t.type === "payment" || t.type === "platform_fee") {
-            calculated -= amt;
-          }
-        }
-      }
-      setBalance((prev) => {
-        if (prev !== null && prev > 0 && prev < 1000000) {
-          return prev;
-        }
-        const chosen = calculated > 0 ? calculated : totalRealAdded;
-        try { localStorage.setItem(`cached_wallet_balance_${user.uid}`, String(chosen)); } catch (e) {}
-        return chosen;
-      });
-
       setTransactionsLoaded(true);
     }, (error) => {
       console.warn("Transactions DB Quota/Error:", error);
