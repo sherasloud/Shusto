@@ -313,8 +313,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err: any) {
       console.warn("Google popup login error:", err);
       if (err?.code === 'auth/unauthorized-domain') {
-        const domain = typeof window !== 'undefined' ? window.location.hostname : 'current domain';
-        setError(`এই ডোমেইনটি (${domain}) Firebase Console-এ অনুমোদিত নয়। দয়া করে Firebase Console > Authentication > Settings > Authorized Domains-এ ডোমেইনটি যোগ করুন।`);
+        console.log("Popup unauthorized-domain error. Trying signInWithRedirect as fallback...");
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch (redirectErr: any) {
+          console.error("Redirect login error:", redirectErr);
+          const domain = typeof window !== 'undefined' ? window.location.hostname : 'current domain';
+          setError(`এই ডোমেইনটি (${domain}) Firebase Console-এ অনুমোদিত নয়। দয়া করে Firebase Console > Authentication > Settings > Authorized Domains-এ ডোমেইনটি যোগ করুন।`);
+          throw redirectErr;
+        }
       } else if (err?.code === 'auth/popup-blocked') {
         setError("ব্রাউজার গুগল সাইন ইন পপআপ ব্লক করেছে। দয়া করে ব্রাউজার অ্যাড্রেস বারের পপআপ পারমিশন এলাও করুন।");
       } else if (err?.code === 'auth/popup-closed-by-user') {
