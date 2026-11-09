@@ -18,8 +18,6 @@ import { HospitalDashboard } from './components/HospitalDashboard';
 import { AmbulanceDashboard } from './components/AmbulanceDashboard';
 import { LabDashboard } from './components/LabDashboard';
 import { InvestorDashboard } from './components/InvestorDashboard';
-import { ManagerDashboard } from './components/ManagerDashboard';
-import { StateDashboard } from './components/StateDashboard';
 import { ServiceDirectory } from './components/ServiceDirectory';
 import { GenericProviderDashboard } from './components/GenericProviderDashboard';
 import { Wallet } from './components/Wallet';
@@ -545,8 +543,6 @@ function AppContent() {
     if (user.role === 'nursing') return <GenericProviderDashboard type="nursing" title="নার্সিং ড্যাশবোর্ড" description="আপনার নার্সিং সার্ভিসের অনুরোধ এবং প্রোফাইল ম্যানেজ করুন।" />;
     if (user.role === 'nutritionist') return <GenericProviderDashboard type="nutritionist" title="পুষ্টিবিদ ড্যাশবোর্ড" description="আপনার রোগীদের ডায়েট চার্ট এবং অ্যাপয়েন্টমেন্ট ম্যানেজ করুন।" />;
     if (user.role === 'investor') return <InvestorDashboard />;
-    if (user.role === 'manager') return <ManagerDashboard />;
-    if (user.role === 'state') return <StateDashboard />;
     
     // Default patient dashboard
     return <Home />;

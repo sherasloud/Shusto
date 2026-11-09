@@ -68,8 +68,6 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
       dashboardItem = { id: 'dashboard', label: t('অ্যাডমিন প্যানেল', 'Admin Panel'), icon: Shield };
     } else if (user?.role === 'investor') {
       dashboardItem = { id: 'dashboard', label: t('ইনভেস্টর প্যানেল', 'Investor Panel'), icon: DollarSign };
-    } else if (user?.role === 'manager') {
-      dashboardItem = { id: 'dashboard', label: t('ম্যানেজার প্যানেল', 'Manager Panel'), icon: Shield };
     } else if (user?.role === 'doctor') {
       dashboardItem = { id: 'dashboard', label: t('ডাক্তার প্যানেল', 'Doctor Panel'), icon: Stethoscope };
     } else if (user?.role === 'pharmacy') {
@@ -116,7 +114,6 @@ export function Sidebar({ activeTab, setActiveTab, isOpen, setIsOpen }: SidebarP
                 <span className="text-[10px] font-bold text-sky-600 uppercase tracking-widest bg-sky-50 px-2.5 py-1 rounded-full border border-sky-100/50">
                   {user?.role === 'admin' ? 'অ্যাডমিন প্যানেল' : 
                    user?.role === 'investor' ? 'ইনভেস্টর' :
-                   user?.role === 'manager' ? 'ম্যানেজার' :
                    user?.role === 'doctor' ? 'ডাক্তার প্যানেল' : 
                    user?.role === 'pharmacy' ? 'স্টেট (State)' : 
                    user?.role === 'physio' ? 'ফিজিওথেরাপি' : 
