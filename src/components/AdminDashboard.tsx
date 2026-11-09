@@ -1643,7 +1643,7 @@ export function AdminDashboard() {
       <div className="space-y-6">
         {/* Row 1: Navigation Tabs */}
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 pb-4">
-          {(['android_build', 'csv_tools', 'profits', 'users', 'patients', 'doctors', 'medicines', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursings', 'nutritionists', 'services', 'transactions', 'merchant', 'investors', 'managers', 'states', 'shop_requests'] as const).map((tab) => (
+          {(['android_build', 'csv_tools', 'profits', 'users', 'patients', 'doctors', 'medicines', 'pharmacies', 'labs', 'physios', 'hospitals', 'ambulances', 'nursings', 'nutritionists', 'services', 'transactions', 'merchant', 'investors', 'shop_requests'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -1666,8 +1666,6 @@ export function AdminDashboard() {
                tab === 'hospitals' ? 'হাসপাতাল' : 
                tab === 'merchant' ? 'মার্চেন্ট' :
                tab === 'investors' ? 'ইনভেস্টর' :
-               tab === 'managers' ? 'ম্যানেজার' :
-               tab === 'states' ? 'স্টেট' :
                tab === 'shop_requests' ? 'শপ' :
                tab === 'nursings' ? 'নার্সিং সার্ভিস' :
                tab === 'nutritionists' ? 'পুষ্টিবিদ' :
@@ -1703,16 +1701,6 @@ export function AdminDashboard() {
             <PackageCheck size={18} />
             🚀 Play Store .AAB (.ABB) হাব
           </button>
-
-          <a 
-            href="/downloads/sheba_mfs_fixed.zip"
-            download="sheba_mfs_fixed_v1.0.2.zip"
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold rounded-2xl hover:from-amber-600 hover:to-orange-700 transition-all text-sm shadow-md"
-            title="Sheba MFS শতভাগ ফিক্সড Android/Play Store প্রজেক্ট জিপ (v1.0.2)"
-          >
-            <Download size={18} />
-            📲 ফিক্সড .ZIP (v1.0.2)
-          </a>
 
           <button 
             onClick={syncAllRoles}
