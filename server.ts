@@ -1181,7 +1181,7 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
   });
 
   // Atomic, exactly-once balance credit function shared by Success Callback and IPN
-  async function creditPaymentToWallet(userId: string, tran_id: string, paidAmount: number, source: string): Promise<boolean> {
+  async function creditPaymentToWallet(userId: string, tran_id: string, paidAmount: number, source: string, val_id?: string): Promise<boolean> {
     if (!db_admin || !userId || !tran_id || paidAmount <= 0) {
       console.warn(`[PAYMENT CREDIT ${source}] Cannot credit: db_admin=${Boolean(db_admin)}, userId=${userId}, tran_id=${tran_id}, amount=${paidAmount}`);
       return false;
@@ -1193,7 +1193,7 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     try {
       const result = await db_admin.runTransaction(async (t: any) => {
         // Atomic check INSIDE the transaction to prevent concurrent race condition with IPN
-        console.log(`[PAYMENT CREDIT ${source}] Checking for transaction: ${tran_id}, userId: ${userId}`);
+        console.log(`[PAYMENT CREDIT ${source}] Checking for transaction: ${tran_id}, val_id: ${val_id}, userId: ${userId}`);
         const existingTx = await t.get(targetTxRef);
         if (existingTx.exists) {
           const txData = existingTx.data();
@@ -1202,6 +1202,16 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
             return { credited: false, alreadyProcessed: true };
           }
         }
+
+        // Also check if any other transaction document has the same val_id and status == "success"
+        if (val_id) {
+          const valQuery = await db_admin.collection("transactions").where("val_id", "==", val_id).where("status", "==", "success").limit(1).get();
+          if (!valQuery.empty) {
+            console.log(`[PAYMENT CREDIT ${source}] Transaction with val_id ${val_id} was ALREADY processed. Skipping duplicate credit.`);
+            return { credited: false, alreadyProcessed: true };
+          }
+        }
+
         console.log(`[PAYMENT CREDIT ${source}] Transaction ${tran_id} not found/not success. Proceeding to credit.`);
 
         // Atomically increment wallet balance exactly once
@@ -1215,6 +1225,7 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
         t.set(targetTxRef, {
           tran_id,
           userId,
+          val_id: val_id || null,
           amount: paidAmount,
           type: "add_money",
           status: "success",
@@ -1249,7 +1260,13 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     console.log("query:", JSON.stringify(queryParams));
     console.log("body:", JSON.stringify(bodyParams));
     
-    const tran_id = (queryParams.tran_id as string) || (bodyParams.tran_id as string) || uuidv4();
+    const tran_id = (queryParams.tran_id as string) || (bodyParams.tran_id as string);
+    if (!tran_id) {
+      console.error("[SSLCOMMERZ SUCCESS] Missing tran_id! Cannot process payment without unique transaction ID.");
+      const fallbackClientUrl = getRealExternalBaseUrl(req, "");
+      return res.redirect(303, `${fallbackClientUrl}/?payment=failed&reason=missing_tran_id`);
+    }
+
     const userId = (req.params.userId as string) || (queryParams.userId as string) || (bodyParams.value_a as string);
     const providerId = (queryParams.providerId as string) || (bodyParams.value_b as string);
     const providerType = (queryParams.providerType as string) || (bodyParams.value_c as string);
@@ -1329,7 +1346,7 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     if (isPaymentValid) {
       if (userId && db_admin) {
         try {
-          await creditPaymentToWallet(userId, tran_id, paidAmount, "SUCCESS_CALLBACK");
+          await creditPaymentToWallet(userId, tran_id, paidAmount, "SUCCESS_CALLBACK", val_id);
           const redirectUrl = `${clientBaseUrl}/?payment=success&amount=${paidAmount}&tran_id=${tran_id}`;
           return res.redirect(303, redirectUrl);
         } catch (e: any) {
@@ -1445,7 +1462,7 @@ app.post(["/api/withdraw/automatic", "/direct-api/withdraw/automatic", "/withdra
     if (isIPNValid && userId && paidAmount > 0 && tran_id) {
       if (db_admin) {
         try {
-          await creditPaymentToWallet(userId, tran_id, paidAmount, "IPN_WEBHOOK");
+          await creditPaymentToWallet(userId, tran_id, paidAmount, "IPN_WEBHOOK", val_id);
         } catch (e: any) {
           console.error("[SSLCOMMERZ IPN] Credit Error:", e.message);
         }

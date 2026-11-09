@@ -4,10 +4,13 @@ import { getFirestore, doc, getDoc, setDoc, collection, query, where, onSnapshot
 import firebaseConfig from '../firebase-applet-config.json';
 
 console.log("Initializing Firebase with project:", firebaseConfig.projectId);
-const isCustomDomainHost = typeof window !== 'undefined' && (window.location.hostname === 'shusto.com' || window.location.hostname.endsWith('.shusto.com'));
+const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+const isCustomDomainHost = hostname === 'shusto.com' || hostname.endsWith('.shusto.com');
 const activeAuthDomain = isCustomDomainHost
-  ? ((firebaseConfig as any).authDomain || `${firebaseConfig.projectId}.firebaseapp.com`)
-  : `${firebaseConfig.projectId}.firebaseapp.com`;
+  ? 'shusto.com'
+  : (hostname.includes('run.app') || hostname.includes('localhost') || hostname.includes('127.0.0.1')
+      ? hostname
+      : `${firebaseConfig.projectId}.firebaseapp.com`);
 
 const app = initializeApp({
   ...firebaseConfig,
